@@ -16,8 +16,12 @@ export default function StaffTab() {
   const [editStaff, setEditStaff] = useState<StaffMember | null>(null);
   const [showPin, setShowPin] = useState(false);
 
-  const [form, setForm] = useState({
-    name: "", role: "Teacher", pin: "", status: "active" as const,
+  const [form, setForm] = useState<{
+    name: string; role: string; pin: string; status: "active" | "restricted" | "revoked";
+    assignedClasses: string[];
+    permissions: { scoreEntry: boolean; viewReports: boolean; printReports: boolean; manageRecords: boolean };
+  }>({
+    name: "", role: "Teacher", pin: "", status: "active",
     assignedClasses: [] as string[],
     permissions: { scoreEntry: true, viewReports: true, printReports: false, manageRecords: false },
   });
