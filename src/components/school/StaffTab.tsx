@@ -27,7 +27,7 @@ export default function StaffTab() {
   });
 
   const startEdit = (s: StaffMember) => {
-    setForm({ name: s.name, role: s.role, pin: "", status: s.status, assignedClasses: [...s.assignedClasses], permissions: { ...s.permissions } });
+    setForm({ name: s.name, role: s.role, pin: "", status: s.status, assignedClasses: [...s.assignedClasses], permissions: { scoreEntry: s.permissions.scoreEntry ?? true, viewReports: s.permissions.viewReports ?? true, printReports: s.permissions.printReports ?? false, manageRecords: s.permissions.manageRecords ?? false } });
     setEditStaff(s);
     setShowForm(true);
   };
