@@ -1,5 +1,5 @@
-import SchoolApp from "@/components/school/SchoolApp";
+import SchoolManagementApp from "@/components/school/SchoolManagementApp";
 
 export default function Index() {
-  return <SchoolApp />;
+  return <SchoolManagementApp />;
 }
