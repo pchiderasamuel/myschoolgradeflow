@@ -130,7 +130,7 @@ const Btn = ({children,variant="primary",size="md",className="",loading=false,..
   const v: Record<string,string>={primary:"bg-primary text-primary-foreground hover:opacity-90 shadow-sm",danger:"bg-destructive text-destructive-foreground hover:opacity-90",success:"bg-accent text-accent-foreground hover:opacity-90",ghost:"bg-slate-100 text-slate-700 hover:bg-slate-200",outline:"bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-300"};
   return <button className={`${base} ${szMap[size]||szMap.md} ${v[variant]||v.primary} ${className}`} disabled={loading||p.disabled} {...p}>{loading?<span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"/>:children}</button>;
 };
-const Card = ({children,className=""}: {children: React.ReactNode; className?: string}) => <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm ${className}`}>{children}</div>;
+const Card = memo(({children,className=""}: {children: React.ReactNode; className?: string}) => <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm ${className}`}>{children}</div>);
 const EmptyState = ({icon:Icon,title,subtitle,action}: any) => <Card className="p-12 text-center"><Icon size={40} className="mx-auto text-slate-200 mb-3"/><p className="font-bold text-slate-400">{title}</p>{subtitle&&<p className="text-xs text-slate-300 mt-1">{subtitle}</p>}{action&&<div className="mt-4">{action}</div>}</Card>;
 
 // ─── Sheet / Modal ────────────────────────────────────────────────────────────
