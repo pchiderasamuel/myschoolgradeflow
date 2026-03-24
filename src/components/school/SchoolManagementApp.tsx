@@ -1017,7 +1017,7 @@ export default function SchoolManagementApp() {
               {/* SCORE ENTRY */}
               {activeTab==="entry"&&can("scoreEntry")&&<div className="max-w-xl mx-auto">
                 <Card className="overflow-hidden">
-                  <div className="bg-primary px-6 py-4 flex items-center gap-3"><BookOpen size={18} className="text-white/80"/><p className="text-white font-black uppercase tracking-widest text-sm">Score Submission</p></div>
+                  <div className="bg-primary px-6 py-4 flex items-center gap-3"><BookOpen size={18} className="text-white/80"/><div><p className="text-white font-black uppercase tracking-widest text-sm">Score Submission</p><p className="text-white/60 text-xs">{schoolSettings.term} · {schoolSettings.session}</p></div></div>
                   <div className="p-6 space-y-5">
                     <div className="space-y-1.5"><label className="block text-xs font-black uppercase text-slate-400 tracking-wide">Student Name</label><input list="student-suggestions" value={scoreForm.studentName} onChange={(e: any)=>setScoreForm(f=>({...f,studentName:e.target.value}))} placeholder="Student full name" className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-semibold text-sm text-slate-900 focus:border-primary focus:bg-white outline-none transition-all"/><datalist id="student-suggestions">{classSuggestions.map((n: string)=><option key={n} value={n}/>)}</datalist>{classSuggestions.length>0&&<p className="text-xs text-primary font-bold">{classSuggestions.length} students on roll</p>}</div>
                     <div className="grid grid-cols-2 gap-4">
