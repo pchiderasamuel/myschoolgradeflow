@@ -906,15 +906,19 @@ export default function SchoolManagementApp() {
   },[scoreForm,entries,showToast,schoolSettings]);
 
   const openReport = useCallback((student: any)=>{
-    const records=entries.filter((e: any)=>e.studentName.toLowerCase()===student.name.toLowerCase()&&e.studentClass===student.class);
+    const t = rpTerm==="current"?schoolSettings.term:rpTerm==="all"?"":rpTerm;
+    const s = rpSession==="current"?schoolSettings.session:rpSession==="all"?"":rpSession;
+    const scopedEntries = entries.filter((e: any)=>(!t||e.term===t)&&(!s||e.session===s));
+    const records=scopedEntries.filter((e: any)=>e.studentName.toLowerCase()===student.name.toLowerCase()&&e.studentClass===student.class);
     if(!records.length)return showToast("No records found","error");
-    const names=[...new Set(entries.filter((e: any)=>e.studentClass===student.class).map((e: any)=>e.studentName.toLowerCase().trim()))];
-    const standings=names.map(n=>({name:n,total:entries.filter((e: any)=>e.studentName.toLowerCase().trim()===n&&e.studentClass===student.class).reduce((a: number,c: any)=>a+c.total,0)})).sort((a,b)=>b.total-a.total);
+    const names=[...new Set(scopedEntries.filter((e: any)=>e.studentClass===student.class).map((e: any)=>e.studentName.toLowerCase().trim()))];
+    const standings=names.map(n=>({name:n,total:scopedEntries.filter((e: any)=>e.studentName.toLowerCase().trim()===n&&e.studentClass===student.class).reduce((a: number,c: any)=>a+c.total,0)})).sort((a,b)=>b.total-a.total);
     const pos=standings.findIndex(s=>s.name===student.name.toLowerCase().trim())+1;
     const total=records.reduce((a: number,c: any)=>a+c.total,0);
-    setActiveReport({id:student.id,name:student.name,class:student.class,records,position:getOrdinal(pos),classCount:names.length,summary:{total,obtainable:records.length*100,avg:records.length?(total/records.length).toFixed(1):"0.0"}});
+    const termLabel = t||schoolSettings.term; const sessionLabel = s||schoolSettings.session;
+    setActiveReport({id:student.id,name:student.name,class:student.class,records,position:getOrdinal(pos),classCount:names.length,term:termLabel,session:sessionLabel,summary:{total,obtainable:records.length*100,avg:records.length?(total/records.length).toFixed(1):"0.0"}});
     setActiveTab("reports");
-  },[entries,showToast]);
+  },[entries,showToast,rpTerm,rpSession,schoolSettings]);
 
   const saveStaff = useCallback((sd: any)=>{
     const isEdit=appState.staffList.some((s: any)=>s.id===sd.id);
