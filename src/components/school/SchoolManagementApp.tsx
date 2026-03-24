@@ -886,14 +886,14 @@ export default function SchoolManagementApp() {
   const submitScore = useCallback(()=>{
     const{studentName,studentClass,subject,caScore,examScore}=scoreForm;
     if(!studentName.trim()||!studentClass||!subject||caScore===""||examScore==="")return showToast("Fill in all fields.","error");
-    if(entries.some((e: any)=>e.studentName.toLowerCase().trim()===studentName.toLowerCase().trim()&&e.studentClass===studentClass&&e.subject===subject))return showToast(`${subject} already exists for ${studentName}.`,"error");
+    if(entries.some((e: any)=>e.studentName.toLowerCase().trim()===studentName.toLowerCase().trim()&&e.studentClass===studentClass&&e.subject===subject&&e.term===schoolSettings.term&&e.session===schoolSettings.session))return showToast(`${subject} already exists for ${studentName} this term.`,"error");
     const ca=parseFloat(caScore)||0,ex=parseFloat(examScore)||0;
     if(ca<0||ca>40)return showToast("CA must be 0–40","error");
     if(ex<0||ex>60)return showToast("Exam must be 0–60","error");
-    dispatch({type:"ADD_ENTRY",payload:{studentName:studentName.trim(),studentClass,subject,caScore:ca,examScore:ex,id:uid(),total:ca+ex,createdAt:new Date().toISOString()}});
+    dispatch({type:"ADD_ENTRY",payload:{studentName:studentName.trim(),studentClass,subject,caScore:ca,examScore:ex,id:uid(),total:ca+ex,term:schoolSettings.term,session:schoolSettings.session,createdAt:new Date().toISOString()}});
     showToast("Score saved");
     setScoreForm(f=>({...f,caScore:"",examScore:""}));
-  },[scoreForm,entries,showToast]);
+  },[scoreForm,entries,showToast,schoolSettings]);
 
   const openReport = useCallback((student: any)=>{
     const records=entries.filter((e: any)=>e.studentName.toLowerCase()===student.name.toLowerCase()&&e.studentClass===student.class);
