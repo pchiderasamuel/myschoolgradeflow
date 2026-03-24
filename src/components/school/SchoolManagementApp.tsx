@@ -561,19 +561,125 @@ const StaffTab = memo(({dispatch,showToast,setDlg,staffList}: any) => {
 });
 
 // ─── Print Dialog ─────────────────────────────────────────────────────────────
-const PRINT_OPTS=[{id:"browser",icon:"🖨️",label:"Browser / USB",desc:"Any connected printer"},{id:"email",icon:"📧",label:"Email",desc:"Send to email address"},{id:"download",icon:"💾",label:"Download",desc:"Save as HTML file"},{id:"share",icon:"📤",label:"Share",desc:"Native share / WhatsApp"}];
+const PRINT_OPTS=[{id:"browser",icon:"🖨️",label:"Browser Print",desc:"Print via browser dialog"},{id:"download",icon:"💾",label:"Download PDF/HTML",desc:"Save report as file"},{id:"email",icon:"📧",label:"Email Report",desc:"Send to email address"},{id:"share",icon:"📤",label:"Share",desc:"Share via apps or clipboard"}];
+
+function buildReportHTML(studentName: string, schoolName: string): string {
+  const el = document.getElementById("printable-report");
+  if (!el) return "";
+  const clone = el.cloneNode(true) as HTMLElement;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${studentName} - Report Sheet - ${schoolName}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Georgia,'Times New Roman',serif;background:#fff;color:#0f172a;padding:0}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #cbd5e1;padding:8px 10px;font-size:11px}
+thead tr{background:#0f172a;color:#fff}
+thead th{border-color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;font-size:9px}
+tfoot tr{background:#0f172a}
+tfoot td{color:#94a3b8;border-color:#334155}
+tr:nth-child(even){background:#f8fafc}
+.report-wrap{max-width:800px;margin:0 auto;background:#fff}
+@media print{
+  body{padding:0}
+  .report-wrap{max-width:none;box-shadow:none;border:none}
+  @page{size:A4 portrait;margin:10mm}
+}
+@media screen{
+  body{padding:20px;background:#f1f5f9}
+  .report-wrap{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)}
+}
+</style></head><body>
+<div class="report-wrap">${clone.innerHTML}</div>
+<script>window.onload=function(){if(window.opener||window.print){setTimeout(function(){window.print()},500)}}</script>
+</body></html>`;
+}
+
 const PrintDialog=memo(({student,schoolName,onClose}: any)=>{
   const[sel,setSel]=useState<string|null>(null);const[email,setEmail]=useState("");const[st,setSt]=useState("idle");
-  const go=async()=>{if(!sel)return;setSt("loading");try{if(sel==="browser"){onClose();setTimeout(()=>window.print(),300);return;}else if(sel==="email"){if(!email.includes("@"))throw new Error("bad-email");window.location.href=`mailto:${email}?subject=${encodeURIComponent(student.name+" Report — "+schoolName)}&body=${encodeURIComponent("Academic report for "+student.name+".\n\n— "+schoolName)}`;}else if(sel==="download"){const c=document.getElementById("printable-report");if(!c)throw new Error();const a=Object.assign(document.createElement("a"),{href:URL.createObjectURL(new Blob([`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${student.name}</title><style>body{font-family:serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:8px}thead{background:#1e293b;color:white}</style></head><body>${c.innerHTML}</body></html>`],{type:"text/html"})),download:student.name.replace(/\s+/g,"_")+"_Report.html"});a.click();}else if(sel==="share"){const t="Academic Report for "+student.name+" — "+schoolName+".";if(navigator.share)await navigator.share({title:student.name+" Report",text:t});else navigator.clipboard?.writeText(t);}setSt("done");}catch(e: any){setSt(e.message==="bad-email"?"bad-email":"error");}};
+  
+  const go=async()=>{
+    if(!sel)return;
+    setSt("loading");
+    try{
+      const reportHTML = buildReportHTML(student.name, schoolName);
+      
+      if(sel==="browser"){
+        if(!reportHTML) throw new Error("no-report");
+        const w = window.open("","_blank","width=800,height=900");
+        if(w){w.document.write(reportHTML);w.document.close();}
+        else{onClose();setTimeout(()=>window.print(),300);}
+        setSt("done");
+      } else if(sel==="download"){
+        if(!reportHTML) throw new Error("no-report");
+        const blob = new Blob([reportHTML],{type:"text/html;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = student.name.replace(/\s+/g,"_")+"_Report_Sheet.html";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setSt("done");
+      } else if(sel==="email"){
+        if(!email.includes("@")) throw new Error("bad-email");
+        const subject = encodeURIComponent(`${student.name} - Academic Report Sheet - ${schoolName}`);
+        const body = encodeURIComponent(
+          `Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${schoolName}\nStudent: ${student.name}\nClass: ${student.class || ""}\n\nPlease contact the school for the full detailed report.\n\nBest regards,\n${schoolName}`
+        );
+        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        setSt("done");
+      } else if(sel==="share"){
+        const shareText = `📋 Academic Report Sheet\n🏫 ${schoolName}\n👤 Student: ${student.name}\n📊 Average: ${student.avg || "N/A"}%\n📝 Grade: ${student.grade || "N/A"}\n\nFull report available at the school office.`;
+        if(navigator.share){
+          await navigator.share({title:`${student.name} Report - ${schoolName}`,text:shareText});
+        } else if(navigator.clipboard){
+          await navigator.clipboard.writeText(shareText);
+        }
+        setSt("done");
+      }
+    }catch(e: any){
+      if(e.message==="bad-email") setSt("bad-email");
+      else if(e.name==="AbortError") setSt("idle");
+      else setSt("error");
+    }
+  };
+
   return(
     <Sheet onClose={onClose}>
-      <MHead icon={Printer} title="Print / Export" subtitle={student.name} color="bg-primary" onClose={onClose}/>
+      <MHead icon={Printer} title="Print / Export Report" subtitle={student.name} color="bg-primary" onClose={onClose}/>
       <div className="p-5 space-y-3 overflow-y-auto">
-        {st==="done"?(<div className="text-center py-10 space-y-4"><div className="inline-flex p-4 bg-emerald-100 rounded-full"><Check size={32} className="text-emerald-600"/></div><p className="font-black uppercase text-slate-900">Done!</p><Btn variant="ghost" onClick={onClose}>Close</Btn></div>):(
-          <>{PRINT_OPTS.map(o=><button key={o.id} type="button" onClick={()=>{setSel(o.id);setSt("idle");}} className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${sel===o.id?"border-primary bg-blue-50":"border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}><span className="text-xl flex-shrink-0">{o.icon}</span><div className="flex-1 min-w-0"><p className={`text-sm font-black ${sel===o.id?"text-primary":"text-slate-800"}`}>{o.label}</p><p className="text-xs text-slate-400">{o.desc}</p></div><div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${sel===o.id?"border-primary bg-primary":"border-slate-300"}`}>{sel===o.id&&<Check size={9} className="text-white m-auto mt-0.5"/>}</div></button>)}
-          {sel==="email"&&<Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email":""}/>}
-          {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Something went wrong. Try another method.</p></div>}
-          <div className="grid grid-cols-2 gap-3 pt-1"><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="primary" onClick={go} loading={st==="loading"} disabled={!sel}><Printer size={14}/>Proceed</Btn></div></>
+        {st==="done"?(
+          <div className="text-center py-10 space-y-4">
+            <div className="inline-flex p-4 bg-emerald-100 rounded-full"><Check size={32} className="text-emerald-600"/></div>
+            <p className="font-black uppercase text-slate-900">Done!</p>
+            <p className="text-xs text-slate-500">Your report has been processed successfully.</p>
+            <Btn variant="ghost" onClick={onClose}>Close</Btn>
+          </div>
+        ):(
+          <>
+            {PRINT_OPTS.map(o=>
+              <button key={o.id} type="button" onClick={()=>{setSel(o.id);setSt("idle");}} className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${sel===o.id?"border-primary bg-blue-50":"border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}>
+                <span className="text-xl flex-shrink-0">{o.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-black ${sel===o.id?"text-primary":"text-slate-800"}`}>{o.label}</p>
+                  <p className="text-xs text-slate-400">{o.desc}</p>
+                </div>
+                <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${sel===o.id?"border-primary bg-primary":"border-slate-300"}`}>
+                  {sel===o.id&&<Check size={9} className="text-white m-auto mt-0.5"/>}
+                </div>
+              </button>
+            )}
+            {sel==="email"&&<Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email address":""}/>}
+            {sel==="browser"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Printer size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Opens the report in a new window with print dialog. You can print to PDF or any connected printer.</p></div>}
+            {sel==="download"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><FileText size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads as HTML file. Open it in any browser and print to PDF if needed.</p></div>}
+            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Something went wrong. Make sure the report is visible and try again.</p></div>}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+              <Btn variant="primary" onClick={go} loading={st==="loading"} disabled={!sel}><Printer size={14}/>Proceed</Btn>
+            </div>
+          </>
         )}
       </div>
     </Sheet>
