@@ -853,7 +853,7 @@ export default function SchoolManagementApp() {
   const subjectList = useMemo(()=>{ const cat=Object.values(CURRICULUM).find(c=>c.classes.includes(scoreForm.studentClass)); return cat?cat.subjects:[]; },[scoreForm.studentClass]);
   const allKnownStudents = useMemo(()=>{ const fromRolls=Object.entries(classRolls).flatMap(([cls,students]: any)=>students.filter((s: any)=>!s.suggested).map((s: any)=>({name:s.name,class:cls}))); const fromEntries=entries.map((e: any)=>({name:e.studentName,class:e.studentClass})); const map: any={}; [...fromRolls,...fromEntries].forEach((s: any)=>{map[`${s.name}||${s.class}`]=s;}); return Object.values(map); },[classRolls,entries]);
   const classSuggestions = useMemo(()=>{ if(!scoreForm.studentClass) return []; return (allKnownStudents as any[]).filter((s: any)=>s.class===scoreForm.studentClass).map((s: any)=>s.name).sort(); },[allKnownStudents,scoreForm.studentClass]);
-  const allSessions = useMemo(()=>[...new Set(entries.map((e: any)=>e.session).filter(Boolean))]  ,[entries]);
+  const allSessions = useMemo(()=>[...new Set(entries.map((e: any)=>e.session as string).filter(Boolean))] as string[]  ,[entries]);
   const activeTermEntries = useMemo(()=>{
     const t = rpTerm==="current"?schoolSettings.term:rpTerm==="all"?"":rpTerm;
     const s = rpSession==="current"?schoolSettings.session:rpSession==="all"?"":rpSession;
