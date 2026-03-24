@@ -831,8 +831,8 @@ export default function SchoolManagementApp() {
   const [forgotOpen,setForgotOpen] = useState(false);
   const [forgotStep,setForgotStep] = useState(1);
   const [forgotInput,setForgotInput] = useState("");
-  const [dbSearch,setDbSearch] = useState(""); const [dbClass,setDbClass] = useState(""); const [dbDate,setDbDate] = useState("");
-  const [rpSearch,setRpSearch] = useState(""); const [rpClass,setRpClass] = useState("All");
+  const [dbSearch,setDbSearch] = useState(""); const [dbClass,setDbClass] = useState(""); const [dbDate,setDbDate] = useState(""); const [dbTerm,setDbTerm] = useState("current"); const [dbSession,setDbSession] = useState("current");
+  const [rpSearch,setRpSearch] = useState(""); const [rpClass,setRpClass] = useState("All"); const [rpTerm,setRpTerm] = useState("current"); const [rpSession,setRpSession] = useState("current");
   const [activeReport,setActiveReport] = useState<any>(null);
   const [scoreForm,setScoreForm] = useState({studentName:"",studentClass:"",subject:"",caScore:"",examScore:""});
 
