@@ -853,9 +853,19 @@ export default function SchoolManagementApp() {
   const subjectList = useMemo(()=>{ const cat=Object.values(CURRICULUM).find(c=>c.classes.includes(scoreForm.studentClass)); return cat?cat.subjects:[]; },[scoreForm.studentClass]);
   const allKnownStudents = useMemo(()=>{ const fromRolls=Object.entries(classRolls).flatMap(([cls,students]: any)=>students.filter((s: any)=>!s.suggested).map((s: any)=>({name:s.name,class:cls}))); const fromEntries=entries.map((e: any)=>({name:e.studentName,class:e.studentClass})); const map: any={}; [...fromRolls,...fromEntries].forEach((s: any)=>{map[`${s.name}||${s.class}`]=s;}); return Object.values(map); },[classRolls,entries]);
   const classSuggestions = useMemo(()=>{ if(!scoreForm.studentClass) return []; return (allKnownStudents as any[]).filter((s: any)=>s.class===scoreForm.studentClass).map((s: any)=>s.name).sort(); },[allKnownStudents,scoreForm.studentClass]);
-  const studentList = useMemo(()=>{ const m: any={}; entries.forEach((e: any)=>{const k=`${e.studentName}||${e.studentClass}`; if(!m[k])m[k]={name:e.studentName,class:e.studentClass,id:k};}); return Object.values(m) as any[]; },[entries]);
+  const allSessions = useMemo(()=>[...new Set(entries.map((e: any)=>e.session).filter(Boolean))]  ,[entries]);
+  const activeTermEntries = useMemo(()=>{
+    const t = rpTerm==="current"?schoolSettings.term:rpTerm==="all"?"":rpTerm;
+    const s = rpSession==="current"?schoolSettings.session:rpSession==="all"?"":rpSession;
+    return entries.filter((e: any)=>(!t||e.term===t)&&(!s||e.session===s));
+  },[entries,rpTerm,rpSession,schoolSettings]);
+  const studentList = useMemo(()=>{ const m: any={}; activeTermEntries.forEach((e: any)=>{const k=`${e.studentName}||${e.studentClass}`; if(!m[k])m[k]={name:e.studentName,class:e.studentClass,id:k};}); return Object.values(m) as any[]; },[activeTermEntries]);
   const filteredStudents = useMemo(()=>studentList.filter((s: any)=>s.name.toLowerCase().includes(rpSearch.toLowerCase())&&(rpClass==="All"||s.class===rpClass)),[studentList,rpSearch,rpClass]);
-  const filteredEntries = useMemo(()=>entries.filter((e: any)=>(!dbSearch||e.studentName.toLowerCase().includes(dbSearch.toLowerCase()))&&(!dbClass||e.studentClass===dbClass)&&(!dbDate||e.createdAt.slice(0,10)===dbDate)),[entries,dbSearch,dbClass,dbDate]);
+  const filteredEntries = useMemo(()=>{
+    const t = dbTerm==="current"?schoolSettings.term:dbTerm==="all"?"":dbTerm;
+    const s = dbSession==="current"?schoolSettings.session:dbSession==="all"?"":dbSession;
+    return entries.filter((e: any)=>(!dbSearch||e.studentName.toLowerCase().includes(dbSearch.toLowerCase()))&&(!dbClass||e.studentClass===dbClass)&&(!dbDate||e.createdAt.slice(0,10)===dbDate)&&(!t||e.term===t)&&(!s||e.session===s));
+  },[entries,dbSearch,dbClass,dbDate,dbTerm,dbSession,schoolSettings]);
   const curC = useMemo(()=>activeReport?(appState.comments[activeReport.id]||{teacher:"",principal:"",teacherSig:"",principalSig:"",daysOpen:"",daysPresent:"",daysAbsent:""}):{teacher:"",principal:"",teacherSig:"",principalSig:"",daysOpen:"",daysPresent:"",daysAbsent:""},[activeReport,appState.comments]);
   const attRate = useMemo(()=>{ const o=parseInt(curC.daysOpen)||0,p=parseInt(curC.daysPresent)||0; return o>0?Math.round(p/o*100):null; },[curC]);
 
