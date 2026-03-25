@@ -166,7 +166,7 @@ const MHead = ({icon:Icon,title,subtitle,color="bg-primary",onClose}: any) => (
 const PinAuth = ({title,subtitle,headerColor="bg-primary",icon:Icon,children,confirmLabel,confirmVariant="danger",correctPin,onConfirm,onCancel}: any) => {
   const [pin,setPin]=useState(""); const [err,setErr]=useState(""); const [show,setShow]=useState(false); const ref=useRef<HTMLInputElement>(null);
   useEffect(()=>{ref.current?.focus();},[]);
-  const verify=()=>{ if(pin===correctPin){onConfirm();}else{setErr("Incorrect PIN — access denied.");setPin("");ref.current?.focus();} };
+  const verify=async()=>{ const match=await verifyPin(pin,correctPin); if(match){onConfirm();}else{setErr("Incorrect PIN — access denied.");setPin("");ref.current?.focus();} };
   return (
     <Sheet onClose={onCancel}>
       <MHead icon={Icon} title={title} subtitle={subtitle} color={headerColor} onClose={onCancel}/>
