@@ -878,7 +878,16 @@ export default function SchoolManagementApp() {
   // DB load
   useEffect(()=>{
     const saved = loadDB();
-    if(saved!==initialState){ dispatch({type:"HYDRATE",payload:saved}); if(saved.adminPin) adminPinRef.current=saved.adminPin; }
+    if(saved!==initialState){ 
+      dispatch({type:"HYDRATE",payload:saved}); 
+      if(saved.adminPin) {
+        adminPinRef.current=saved.adminPin;
+        // Auto-migrate plain-text PIN to hashed
+        if(saved.adminPin.length<=8 && /^\d+$/.test(saved.adminPin)){
+          hashPin(saved.adminPin).then(h=>{adminPinRef.current=h;});
+        }
+      }
+    }
     setDbReady(true);
   },[]);
 
