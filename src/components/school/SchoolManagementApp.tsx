@@ -6,8 +6,12 @@ import {
   AlertTriangle, Clock, ShieldAlert, Users, UserPlus,
   UserX, UserCheck, Eye, EyeOff, KeyRound, Shield,
   Menu, BookOpen, MoreVertical, ChevronRight,
-  CalendarDays, ClipboardList, Database, Edit2
+  CalendarDays, ClipboardList, Database, Edit2,
+  Download, FileSpreadsheet
 } from "lucide-react";
+import { exportToPDF, exportToExcel } from "@/lib/report-export";
+import { parseCSV, readFileAsText } from "@/lib/csv-import";
+import { hashPin, verifyPin } from "@/lib/crypto-helpers";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRICULUM: Record<string, { classes: string[]; subjects: string[] }> = {
@@ -162,7 +166,7 @@ const MHead = ({icon:Icon,title,subtitle,color="bg-primary",onClose}: any) => (
 const PinAuth = ({title,subtitle,headerColor="bg-primary",icon:Icon,children,confirmLabel,confirmVariant="danger",correctPin,onConfirm,onCancel}: any) => {
   const [pin,setPin]=useState(""); const [err,setErr]=useState(""); const [show,setShow]=useState(false); const ref=useRef<HTMLInputElement>(null);
   useEffect(()=>{ref.current?.focus();},[]);
-  const verify=()=>{ if(pin===correctPin){onConfirm();}else{setErr("Incorrect PIN — access denied.");setPin("");ref.current?.focus();} };
+  const verify=async()=>{ const match=await verifyPin(pin,correctPin); if(match){onConfirm();}else{setErr("Incorrect PIN — access denied.");setPin("");ref.current?.focus();} };
   return (
     <Sheet onClose={onCancel}>
       <MHead icon={Icon} title={title} subtitle={subtitle} color={headerColor} onClose={onCancel}/>
@@ -561,7 +565,7 @@ const StaffTab = memo(({dispatch,showToast,setDlg,staffList}: any) => {
 });
 
 // ─── Print Dialog ─────────────────────────────────────────────────────────────
-const PRINT_OPTS=[{id:"browser",icon:"🖨️",label:"Browser Print",desc:"Print via browser dialog"},{id:"download",icon:"💾",label:"Download PDF/HTML",desc:"Save report as file"},{id:"email",icon:"📧",label:"Email Report",desc:"Send to email address"},{id:"share",icon:"📤",label:"Share",desc:"Share via apps or clipboard"}];
+const PRINT_OPTS=[{id:"pdf",icon:"📄",label:"Export PDF",desc:"Download professional PDF report"},{id:"excel",icon:"📊",label:"Export Excel",desc:"Download editable spreadsheet"},{id:"browser",icon:"🖨️",label:"Browser Print",desc:"Print via browser dialog"},{id:"download",icon:"💾",label:"Download HTML",desc:"Save report as HTML file"},{id:"email",icon:"📧",label:"Email Summary",desc:"Send to email address"},{id:"share",icon:"📤",label:"Share",desc:"Share via apps or clipboard"}];
 
 function buildReportHTML(studentName: string, schoolName: string): string {
   const el = document.getElementById("printable-report");
@@ -595,22 +599,37 @@ tr:nth-child(even){background:#f8fafc}
 </body></html>`;
 }
 
-const PrintDialog=memo(({student,schoolName,onClose}: any)=>{
+const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClose}: any)=>{
   const[sel,setSel]=useState<string|null>(null);const[email,setEmail]=useState("");const[st,setSt]=useState("idle");
   
+  const buildExportData=()=>({
+    studentName:student.name,className:student.class,term:student.term||ss?.term||"",session:student.session||ss?.session||"",
+    position:student.position,classCount:student.classCount,
+    records:student.records||[],summary:student.summary||{total:0,obtainable:0,avg:"0"},
+    schoolName:ss?.name||schoolName,motto:ss?.motto||"",resumptionDate:ss?.resumptionDate||"",
+    comments:curC||{teacher:"",principal:"",teacherSig:"",principalSig:"",daysOpen:"",daysPresent:"",daysAbsent:""},
+    attRate:attRate??null,
+  });
+
   const go=async()=>{
     if(!sel)return;
     setSt("loading");
     try{
-      const reportHTML = buildReportHTML(student.name, schoolName);
-      
-      if(sel==="browser"){
+      if(sel==="pdf"){
+        exportToPDF(buildExportData());
+        setSt("done");
+      } else if(sel==="excel"){
+        exportToExcel(buildExportData());
+        setSt("done");
+      } else if(sel==="browser"){
+        const reportHTML = buildReportHTML(student.name, ss?.name||schoolName);
         if(!reportHTML) throw new Error("no-report");
         const w = window.open("","_blank","width=800,height=900");
         if(w){w.document.write(reportHTML);w.document.close();}
         else{onClose();setTimeout(()=>window.print(),300);}
         setSt("done");
       } else if(sel==="download"){
+        const reportHTML = buildReportHTML(student.name, ss?.name||schoolName);
         if(!reportHTML) throw new Error("no-report");
         const blob = new Blob([reportHTML],{type:"text/html;charset=utf-8"});
         const url = URL.createObjectURL(blob);
@@ -624,16 +643,16 @@ const PrintDialog=memo(({student,schoolName,onClose}: any)=>{
         setSt("done");
       } else if(sel==="email"){
         if(!email.includes("@")) throw new Error("bad-email");
-        const subject = encodeURIComponent(`${student.name} - Academic Report Sheet - ${schoolName}`);
-        const body = encodeURIComponent(
-          `Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${schoolName}\nStudent: ${student.name}\nClass: ${student.class || ""}\n\nPlease contact the school for the full detailed report.\n\nBest regards,\n${schoolName}`
-        );
+        const sName = ss?.name||schoolName;
+        const subject = encodeURIComponent(`${student.name} - Academic Report Sheet - ${sName}`);
+        const body = encodeURIComponent(`Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${sName}\nStudent: ${student.name}\nClass: ${student.class || ""}\n\nPlease contact the school for the full detailed report.\n\nBest regards,\n${sName}`);
         window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
         setSt("done");
       } else if(sel==="share"){
-        const shareText = `📋 Academic Report Sheet\n🏫 ${schoolName}\n👤 Student: ${student.name}\n📊 Average: ${student.avg || "N/A"}%\n📝 Grade: ${student.grade || "N/A"}\n\nFull report available at the school office.`;
+        const sName = ss?.name||schoolName;
+        const shareText = `📋 Academic Report Sheet\n🏫 ${sName}\n👤 Student: ${student.name}\n📊 Average: ${student.summary?.avg || "N/A"}%\n\nFull report available at the school office.`;
         if(navigator.share){
-          await navigator.share({title:`${student.name} Report - ${schoolName}`,text:shareText});
+          await navigator.share({title:`${student.name} Report - ${sName}`,text:shareText});
         } else if(navigator.clipboard){
           await navigator.clipboard.writeText(shareText);
         }
@@ -654,30 +673,46 @@ const PrintDialog=memo(({student,schoolName,onClose}: any)=>{
           <div className="text-center py-10 space-y-4">
             <div className="inline-flex p-4 bg-emerald-100 rounded-full"><Check size={32} className="text-emerald-600"/></div>
             <p className="font-black uppercase text-slate-900">Done!</p>
-            <p className="text-xs text-slate-500">Your report has been processed successfully.</p>
-            <Btn variant="ghost" onClick={onClose}>Close</Btn>
+            <p className="text-xs text-slate-500">Your report has been exported successfully.</p>
+            <div className="flex gap-2 justify-center">
+              <Btn variant="ghost" onClick={()=>setSt("idle")}>Export Another</Btn>
+              <Btn variant="primary" onClick={onClose}>Close</Btn>
+            </div>
           </div>
         ):(
           <>
-            {PRINT_OPTS.map(o=>
-              <button key={o.id} type="button" onClick={()=>{setSel(o.id);setSt("idle");}} className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${sel===o.id?"border-primary bg-blue-50":"border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}>
-                <span className="text-xl flex-shrink-0">{o.icon}</span>
-                <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-2 gap-2">
+              {PRINT_OPTS.slice(0,2).map(o=>
+                <button key={o.id} type="button" onClick={()=>{setSel(o.id);setSt("idle");}} className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-center transition-all ${sel===o.id?"border-primary bg-blue-50":"border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}>
+                  <span className="text-2xl">{o.icon}</span>
                   <p className={`text-sm font-black ${sel===o.id?"text-primary":"text-slate-800"}`}>{o.label}</p>
                   <p className="text-xs text-slate-400">{o.desc}</p>
-                </div>
-                <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${sel===o.id?"border-primary bg-primary":"border-slate-300"}`}>
-                  {sel===o.id&&<Check size={9} className="text-white m-auto mt-0.5"/>}
-                </div>
-              </button>
-            )}
+                </button>
+              )}
+            </div>
+            <div className="border-t border-slate-100 pt-3 space-y-2">
+              <p className="text-xs font-black uppercase text-slate-400">More Options</p>
+              {PRINT_OPTS.slice(2).map(o=>
+                <button key={o.id} type="button" onClick={()=>{setSel(o.id);setSt("idle");}} className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${sel===o.id?"border-primary bg-blue-50":"border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}>
+                  <span className="text-lg flex-shrink-0">{o.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-black ${sel===o.id?"text-primary":"text-slate-800"}`}>{o.label}</p>
+                    <p className="text-xs text-slate-400">{o.desc}</p>
+                  </div>
+                  <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${sel===o.id?"border-primary bg-primary":"border-slate-300"}`}>
+                    {sel===o.id&&<Check size={9} className="text-white m-auto mt-0.5"/>}
+                  </div>
+                </button>
+              )}
+            </div>
             {sel==="email"&&<Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email address":""}/>}
-            {sel==="browser"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Printer size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Opens the report in a new window with print dialog. You can print to PDF or any connected printer.</p></div>}
-            {sel==="download"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><FileText size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads as HTML file. Open it in any browser and print to PDF if needed.</p></div>}
-            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Something went wrong. Make sure the report is visible and try again.</p></div>}
+            {sel==="pdf"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Download size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads a professional A4 PDF with scores, attendance, and remarks.</p></div>}
+            {sel==="excel"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><FileSpreadsheet size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads an editable Excel spreadsheet for end-of-term processing.</p></div>}
+            {sel==="browser"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Printer size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Opens the report in a new window with print dialog.</p></div>}
+            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Something went wrong. Try again.</p></div>}
             <div className="grid grid-cols-2 gap-3 pt-1">
               <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-              <Btn variant="primary" onClick={go} loading={st==="loading"} disabled={!sel}><Printer size={14}/>Proceed</Btn>
+              <Btn variant="primary" onClick={go} loading={st==="loading"} disabled={!sel}>{sel==="pdf"?<><Download size={14}/>Export PDF</>:sel==="excel"?<><FileSpreadsheet size={14}/>Export Excel</>:<><Printer size={14}/>Proceed</>}</Btn>
             </div>
           </>
         )}
@@ -693,7 +728,7 @@ const SettingsTab=memo(({logoUrl,setSchoolLogo,logoRef,showToast,adminPinRef}: a
   useEffect(()=>setDraft({...schoolSettings}),[schoolSettings]);
   const saveInfo=()=>{dispatch({type:"SET_SCHOOL_SETTINGS",payload:draft});setSaved(true);showToast("Settings saved");setTimeout(()=>setSaved(false),2000);};
   const handleLogo=(e: any)=>{const f=e.target.files[0];if(!f)return;if(!f.type.startsWith("image/"))return showToast("Invalid image","error");if(f.size>2097152)return showToast("Max 2MB","error");const r=new FileReader();r.onload=(ev: any)=>{setSchoolLogo(ev.target.result);showToast("Logo uploaded");};r.readAsDataURL(f);};
-  const changePin=()=>{setPinErr("");if(pinF.cur!==adminPinRef.current)return setPinErr("Current PIN incorrect.");if(pinF.nxt.length<4)return setPinErr("New PIN must be ≥ 4 digits.");if(pinF.nxt!==pinF.cnf)return setPinErr("PINs don't match.");adminPinRef.current=pinF.nxt;setPinF({cur:"",nxt:"",cnf:""});showToast("Admin PIN updated");};
+  const changePin=async()=>{setPinErr("");const curMatch=await verifyPin(pinF.cur,adminPinRef.current);if(!curMatch)return setPinErr("Current PIN incorrect.");if(pinF.nxt.length<4)return setPinErr("New PIN must be ≥ 4 digits.");if(pinF.nxt!==pinF.cnf)return setPinErr("PINs don't match.");const hashed=await hashPin(pinF.nxt);adminPinRef.current=hashed;setPinF({cur:"",nxt:"",cnf:""});showToast("Admin PIN updated & encrypted");};
   const SECS=[{id:"logo",label:"Logo",icon:"🖼️"},{id:"info",label:"School Info",icon:"🏫"},{id:"session",label:"Session",icon:"📅"},{id:"security",label:"Security",icon:"🔒"}];
   return(
     <div className="max-w-3xl mx-auto">
@@ -768,10 +803,10 @@ const AttendanceTab = memo(()=>{
       {attTab==="roll"&&<div className="space-y-4">
         <Card className="p-5 space-y-4">
           <Sel value={rollClass} onChange={(e: any)=>{setRollClass(e.target.value);setRollSearch("");}}><option value="">Choose a class…</option>{ALL_CLASSES.map(c=><option key={c}>{c}</option>)}</Sel>
-          {rollClass&&<div className="flex items-center justify-between flex-wrap gap-2"><div className="flex items-center gap-2"><Pill color="blue">{(classRolls[rollClass]||[]).length} registered</Pill></div><Btn variant="outline" size="sm" onClick={()=>setShowBulk(b=>!b)}>{showBulk?<><X size={13}/>Close</>:<><PlusCircle size={13}/>Bulk Add</>}</Btn></div>}
+          {rollClass&&<div className="flex items-center justify-between flex-wrap gap-2"><div className="flex items-center gap-2"><Pill color="blue">{(classRolls[rollClass]||[]).length} registered</Pill></div><div className="flex gap-2"><Btn variant="outline" size="sm" onClick={()=>{const input=document.createElement("input");input.type="file";input.accept=".csv,.txt";input.onchange=async(ev: any)=>{const file=ev.target.files[0];if(!file)return;try{const text=await readFileAsText(file);const parsed=parseCSV(text);if(!parsed.length)return showToast("No valid names found","error");const existing=classRolls[rollClass]||[];const existingNames=new Set(existing.map((s: any)=>s.name.toLowerCase()));const newStudents=parsed.filter(s=>!existingNames.has(s.name.toLowerCase())).map(s=>({id:uid(),name:s.name,admNo:s.admNo}));if(!newStudents.length)return showToast("All already on roll","warning");dispatch({type:"SAVE_CLASS_ROLL",className:rollClass,students:[...existing,...newStudents]});showToast(`${newStudents.length} students imported from CSV`);}catch{showToast("Failed to read file","error");}};input.click();}}><Upload size={13}/>Import CSV</Btn><Btn variant="outline" size="sm" onClick={()=>setShowBulk(b=>!b)}>{showBulk?<><X size={13}/>Close</>:<><PlusCircle size={13}/>Bulk Add</>}</Btn></div></div>}
         </Card>
         {rollClass&&<>
-          {showBulk&&<Card className="p-5 space-y-3 border-2 border-blue-200 bg-blue-50"><p className="text-xs font-black uppercase text-primary">Bulk Add — one name per line</p><textarea value={bulkText} onChange={(e: any)=>setBulkText(e.target.value)} rows={5} placeholder={"Adaeze Okonkwo\nEmeka Nwosu\n…"} className="w-full px-4 py-3 bg-white border-2 border-blue-200 rounded-xl text-sm font-medium focus:border-primary outline-none resize-none"/><div className="flex gap-3"><Btn variant="ghost" onClick={()=>{setBulkText("");setShowBulk(false);}}>Cancel</Btn><Btn variant="primary" onClick={addBulk} disabled={!bulkText.trim()}><PlusCircle size={14}/>Add {bulkText.split("\n").filter((l: string)=>l.trim()).length}</Btn></div></Card>}
+          {showBulk&&<Card className="p-5 space-y-3 border-2 border-blue-200 bg-blue-50"><p className="text-xs font-black uppercase text-primary">Bulk Add — one name per line, or import a CSV file</p><textarea value={bulkText} onChange={(e: any)=>setBulkText(e.target.value)} rows={5} placeholder={"Adaeze Okonkwo\nEmeka Nwosu\n…"} className="w-full px-4 py-3 bg-white border-2 border-blue-200 rounded-xl text-sm font-medium focus:border-primary outline-none resize-none"/><div className="flex gap-3"><Btn variant="ghost" onClick={()=>{setBulkText("");setShowBulk(false);}}>Cancel</Btn><Btn variant="primary" onClick={addBulk} disabled={!bulkText.trim()}><PlusCircle size={14}/>Add {bulkText.split("\n").filter((l: string)=>l.trim()).length}</Btn></div></Card>}
           <Card className="p-5 space-y-3"><p className="text-xs font-black uppercase text-slate-400">Add Individual</p><div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><div className="sm:col-span-2"><Inp value={newName} onChange={(e: any)=>setNewName(e.target.value)} placeholder="Student full name" onKeyDown={(e: any)=>e.key==="Enter"&&addStudent()}/></div><Inp value={newAdmNo} onChange={(e: any)=>setNewAdmNo(e.target.value)} placeholder="Adm No. (opt)" onKeyDown={(e: any)=>e.key==="Enter"&&addStudent()}/></div><Btn variant="primary" onClick={addStudent} disabled={!newName.trim()}><PlusCircle size={14}/>Add to Roll</Btn></Card>
           {filteredRoll.length===0&&!rollSearch?<EmptyState icon={Users} title="No students on roll" subtitle="Add above or from score entries"/>:
           <Card className="overflow-hidden"><div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3"><div className="relative flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input value={rollSearch} onChange={(e: any)=>setRollSearch(e.target.value)} placeholder="Search…" className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-semibold focus:border-primary focus:bg-white outline-none"/></div><span className="text-xs font-black text-slate-400">{filteredRoll.length}</span></div>
@@ -843,7 +878,16 @@ export default function SchoolManagementApp() {
   // DB load
   useEffect(()=>{
     const saved = loadDB();
-    if(saved!==initialState){ dispatch({type:"HYDRATE",payload:saved}); if(saved.adminPin) adminPinRef.current=saved.adminPin; }
+    if(saved!==initialState){ 
+      dispatch({type:"HYDRATE",payload:saved}); 
+      if(saved.adminPin) {
+        adminPinRef.current=saved.adminPin;
+        // Auto-migrate plain-text PIN to hashed
+        if(saved.adminPin.length<=8 && /^\d+$/.test(saved.adminPin)){
+          hashPin(saved.adminPin).then(h=>{adminPinRef.current=h;});
+        }
+      }
+    }
     setDbReady(true);
   },[]);
 
@@ -883,14 +927,22 @@ export default function SchoolManagementApp() {
   const primaryTabs = useMemo(()=>TABS.filter(t=>t.primary),[TABS]);
   const moreTabs    = useMemo(()=>TABS.filter(t=>!t.primary),[TABS]);
 
-  const doLogin = useCallback(()=>{
+  const doLogin = useCallback(async()=>{
     setLoginErr("");
     if(loginId.toLowerCase()==="admin"){if(!loginPass)return setLoginErr("Enter a password");setAuth({loggedIn:true,user:null});return;}
-    const s=staffList.find((st: any)=>st.name.toLowerCase()===loginId.toLowerCase()&&st.pin===loginPass);
-    if(!s)return setLoginErr("Invalid name or PIN");
-    if(s.status==="revoked")return setLoginErr("Your access has been revoked.");
-    setAuth({loggedIn:true,user:s});
-    if(s.status==="restricted")showToast("Account restricted — limited access.","warning");
+    // Check staff with async PIN verification
+    for(const st of staffList){
+      if(st.name.toLowerCase()===loginId.toLowerCase()){
+        const pinMatch=await verifyPin(loginPass,st.pin);
+        if(pinMatch){
+          if(st.status==="revoked")return setLoginErr("Your access has been revoked.");
+          setAuth({loggedIn:true,user:st});
+          if(st.status==="restricted")showToast("Account restricted — limited access.","warning");
+          return;
+        }
+      }
+    }
+    setLoginErr("Invalid name or PIN");
   },[loginId,loginPass,staffList,showToast]);
 
   const submitScore = useCallback(()=>{
@@ -920,9 +972,14 @@ export default function SchoolManagementApp() {
     setActiveTab("reports");
   },[entries,showToast,rpTerm,rpSession,schoolSettings]);
 
-  const saveStaff = useCallback((sd: any)=>{
+  const saveStaff = useCallback(async(sd: any)=>{
     const isEdit=appState.staffList.some((s: any)=>s.id===sd.id);
-    dispatch({type:"SAVE_STAFF",payload:sd});
+    // Hash the PIN if it's a new plain-text PIN
+    let staffData = {...sd};
+    if(staffData.pin && staffData.pin.length>=4 && staffData.pin.length<=8 && /^\d+$/.test(staffData.pin)){
+      staffData.pin = await hashPin(staffData.pin);
+    }
+    dispatch({type:"SAVE_STAFF",payload:staffData});
     showToast(`${sd.name} ${isEdit?"updated":"created"}`);
     setDlg(null);
   },[appState.staffList,showToast]);
@@ -1082,7 +1139,7 @@ export default function SchoolManagementApp() {
       </div>
 
       {/* Modals */}
-      {showPrint&&activeReport&&<PrintDialog student={activeReport} schoolName={schoolSettings.name} onClose={()=>setShowPrint(false)}/>}
+      {showPrint&&activeReport&&<PrintDialog student={activeReport} schoolName={schoolSettings.name} schoolSettings={schoolSettings} curC={curC} attRate={attRate} onClose={()=>setShowPrint(false)}/>}
       {dlg?.type==="staffAdd"&&<StaffDialog mode="add" onSave={saveStaff} onClose={()=>setDlg(null)}/>}
       {dlg?.type==="staffEdit"&&<StaffDialog mode="edit" staff={dlg.data} onSave={saveStaff} onClose={()=>setDlg(null)}/>}
       {dlg?.type==="delete"&&<PinAuth title="Delete Record" subtitle={`${dlg.data.subject} — ${dlg.data.studentName}`} headerColor="bg-destructive" icon={Trash2} confirmLabel={<><Trash2 size={13}/>Delete</>} confirmVariant="danger" correctPin={adminPinRef.current} onConfirm={()=>{dispatch({type:"DELETE_ENTRY",id:dlg.data.id});showToast("Moved to bin");setDlg(null);}} onCancel={()=>setDlg(null)}><div className="bg-red-50 border border-red-100 rounded-xl p-4 flex gap-3"><AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5"/><div className="text-xs text-red-700"><p className="font-black uppercase mb-1">Deleting:</p><p className="font-bold">{dlg.data.subject} — {dlg.data.studentName}</p><p className="text-red-400">Score: {dlg.data.caScore}+{dlg.data.examScore}={dlg.data.total}</p></div></div></PinAuth>}
