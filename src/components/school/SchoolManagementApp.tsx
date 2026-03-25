@@ -565,7 +565,7 @@ const StaffTab = memo(({dispatch,showToast,setDlg,staffList}: any) => {
 });
 
 // ─── Print Dialog ─────────────────────────────────────────────────────────────
-const PRINT_OPTS=[{id:"browser",icon:"🖨️",label:"Browser Print",desc:"Print via browser dialog"},{id:"download",icon:"💾",label:"Download PDF/HTML",desc:"Save report as file"},{id:"email",icon:"📧",label:"Email Report",desc:"Send to email address"},{id:"share",icon:"📤",label:"Share",desc:"Share via apps or clipboard"}];
+const PRINT_OPTS=[{id:"pdf",icon:"📄",label:"Export PDF",desc:"Download professional PDF report"},{id:"excel",icon:"📊",label:"Export Excel",desc:"Download editable spreadsheet"},{id:"browser",icon:"🖨️",label:"Browser Print",desc:"Print via browser dialog"},{id:"download",icon:"💾",label:"Download HTML",desc:"Save report as HTML file"},{id:"email",icon:"📧",label:"Email Summary",desc:"Send to email address"},{id:"share",icon:"📤",label:"Share",desc:"Share via apps or clipboard"}];
 
 function buildReportHTML(studentName: string, schoolName: string): string {
   const el = document.getElementById("printable-report");
