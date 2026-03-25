@@ -728,7 +728,7 @@ const SettingsTab=memo(({logoUrl,setSchoolLogo,logoRef,showToast,adminPinRef}: a
   useEffect(()=>setDraft({...schoolSettings}),[schoolSettings]);
   const saveInfo=()=>{dispatch({type:"SET_SCHOOL_SETTINGS",payload:draft});setSaved(true);showToast("Settings saved");setTimeout(()=>setSaved(false),2000);};
   const handleLogo=(e: any)=>{const f=e.target.files[0];if(!f)return;if(!f.type.startsWith("image/"))return showToast("Invalid image","error");if(f.size>2097152)return showToast("Max 2MB","error");const r=new FileReader();r.onload=(ev: any)=>{setSchoolLogo(ev.target.result);showToast("Logo uploaded");};r.readAsDataURL(f);};
-  const changePin=()=>{setPinErr("");if(pinF.cur!==adminPinRef.current)return setPinErr("Current PIN incorrect.");if(pinF.nxt.length<4)return setPinErr("New PIN must be ≥ 4 digits.");if(pinF.nxt!==pinF.cnf)return setPinErr("PINs don't match.");adminPinRef.current=pinF.nxt;setPinF({cur:"",nxt:"",cnf:""});showToast("Admin PIN updated");};
+  const changePin=async()=>{setPinErr("");const curMatch=await verifyPin(pinF.cur,adminPinRef.current);if(!curMatch)return setPinErr("Current PIN incorrect.");if(pinF.nxt.length<4)return setPinErr("New PIN must be ≥ 4 digits.");if(pinF.nxt!==pinF.cnf)return setPinErr("PINs don't match.");const hashed=await hashPin(pinF.nxt);adminPinRef.current=hashed;setPinF({cur:"",nxt:"",cnf:""});showToast("Admin PIN updated & encrypted");};
   const SECS=[{id:"logo",label:"Logo",icon:"🖼️"},{id:"info",label:"School Info",icon:"🏫"},{id:"session",label:"Session",icon:"📅"},{id:"security",label:"Security",icon:"🔒"}];
   return(
     <div className="max-w-3xl mx-auto">
