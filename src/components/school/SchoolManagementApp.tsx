@@ -972,9 +972,14 @@ export default function SchoolManagementApp() {
     setActiveTab("reports");
   },[entries,showToast,rpTerm,rpSession,schoolSettings]);
 
-  const saveStaff = useCallback((sd: any)=>{
+  const saveStaff = useCallback(async(sd: any)=>{
     const isEdit=appState.staffList.some((s: any)=>s.id===sd.id);
-    dispatch({type:"SAVE_STAFF",payload:sd});
+    // Hash the PIN if it's a new plain-text PIN
+    let staffData = {...sd};
+    if(staffData.pin && staffData.pin.length>=4 && staffData.pin.length<=8 && /^\d+$/.test(staffData.pin)){
+      staffData.pin = await hashPin(staffData.pin);
+    }
+    dispatch({type:"SAVE_STAFF",payload:staffData});
     showToast(`${sd.name} ${isEdit?"updated":"created"}`);
     setDlg(null);
   },[appState.staffList,showToast]);
