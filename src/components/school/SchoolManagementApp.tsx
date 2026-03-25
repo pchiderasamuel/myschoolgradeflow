@@ -6,8 +6,12 @@ import {
   AlertTriangle, Clock, ShieldAlert, Users, UserPlus,
   UserX, UserCheck, Eye, EyeOff, KeyRound, Shield,
   Menu, BookOpen, MoreVertical, ChevronRight,
-  CalendarDays, ClipboardList, Database, Edit2
+  CalendarDays, ClipboardList, Database, Edit2,
+  Download, FileSpreadsheet
 } from "lucide-react";
+import { exportToPDF, exportToExcel } from "@/lib/report-export";
+import { parseCSV, readFileAsText } from "@/lib/csv-import";
+import { hashPin, verifyPin } from "@/lib/crypto-helpers";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRICULUM: Record<string, { classes: string[]; subjects: string[] }> = {
