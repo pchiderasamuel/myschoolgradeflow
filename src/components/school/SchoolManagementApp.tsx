@@ -599,16 +599,127 @@ tr:nth-child(even){background:#f8fafc}
 </body></html>`;
 }
 
-const PrintDialog=memo(({student,schoolName,onClose}: any)=>{
+const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClose}: any)=>{
   const[sel,setSel]=useState<string|null>(null);const[email,setEmail]=useState("");const[st,setSt]=useState("idle");
   
+  const buildExportData=()=>({
+    studentName:student.name,className:student.class,term:student.term||ss?.term||"",session:student.session||ss?.session||"",
+    position:student.position,classCount:student.classCount,
+    records:student.records||[],summary:student.summary||{total:0,obtainable:0,avg:"0"},
+    schoolName:ss?.name||schoolName,motto:ss?.motto||"",resumptionDate:ss?.resumptionDate||"",
+    comments:curC||{teacher:"",principal:"",teacherSig:"",principalSig:"",daysOpen:"",daysPresent:"",daysAbsent:""},
+    attRate:attRate??null,
+  });
+
   const go=async()=>{
     if(!sel)return;
     setSt("loading");
     try{
-      const reportHTML = buildReportHTML(student.name, schoolName);
-      
-      if(sel==="browser"){
+      if(sel==="pdf"){
+        exportToPDF(buildExportData());
+        setSt("done");
+      } else if(sel==="excel"){
+        exportToExcel(buildExportData());
+        setSt("done");
+      } else if(sel==="browser"){
+        const reportHTML = buildReportHTML(student.name, ss?.name||schoolName);
+        if(!reportHTML) throw new Error("no-report");
+        const w = window.open("","_blank","width=800,height=900");
+        if(w){w.document.write(reportHTML);w.document.close();}
+        else{onClose();setTimeout(()=>window.print(),300);}
+        setSt("done");
+      } else if(sel==="download"){
+        const reportHTML = buildReportHTML(student.name, ss?.name||schoolName);
+        if(!reportHTML) throw new Error("no-report");
+        const blob = new Blob([reportHTML],{type:"text/html;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = student.name.replace(/\s+/g,"_")+"_Report_Sheet.html";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setSt("done");
+      } else if(sel==="email"){
+        if(!email.includes("@")) throw new Error("bad-email");
+        const sName = ss?.name||schoolName;
+        const subject = encodeURIComponent(`${student.name} - Academic Report Sheet - ${sName}`);
+        const body = encodeURIComponent(`Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${sName}\nStudent: ${student.name}\nClass: ${student.class || ""}\n\nPlease contact the school for the full detailed report.\n\nBest regards,\n${sName}`);
+        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        setSt("done");
+      } else if(sel==="share"){
+        const sName = ss?.name||schoolName;
+        const shareText = `📋 Academic Report Sheet\n🏫 ${sName}\n👤 Student: ${student.name}\n📊 Average: ${student.summary?.avg || "N/A"}%\n\nFull report available at the school office.`;
+        if(navigator.share){
+          await navigator.share({title:`${student.name} Report - ${sName}`,text:shareText});
+        } else if(navigator.clipboard){
+          await navigator.clipboard.writeText(shareText);
+        }
+        setSt("done");
+      }
+    }catch(e: any){
+      if(e.message==="bad-email") setSt("bad-email");
+      else if(e.name==="AbortError") setSt("idle");
+      else setSt("error");
+    }
+  };
+
+  return(
+    <Sheet onClose={onClose}>
+      <MHead icon={Printer} title="Print / Export Report" subtitle={student.name} color="bg-primary" onClose={onClose}/>
+      <div className="p-5 space-y-3 overflow-y-auto">
+        {st==="done"?(
+          <div className="text-center py-10 space-y-4">
+            <div className="inline-flex p-4 bg-emerald-100 rounded-full"><Check size={32} className="text-emerald-600"/></div>
+            <p className="font-black uppercase text-slate-900">Done!</p>
+            <p className="text-xs text-slate-500">Your report has been exported successfully.</p>
+            <div className="flex gap-2 justify-center">
+              <Btn variant="ghost" onClick={()=>setSt("idle")}>Export Another</Btn>
+              <Btn variant="primary" onClick={onClose}>Close</Btn>
+            </div>
+          </div>
+        ):(
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              {PRINT_OPTS.slice(0,2).map(o=>
+                <button key={o.id} type="button" onClick={()=>{setSel(o.id);setSt("idle");}} className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-center transition-all ${sel===o.id?"border-primary bg-blue-50":"border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}>
+                  <span className="text-2xl">{o.icon}</span>
+                  <p className={`text-sm font-black ${sel===o.id?"text-primary":"text-slate-800"}`}>{o.label}</p>
+                  <p className="text-xs text-slate-400">{o.desc}</p>
+                </button>
+              )}
+            </div>
+            <div className="border-t border-slate-100 pt-3 space-y-2">
+              <p className="text-xs font-black uppercase text-slate-400">More Options</p>
+              {PRINT_OPTS.slice(2).map(o=>
+                <button key={o.id} type="button" onClick={()=>{setSel(o.id);setSt("idle");}} className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${sel===o.id?"border-primary bg-blue-50":"border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}>
+                  <span className="text-lg flex-shrink-0">{o.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-black ${sel===o.id?"text-primary":"text-slate-800"}`}>{o.label}</p>
+                    <p className="text-xs text-slate-400">{o.desc}</p>
+                  </div>
+                  <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${sel===o.id?"border-primary bg-primary":"border-slate-300"}`}>
+                    {sel===o.id&&<Check size={9} className="text-white m-auto mt-0.5"/>}
+                  </div>
+                </button>
+              )}
+            </div>
+            {sel==="email"&&<Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email address":""}/>}
+            {sel==="pdf"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Download size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads a professional A4 PDF with scores, attendance, and remarks.</p></div>}
+            {sel==="excel"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><FileSpreadsheet size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads an editable Excel spreadsheet for end-of-term processing.</p></div>}
+            {sel==="browser"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Printer size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Opens the report in a new window with print dialog.</p></div>}
+            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Something went wrong. Try again.</p></div>}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+              <Btn variant="primary" onClick={go} loading={st==="loading"} disabled={!sel}>{sel==="pdf"?<><Download size={14}/>Export PDF</>:sel==="excel"?<><FileSpreadsheet size={14}/>Export Excel</>:<><Printer size={14}/>Proceed</>}</Btn>
+            </div>
+          </>
+        )}
+      </div>
+    </Sheet>
+  );
+});
         if(!reportHTML) throw new Error("no-report");
         const w = window.open("","_blank","width=800,height=900");
         if(w){w.document.write(reportHTML);w.document.close();}
