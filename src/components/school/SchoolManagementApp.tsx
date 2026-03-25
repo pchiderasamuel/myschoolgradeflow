@@ -1117,7 +1117,7 @@ export default function SchoolManagementApp() {
       </div>
 
       {/* Modals */}
-      {showPrint&&activeReport&&<PrintDialog student={activeReport} schoolName={schoolSettings.name} onClose={()=>setShowPrint(false)}/>}
+      {showPrint&&activeReport&&<PrintDialog student={activeReport} schoolName={schoolSettings.name} schoolSettings={schoolSettings} curC={curC} attRate={attRate} onClose={()=>setShowPrint(false)}/>}
       {dlg?.type==="staffAdd"&&<StaffDialog mode="add" onSave={saveStaff} onClose={()=>setDlg(null)}/>}
       {dlg?.type==="staffEdit"&&<StaffDialog mode="edit" staff={dlg.data} onSave={saveStaff} onClose={()=>setDlg(null)}/>}
       {dlg?.type==="delete"&&<PinAuth title="Delete Record" subtitle={`${dlg.data.subject} — ${dlg.data.studentName}`} headerColor="bg-destructive" icon={Trash2} confirmLabel={<><Trash2 size={13}/>Delete</>} confirmVariant="danger" correctPin={adminPinRef.current} onConfirm={()=>{dispatch({type:"DELETE_ENTRY",id:dlg.data.id});showToast("Moved to bin");setDlg(null);}} onCancel={()=>setDlg(null)}><div className="bg-red-50 border border-red-100 rounded-xl p-4 flex gap-3"><AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5"/><div className="text-xs text-red-700"><p className="font-black uppercase mb-1">Deleting:</p><p className="font-bold">{dlg.data.subject} — {dlg.data.studentName}</p><p className="text-red-400">Score: {dlg.data.caScore}+{dlg.data.examScore}={dlg.data.total}</p></div></div></PinAuth>}
