@@ -918,14 +918,22 @@ export default function SchoolManagementApp() {
   const primaryTabs = useMemo(()=>TABS.filter(t=>t.primary),[TABS]);
   const moreTabs    = useMemo(()=>TABS.filter(t=>!t.primary),[TABS]);
 
-  const doLogin = useCallback(()=>{
+  const doLogin = useCallback(async()=>{
     setLoginErr("");
     if(loginId.toLowerCase()==="admin"){if(!loginPass)return setLoginErr("Enter a password");setAuth({loggedIn:true,user:null});return;}
-    const s=staffList.find((st: any)=>st.name.toLowerCase()===loginId.toLowerCase()&&st.pin===loginPass);
-    if(!s)return setLoginErr("Invalid name or PIN");
-    if(s.status==="revoked")return setLoginErr("Your access has been revoked.");
-    setAuth({loggedIn:true,user:s});
-    if(s.status==="restricted")showToast("Account restricted — limited access.","warning");
+    // Check staff with async PIN verification
+    for(const st of staffList){
+      if(st.name.toLowerCase()===loginId.toLowerCase()){
+        const pinMatch=await verifyPin(loginPass,st.pin);
+        if(pinMatch){
+          if(st.status==="revoked")return setLoginErr("Your access has been revoked.");
+          setAuth({loggedIn:true,user:st});
+          if(st.status==="restricted")showToast("Account restricted — limited access.","warning");
+          return;
+        }
+      }
+    }
+    setLoginErr("Invalid name or PIN");
   },[loginId,loginPass,staffList,showToast]);
 
   const submitScore = useCallback(()=>{
