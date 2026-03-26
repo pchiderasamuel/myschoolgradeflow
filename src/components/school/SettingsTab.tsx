@@ -35,8 +35,8 @@ export default function SettingsTab() {
 
       {/* Section tabs */}
       <div className="px-4 pb-3">
-        <div className="flex gap-2">
-          {([["school", "School"], ["pin", "Security"], ["logs", "Activity"]] as const).map(([k, label]) => (
+        <div className="flex gap-2 flex-wrap">
+          {([["school", "School"], ["pin", "Security"], ["email", "Email"], ["logs", "Activity"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setSection(k)}
               className={`chip ${section === k ? "chip-primary" : "chip-muted"}`}>{label}</button>
           ))}
