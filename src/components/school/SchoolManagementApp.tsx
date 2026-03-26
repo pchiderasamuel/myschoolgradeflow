@@ -645,10 +645,17 @@ const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClo
         setSt("done");
       } else if(sel==="email"){
         if(!email.includes("@")) throw new Error("bad-email");
+        if(!emailjsCfg?.serviceId || !emailjsCfg?.templateId || !emailjsCfg?.publicKey) throw new Error("no-emailjs");
         const sName = ss?.name||schoolName;
-        const subject = encodeURIComponent(`${student.name} - Academic Report Sheet - ${sName}`);
-        const body = encodeURIComponent(`Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${sName}\nStudent: ${student.name}\nClass: ${student.class || ""}\n\nPlease contact the school for the full detailed report.\n\nBest regards,\n${sName}`);
-        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        const records = student.records || [];
+        const scoreRows = records.map((r: any) => `${r.subject}: CA=${r.caScore}, Exam=${r.examScore}, Total=${r.total}`).join("\n");
+        const message = `Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${sName}\nStudent: ${student.name}\nClass: ${student.class || ""}\nTerm: ${student.term || ss?.term || ""}\nSession: ${student.session || ss?.session || ""}\nPosition: ${student.position || "N/A"}\nAverage: ${student.summary?.avg || "N/A"}%\n\n--- SCORES ---\n${scoreRows || "No scores recorded"}\n\nCumulative: ${student.summary?.total || 0}/${student.summary?.obtainable || 0}\n\n--- ATTENDANCE ---\nDays Open: ${curC?.daysOpen || "—"}\nDays Present: ${curC?.daysPresent || "—"}\nDays Absent: ${curC?.daysAbsent || "—"}\nAttendance Rate: ${attRate !== null && attRate !== undefined ? attRate + "%" : "—"}\n\n--- REMARKS ---\nTeacher: ${curC?.teacher || "No remark"}\nPrincipal: ${curC?.principal || "No remark"}\n\nNext Term Resumption: ${ss?.resumptionDate || "—"}\n\nBest regards,\n${sName}`;
+        const subject = `${student.name} - Academic Report Sheet - ${sName}`;
+        await emailjs.send(emailjsCfg.serviceId, emailjsCfg.templateId, {
+          to_email: email,
+          subject,
+          message,
+        }, emailjsCfg.publicKey);
         setSt("done");
       } else if(sel==="share"){
         const sName = ss?.name||schoolName;
