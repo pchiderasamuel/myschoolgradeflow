@@ -602,6 +602,7 @@ tr:nth-child(even){background:#f8fafc}
 
 const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClose}: any)=>{
   const[sel,setSel]=useState<string|null>(null);const[email,setEmail]=useState("");const[st,setSt]=useState("idle");
+  const emailjsCfg = ss?.emailjs;
   
   const buildExportData=()=>({
     studentName:student.name,className:student.class,term:student.term||ss?.term||"",session:student.session||ss?.session||"",
