@@ -111,6 +111,58 @@ export default function SettingsTab() {
           </div>
         )}
 
+        {section === "email" && (
+          <div className="space-y-4">
+            <div className="mobile-card p-4 space-y-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center">
+                  <Mail className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">EmailJS Configuration</p>
+                  <p className="text-xs text-muted-foreground">Send reports directly to parents' email</p>
+                </div>
+              </div>
+
+              <div className="bg-accent/50 border border-border rounded-xl p-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Sign up free at <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-primary font-bold underline">emailjs.com</a>, 
+                  create an email service & template, then paste your IDs below. Your template should have variables: 
+                  <code className="bg-muted px-1 rounded text-[10px]">{'{{to_email}}'}</code>, 
+                  <code className="bg-muted px-1 rounded text-[10px]">{'{{subject}}'}</code>, 
+                  <code className="bg-muted px-1 rounded text-[10px]">{'{{message}}'}</code>.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Service ID</label>
+                  <input value={emailDraft.serviceId} onChange={(e) => setEmailDraft(d => ({ ...d, serviceId: e.target.value }))}
+                    className="input-field" placeholder="service_xxxxxxx" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Template ID</label>
+                  <input value={emailDraft.templateId} onChange={(e) => setEmailDraft(d => ({ ...d, templateId: e.target.value }))}
+                    className="input-field" placeholder="template_xxxxxxx" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Public Key</label>
+                  <input value={emailDraft.publicKey} onChange={(e) => setEmailDraft(d => ({ ...d, publicKey: e.target.value }))}
+                    className="input-field" placeholder="your_public_key" />
+                </div>
+              </div>
+
+              <button onClick={() => {
+                dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { emailjs: emailDraft } });
+                showToast("Email settings saved!");
+              }}
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.97] transition-transform">
+                <Save className="w-4 h-4" /> Save Email Settings
+              </button>
+            </div>
+          </div>
+        )}
+
         {section === "logs" && (
           <div className="space-y-2">
             {logs.length === 0 ? (
