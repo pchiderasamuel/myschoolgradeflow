@@ -669,6 +669,7 @@ const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClo
       }
     }catch(e: any){
       if(e.message==="bad-email") setSt("bad-email");
+      else if(e.message==="no-emailjs") setSt("no-emailjs");
       else if(e.name==="AbortError") setSt("idle");
       else setSt("error");
     }
