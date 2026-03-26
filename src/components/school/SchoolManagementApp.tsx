@@ -12,6 +12,7 @@ import {
 import { exportToPDF, exportToExcel } from "@/lib/report-export";
 import { parseCSV, readFileAsText } from "@/lib/csv-import";
 import { hashPin, verifyPin } from "@/lib/crypto-helpers";
+import emailjs from "@emailjs/browser";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRICULUM: Record<string, { classes: string[]; subjects: string[] }> = {
@@ -601,6 +602,7 @@ tr:nth-child(even){background:#f8fafc}
 
 const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClose}: any)=>{
   const[sel,setSel]=useState<string|null>(null);const[email,setEmail]=useState("");const[st,setSt]=useState("idle");
+  const emailjsCfg = ss?.emailjs;
   
   const buildExportData=()=>({
     studentName:student.name,className:student.class,term:student.term||ss?.term||"",session:student.session||ss?.session||"",
@@ -643,10 +645,17 @@ const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClo
         setSt("done");
       } else if(sel==="email"){
         if(!email.includes("@")) throw new Error("bad-email");
+        if(!emailjsCfg?.serviceId || !emailjsCfg?.templateId || !emailjsCfg?.publicKey) throw new Error("no-emailjs");
         const sName = ss?.name||schoolName;
-        const subject = encodeURIComponent(`${student.name} - Academic Report Sheet - ${sName}`);
-        const body = encodeURIComponent(`Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${sName}\nStudent: ${student.name}\nClass: ${student.class || ""}\n\nPlease contact the school for the full detailed report.\n\nBest regards,\n${sName}`);
-        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        const records = student.records || [];
+        const scoreRows = records.map((r: any) => `${r.subject}: CA=${r.caScore}, Exam=${r.examScore}, Total=${r.total}`).join("\n");
+        const message = `Dear Parent/Guardian,\n\nPlease find below the academic report summary for ${student.name}.\n\nSchool: ${sName}\nStudent: ${student.name}\nClass: ${student.class || ""}\nTerm: ${student.term || ss?.term || ""}\nSession: ${student.session || ss?.session || ""}\nPosition: ${student.position || "N/A"}\nAverage: ${student.summary?.avg || "N/A"}%\n\n--- SCORES ---\n${scoreRows || "No scores recorded"}\n\nCumulative: ${student.summary?.total || 0}/${student.summary?.obtainable || 0}\n\n--- ATTENDANCE ---\nDays Open: ${curC?.daysOpen || "—"}\nDays Present: ${curC?.daysPresent || "—"}\nDays Absent: ${curC?.daysAbsent || "—"}\nAttendance Rate: ${attRate !== null && attRate !== undefined ? attRate + "%" : "—"}\n\n--- REMARKS ---\nTeacher: ${curC?.teacher || "No remark"}\nPrincipal: ${curC?.principal || "No remark"}\n\nNext Term Resumption: ${ss?.resumptionDate || "—"}\n\nBest regards,\n${sName}`;
+        const subject = `${student.name} - Academic Report Sheet - ${sName}`;
+        await emailjs.send(emailjsCfg.serviceId, emailjsCfg.templateId, {
+          to_email: email,
+          subject,
+          message,
+        }, emailjsCfg.publicKey);
         setSt("done");
       } else if(sel==="share"){
         const sName = ss?.name||schoolName;
@@ -660,6 +669,7 @@ const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClo
       }
     }catch(e: any){
       if(e.message==="bad-email") setSt("bad-email");
+      else if(e.message==="no-emailjs") setSt("no-emailjs");
       else if(e.name==="AbortError") setSt("idle");
       else setSt("error");
     }
@@ -705,11 +715,15 @@ const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClo
                 </button>
               )}
             </div>
-            {sel==="email"&&<Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email address":""}/>}
+            {sel==="email"&&<>
+              <Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email address":""}/>
+              {!emailjsCfg?.serviceId&&<div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3"><AlertTriangle size={13} className="text-amber-500"/><p className="text-xs text-amber-700 font-medium">Configure EmailJS in Settings → Email tab first.</p></div>}
+            </>}
             {sel==="pdf"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Download size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads a professional A4 PDF with scores, attendance, and remarks.</p></div>}
             {sel==="excel"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><FileSpreadsheet size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads an editable Excel spreadsheet for end-of-term processing.</p></div>}
             {sel==="browser"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Printer size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Opens the report in a new window with print dialog.</p></div>}
-            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Something went wrong. Try again.</p></div>}
+            {st==="no-emailjs"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">EmailJS not configured. Go to Settings → Email to set it up.</p></div>}
+            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Failed to send email. Check your EmailJS settings and try again.</p></div>}
             <div className="grid grid-cols-2 gap-3 pt-1">
               <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
               <Btn variant="primary" onClick={go} loading={st==="loading"} disabled={!sel}>{sel==="pdf"?<><Download size={14}/>Export PDF</>:sel==="excel"?<><FileSpreadsheet size={14}/>Export Excel</>:<><Printer size={14}/>Proceed</>}</Btn>

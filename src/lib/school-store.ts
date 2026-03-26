@@ -49,12 +49,19 @@ export interface LogEntry {
   ts: string;
 }
 
+export interface EmailJSConfig {
+  serviceId: string;
+  templateId: string;
+  publicKey: string;
+}
+
 export interface SchoolSettings {
   name: string;
   motto: string;
   session: string;
   term: string;
   resumptionDate: string;
+  emailjs?: EmailJSConfig;
 }
 
 export interface AppState {
