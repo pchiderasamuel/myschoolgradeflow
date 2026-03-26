@@ -12,6 +12,7 @@ import {
 import { exportToPDF, exportToExcel } from "@/lib/report-export";
 import { parseCSV, readFileAsText } from "@/lib/csv-import";
 import { hashPin, verifyPin } from "@/lib/crypto-helpers";
+import emailjs from "@emailjs/browser";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRICULUM: Record<string, { classes: string[]; subjects: string[] }> = {
