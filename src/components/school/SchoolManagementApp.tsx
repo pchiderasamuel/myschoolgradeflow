@@ -715,11 +715,15 @@ const PrintDialog=memo(({student,schoolName,schoolSettings:ss,curC,attRate,onClo
                 </button>
               )}
             </div>
-            {sel==="email"&&<Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email address":""}/>}
+            {sel==="email"&&<>
+              <Inp label="Recipient Email" type="email" placeholder="parent@example.com" value={email} onChange={(e: any)=>{setEmail(e.target.value);setSt("idle");}} error={st==="bad-email"?"Enter a valid email address":""}/>
+              {!emailjsCfg?.serviceId&&<div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3"><AlertTriangle size={13} className="text-amber-500"/><p className="text-xs text-amber-700 font-medium">Configure EmailJS in Settings → Email tab first.</p></div>}
+            </>}
             {sel==="pdf"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Download size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads a professional A4 PDF with scores, attendance, and remarks.</p></div>}
             {sel==="excel"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><FileSpreadsheet size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Downloads an editable Excel spreadsheet for end-of-term processing.</p></div>}
             {sel==="browser"&&<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2"><Printer size={13} className="text-primary flex-shrink-0 mt-0.5"/><p className="text-xs text-blue-700 font-medium">Opens the report in a new window with print dialog.</p></div>}
-            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Something went wrong. Try again.</p></div>}
+            {st==="no-emailjs"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">EmailJS not configured. Go to Settings → Email to set it up.</p></div>}
+            {st==="error"&&<div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3"><AlertTriangle size={13} className="text-red-500"/><p className="text-xs text-red-600 font-bold">Failed to send email. Check your EmailJS settings and try again.</p></div>}
             <div className="grid grid-cols-2 gap-3 pt-1">
               <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
               <Btn variant="primary" onClick={go} loading={st==="loading"} disabled={!sel}>{sel==="pdf"?<><Download size={14}/>Export PDF</>:sel==="excel"?<><FileSpreadsheet size={14}/>Export Excel</>:<><Printer size={14}/>Proceed</>}</Btn>
