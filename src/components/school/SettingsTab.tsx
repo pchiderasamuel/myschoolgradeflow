@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useApp } from "@/lib/school-store";
+import type { EmailJSConfig } from "@/lib/school-store";
 import { TERMS } from "@/lib/school-constants";
-import { Settings, Save, GraduationCap, Eye, EyeOff, Clock } from "lucide-react";
+import { Settings, Save, GraduationCap, Eye, EyeOff, Clock, Mail } from "lucide-react";
 import { fmtTimestamp } from "@/lib/school-helpers";
 
 export default function SettingsTab() {
@@ -11,7 +12,8 @@ export default function SettingsTab() {
   const [draft, setDraft] = useState({ ...schoolSettings });
   const [pinDraft, setPinDraft] = useState("");
   const [showPin, setShowPin] = useState(false);
-  const [section, setSection] = useState<"school" | "pin" | "logs">("school");
+  const [emailDraft, setEmailDraft] = useState<EmailJSConfig>(schoolSettings.emailjs || { serviceId: "", templateId: "", publicKey: "" });
+  const [section, setSection] = useState<"school" | "pin" | "logs" | "email">("school");
 
   const saveSettings = () => {
     dispatch({ type: "SET_SCHOOL_SETTINGS", payload: draft });
