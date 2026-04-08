@@ -7,12 +7,14 @@ import {
   UserX, UserCheck, Eye, EyeOff, KeyRound, Shield,
   Menu, BookOpen, MoreVertical, ChevronRight,
   CalendarDays, ClipboardList, Database, Edit2,
-  Download, FileSpreadsheet
+  Download, FileSpreadsheet, UploadCloud, HardDrive
 } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/report-export";
 import { parseCSV, readFileAsText } from "@/lib/csv-import";
 import { hashPin, verifyPin } from "@/lib/crypto-helpers";
 import emailjs from "@emailjs/browser";
+import { exportAttendanceCSV, exportAttendanceExcel, exportClassResultsExcel, exportBulkPDFs, exportBackup } from "@/lib/data-export";
+import { parseScoresCSV, validateBackup, readFileAsText as readFileText } from "@/lib/data-import";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRICULUM: Record<string, { classes: string[]; subjects: string[] }> = {
@@ -744,7 +746,7 @@ const SettingsTab=memo(({logoUrl,setSchoolLogo,logoRef,showToast,adminPinRef}: a
   const handleLogo=(e: any)=>{const f=e.target.files[0];if(!f)return;if(!f.type.startsWith("image/"))return showToast("Invalid image","error");if(f.size>2097152)return showToast("Max 2MB","error");const r=new FileReader();r.onload=(ev: any)=>{setSchoolLogo(ev.target.result);showToast("Logo uploaded");};r.readAsDataURL(f);};
   const changePin=async()=>{setPinErr("");const curMatch=await verifyPin(pinF.cur,adminPinRef.current);if(!curMatch)return setPinErr("Current PIN incorrect.");if(pinF.nxt.length<4)return setPinErr("New PIN must be ≥ 4 digits.");if(pinF.nxt!==pinF.cnf)return setPinErr("PINs don't match.");const hashed=await hashPin(pinF.nxt);adminPinRef.current=hashed;setPinF({cur:"",nxt:"",cnf:""});showToast("Admin PIN updated & encrypted");};
   const[emailDraft,setEmailDraft]=useState<any>(schoolSettings.emailjs||{serviceId:"",templateId:"",publicKey:""});
-  const SECS=[{id:"logo",label:"Logo",icon:"🖼️"},{id:"info",label:"School Info",icon:"🏫"},{id:"session",label:"Session",icon:"📅"},{id:"email",label:"Email",icon:"📧"},{id:"security",label:"Security",icon:"🔒"}];
+  const SECS=[{id:"logo",label:"Logo",icon:"🖼️"},{id:"info",label:"School Info",icon:"🏫"},{id:"session",label:"Session",icon:"📅"},{id:"email",label:"Email",icon:"📧"},{id:"data",label:"Data",icon:"💾"},{id:"security",label:"Security",icon:"🔒"}];
   return(
     <div className="max-w-3xl mx-auto">
       <div className="mb-5"><h1 className="text-2xl font-black text-slate-900 uppercase">Settings</h1><p className="text-sm text-slate-400">Manage school identity, session and security</p></div>
@@ -757,6 +759,69 @@ const SettingsTab=memo(({logoUrl,setSchoolLogo,logoRef,showToast,adminPinRef}: a
           {sec==="info"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">School Information</p><Inp label="School Name" value={draft.name} onChange={(e: any)=>setDraft((d: any)=>({...d,name:e.target.value}))}/><Inp label="School Motto" value={draft.motto} onChange={(e: any)=>setDraft((d: any)=>({...d,motto:e.target.value}))}/><Btn variant="primary" size="lg" className="w-full" onClick={saveInfo}>{saved?<><Check size={15}/>Saved!</>:<><Save size={15}/>Save Info</>}</Btn></Card>}
           {sec==="session"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">Session & Term</p><Inp label="Academic Session" value={draft.session} onChange={(e: any)=>setDraft((d: any)=>({...d,session:e.target.value}))} placeholder="e.g. 2024/2025"/><Sel label="Current Term" value={draft.term} onChange={(e: any)=>setDraft((d: any)=>({...d,term:e.target.value}))}>{TERMS.map(t=><option key={t}>{t}</option>)}</Sel><Inp label="Next Resumption Date" value={draft.resumptionDate} onChange={(e: any)=>setDraft((d: any)=>({...d,resumptionDate:e.target.value}))} placeholder="e.g. January 8th, 2025"/><Btn variant="primary" size="lg" className="w-full" onClick={saveInfo}>{saved?<><Check size={15}/>Saved!</>:<><Save size={15}/>Save Session</>}</Btn></Card>}
           {sec==="email"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">EmailJS Configuration</p><p className="text-xs text-slate-400">Send report summaries directly to parents' email.</p><div className="bg-accent/50 border border-border rounded-xl p-3"><p className="text-xs text-muted-foreground leading-relaxed">Sign up free at <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-primary font-bold underline">emailjs.com</a>, create an email service &amp; template, then paste your IDs below. Template variables: <code className="bg-muted px-1 rounded text-[10px]">{"{{to_email}}"}</code>, <code className="bg-muted px-1 rounded text-[10px]">{"{{subject}}"}</code>, <code className="bg-muted px-1 rounded text-[10px]">{"{{message}}"}</code>.</p></div><Inp label="Service ID" value={emailDraft.serviceId} onChange={(e: any)=>setEmailDraft((d: any)=>({...d,serviceId:e.target.value}))} placeholder="service_xxxxxxx"/><Inp label="Template ID" value={emailDraft.templateId} onChange={(e: any)=>setEmailDraft((d: any)=>({...d,templateId:e.target.value}))} placeholder="template_xxxxxxx"/><Inp label="Public Key" value={emailDraft.publicKey} onChange={(e: any)=>setEmailDraft((d: any)=>({...d,publicKey:e.target.value}))} placeholder="your_public_key"/><Btn variant="primary" size="lg" className="w-full" onClick={()=>{dispatch({type:"SET_SCHOOL_SETTINGS",payload:{emailjs:emailDraft}});showToast("Email settings saved");}}><Save size={15}/>Save Email Settings</Btn></Card>}
+          {sec==="data"&&<Card className="p-6 space-y-5">
+            <div><p className="text-sm font-black uppercase text-slate-700">Backup & Restore</p><p className="text-xs text-slate-400 mt-0.5">Export all data or restore from a previous backup.</p></div>
+            <div className="space-y-3">
+              <Btn variant="primary" size="lg" className="w-full" onClick={()=>{exportBackup(state);showToast("Backup downloaded");}}><Download size={15}/>Export Full Backup (JSON)</Btn>
+              <Btn variant="outline" size="lg" className="w-full" onClick={()=>{
+                const input=document.createElement("input");input.type="file";input.accept=".json";
+                input.onchange=async(ev: any)=>{
+                  const file=ev.target.files[0];if(!file)return;
+                  try{
+                    const text=await readFileText(file);const parsed=JSON.parse(text);
+                    const result=validateBackup(parsed);
+                    if(!result.valid)return showToast(result.error||"Invalid backup","error");
+                    const d=result.data!;
+                    dispatch({type:"HYDRATE",payload:{
+                      ...(d.entries?{entries:d.entries}:{}),
+                      ...(d.bin?{bin:d.bin}:{}),
+                      ...(d.logs?{logs:d.logs}:{}),
+                      ...(d.comments?{comments:d.comments}:{}),
+                      ...(d.attendance?{attendance:d.attendance}:{}),
+                      ...(d.classRolls?{classRolls:d.classRolls}:{}),
+                      ...(d.staffList?{staffList:d.staffList}:{}),
+                      ...(d.schoolSettings?{schoolSettings:d.schoolSettings}:{}),
+                    }});
+                    showToast(`Backup restored — ${d.entries?.length||0} scores, ${d.attendance?.length||0} attendance records`);
+                  }catch{showToast("Failed to read backup file","error");}
+                };input.click();
+              }}><UploadCloud size={15}/>Restore from Backup</Btn>
+            </div>
+            <div className="border-t border-slate-100 pt-5 space-y-3">
+              <p className="text-sm font-black uppercase text-slate-700">Import Scores from CSV</p>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3"><p className="text-xs text-blue-700 font-medium">CSV format: <code className="bg-white px-1 rounded text-[10px]">Name, Subject, CA, Exam</code> (optionally <code className="bg-white px-1 rounded text-[10px]">Class</code> as 5th column). First row can be a header.</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <Sel label="Default Class" id="import-class" value="" onChange={()=>{}}><option value="">Select class</option>{ALL_CLASSES.map(c=><option key={c}>{c}</option>)}</Sel>
+                <div className="flex items-end"><Btn variant="primary" className="w-full" onClick={()=>{
+                  const classEl=document.getElementById("import-class") as HTMLSelectElement;
+                  const defaultClass=classEl?.value||"";
+                  if(!defaultClass)return showToast("Select a default class first","error");
+                  const input=document.createElement("input");input.type="file";input.accept=".csv,.txt";
+                  input.onchange=async(ev: any)=>{
+                    const file=ev.target.files[0];if(!file)return;
+                    try{
+                      const text=await readFileText(file);
+                      const parsed=parseScoresCSV(text,defaultClass,schoolSettings.term,schoolSettings.session);
+                      if(!parsed.length)return showToast("No valid scores found","error");
+                      let added=0;
+                      parsed.forEach(s=>{
+                        const exists=state.entries.some((e: any)=>e.studentName.toLowerCase()===s.studentName.toLowerCase()&&e.studentClass===s.studentClass&&e.subject===s.subject&&e.term===schoolSettings.term&&e.session===schoolSettings.session);
+                        if(!exists){dispatch({type:"ADD_ENTRY",payload:{id:uid(),studentName:s.studentName,studentClass:s.studentClass,subject:s.subject,ca1:s.ca,ca2:0,ca3:0,exam:s.exam,caScore:s.ca,examScore:s.exam,total:s.total,term:schoolSettings.term,session:schoolSettings.session,enteredBy:"admin",createdAt:new Date().toISOString()}});added++;}
+                      });
+                      showToast(`${added} scores imported (${parsed.length-added} duplicates skipped)`);
+                    }catch{showToast("Failed to read CSV file","error");}
+                  };input.click();
+                }}><Upload size={14}/>Import CSV</Btn></div>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 pt-5 space-y-3">
+              <p className="text-sm font-black uppercase text-slate-700">Export Data</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Btn variant="outline" onClick={()=>{if(!state.attendance.length)return showToast("No attendance records","error");exportAttendanceCSV(state.attendance);showToast("Attendance CSV downloaded");}}><Download size={14}/>Attendance CSV</Btn>
+                <Btn variant="outline" onClick={()=>{if(!state.attendance.length)return showToast("No attendance records","error");exportAttendanceExcel(state.attendance);showToast("Attendance Excel downloaded");}}><FileSpreadsheet size={14}/>Attendance Excel</Btn>
+              </div>
+            </div>
+          </Card>}
           {sec==="security"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">Security & PIN</p><div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2"><AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5"/><p className="text-xs text-amber-700 font-medium">Keep Admin PIN private. Default: <strong>1234</strong></p></div>{([["cur","Current PIN"],["nxt","New PIN (min 4 digits)"],["cnf","Confirm New PIN"]] as const).map(([fk,fl])=><Field key={fk} label={fl}><div className="relative"><input type={pinSh[fk]?"text":"password"} value={pinF[fk]} maxLength={8} placeholder="••••••" onChange={(e: any)=>setPinF((p: any)=>({...p,[fk]:e.target.value.replace(/\D/g,"")}))} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-xl tracking-[0.5em] focus:border-primary outline-none transition-all pr-11"/><button type="button" onClick={()=>setPinSh((s: any)=>({...s,[fk]:!s[fk]}))} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">{pinSh[fk]?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></Field>)}{pinErr&&<p className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertTriangle size={12}/>{pinErr}</p>}<Btn variant="primary" size="lg" className="w-full" onClick={changePin}><Shield size={15}/>Update Admin PIN</Btn></Card>}
         </div>
       </div>
@@ -1119,6 +1184,10 @@ export default function SchoolManagementApp() {
               {activeTab==="reports"&&can("viewReports")&&(!activeReport?<>
                 <div><h1 className="text-2xl font-black text-slate-900 uppercase">Reports</h1><p className="text-sm text-slate-400">{filteredStudents.length} students · {rpTerm==="current"?schoolSettings.term:rpTerm==="all"?"All Terms":rpTerm}</p></div>
                 <div className="flex flex-col sm:flex-row gap-3 flex-wrap"><div className="relative flex-1 min-w-[200px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input value={rpSearch} onChange={(e: any)=>setRpSearch(e.target.value)} placeholder="Search student…" className="w-full pl-9 pr-4 py-3 bg-white border-2 border-slate-100 rounded-xl text-sm font-semibold focus:border-primary outline-none shadow-sm"/></div><select value={rpClass} onChange={(e: any)=>setRpClass(e.target.value)} className="px-4 py-3 bg-white border-2 border-slate-100 rounded-xl text-sm font-semibold focus:border-primary outline-none shadow-sm"><option value="All">All Classes</option>{ALL_CLASSES.map(c=><option key={c}>{c}</option>)}</select><select value={rpTerm} onChange={(e: any)=>setRpTerm(e.target.value)} className="px-4 py-3 bg-white border-2 border-slate-100 rounded-xl text-sm font-semibold focus:border-primary outline-none shadow-sm"><option value="current">Current Term</option><option value="all">All Terms</option>{TERMS.map(t=><option key={t} value={t}>{t}</option>)}</select><select value={rpSession} onChange={(e: any)=>setRpSession(e.target.value)} className="px-4 py-3 bg-white border-2 border-slate-100 rounded-xl text-sm font-semibold focus:border-primary outline-none shadow-sm"><option value="current">Current Session</option><option value="all">All Sessions</option>{allSessions.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+                {rpClass!=="All"&&filteredStudents.length>0&&<Card className="p-4"><div className="flex items-center justify-between flex-wrap gap-3"><p className="text-xs font-black uppercase text-slate-500">Bulk Export — {rpClass}</p><div className="flex gap-2 flex-wrap">
+                  <Btn variant="outline" size="sm" onClick={()=>{const t=rpTerm==="current"?schoolSettings.term:rpTerm;const s=rpSession==="current"?schoolSettings.session:rpSession;const r=exportClassResultsExcel(entries,rpClass,t,s,schoolSettings.name);if(r)showToast("Class results Excel downloaded");else showToast("No records for this class/term","error");}}><FileSpreadsheet size={13}/>Class Results Excel</Btn>
+                  <Btn variant="outline" size="sm" onClick={()=>{const t=rpTerm==="current"?schoolSettings.term:rpTerm;const s=rpSession==="current"?schoolSettings.session:rpSession;const count=exportBulkPDFs(entries,rpClass,t,s,schoolSettings,appState.comments,attendance);if(count)showToast(`${count} PDF reports downloaded`);else showToast("No records found","error");}}><Download size={13}/>All PDFs ({filteredStudents.filter((st: any)=>st.class===rpClass).length})</Btn>
+                </div></div></Card>}
                 {filteredStudents.length===0?<EmptyState icon={FileText} title="No students found for this term" subtitle="Switch term or add scores" action={<Btn variant="ghost" size="sm" onClick={()=>{setRpTerm("all");setRpSession("all");}}>Show All Terms</Btn>}/>:<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{filteredStudents.map((s: any)=><button key={s.id} onClick={()=>openReport(s)} className="p-5 bg-white border-2 border-slate-100 rounded-2xl flex items-center justify-between text-left group hover:border-blue-400 hover:shadow-md transition-all"><div><p className="font-black text-sm uppercase text-slate-900">{s.name}</p><p className="text-xs font-bold text-slate-400 mt-0.5">{s.class}</p></div><FileText size={18} className="text-slate-300 group-hover:text-primary transition-colors"/></button>)}</div>}
               </>:
               <div className="space-y-5 max-w-3xl mx-auto">
