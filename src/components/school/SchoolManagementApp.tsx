@@ -759,6 +759,69 @@ const SettingsTab=memo(({logoUrl,setSchoolLogo,logoRef,showToast,adminPinRef}: a
           {sec==="info"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">School Information</p><Inp label="School Name" value={draft.name} onChange={(e: any)=>setDraft((d: any)=>({...d,name:e.target.value}))}/><Inp label="School Motto" value={draft.motto} onChange={(e: any)=>setDraft((d: any)=>({...d,motto:e.target.value}))}/><Btn variant="primary" size="lg" className="w-full" onClick={saveInfo}>{saved?<><Check size={15}/>Saved!</>:<><Save size={15}/>Save Info</>}</Btn></Card>}
           {sec==="session"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">Session & Term</p><Inp label="Academic Session" value={draft.session} onChange={(e: any)=>setDraft((d: any)=>({...d,session:e.target.value}))} placeholder="e.g. 2024/2025"/><Sel label="Current Term" value={draft.term} onChange={(e: any)=>setDraft((d: any)=>({...d,term:e.target.value}))}>{TERMS.map(t=><option key={t}>{t}</option>)}</Sel><Inp label="Next Resumption Date" value={draft.resumptionDate} onChange={(e: any)=>setDraft((d: any)=>({...d,resumptionDate:e.target.value}))} placeholder="e.g. January 8th, 2025"/><Btn variant="primary" size="lg" className="w-full" onClick={saveInfo}>{saved?<><Check size={15}/>Saved!</>:<><Save size={15}/>Save Session</>}</Btn></Card>}
           {sec==="email"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">EmailJS Configuration</p><p className="text-xs text-slate-400">Send report summaries directly to parents' email.</p><div className="bg-accent/50 border border-border rounded-xl p-3"><p className="text-xs text-muted-foreground leading-relaxed">Sign up free at <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-primary font-bold underline">emailjs.com</a>, create an email service &amp; template, then paste your IDs below. Template variables: <code className="bg-muted px-1 rounded text-[10px]">{"{{to_email}}"}</code>, <code className="bg-muted px-1 rounded text-[10px]">{"{{subject}}"}</code>, <code className="bg-muted px-1 rounded text-[10px]">{"{{message}}"}</code>.</p></div><Inp label="Service ID" value={emailDraft.serviceId} onChange={(e: any)=>setEmailDraft((d: any)=>({...d,serviceId:e.target.value}))} placeholder="service_xxxxxxx"/><Inp label="Template ID" value={emailDraft.templateId} onChange={(e: any)=>setEmailDraft((d: any)=>({...d,templateId:e.target.value}))} placeholder="template_xxxxxxx"/><Inp label="Public Key" value={emailDraft.publicKey} onChange={(e: any)=>setEmailDraft((d: any)=>({...d,publicKey:e.target.value}))} placeholder="your_public_key"/><Btn variant="primary" size="lg" className="w-full" onClick={()=>{dispatch({type:"SET_SCHOOL_SETTINGS",payload:{emailjs:emailDraft}});showToast("Email settings saved");}}><Save size={15}/>Save Email Settings</Btn></Card>}
+          {sec==="data"&&<Card className="p-6 space-y-5">
+            <div><p className="text-sm font-black uppercase text-slate-700">Backup & Restore</p><p className="text-xs text-slate-400 mt-0.5">Export all data or restore from a previous backup.</p></div>
+            <div className="space-y-3">
+              <Btn variant="primary" size="lg" className="w-full" onClick={()=>{exportBackup(state);showToast("Backup downloaded");}}><Download size={15}/>Export Full Backup (JSON)</Btn>
+              <Btn variant="outline" size="lg" className="w-full" onClick={()=>{
+                const input=document.createElement("input");input.type="file";input.accept=".json";
+                input.onchange=async(ev: any)=>{
+                  const file=ev.target.files[0];if(!file)return;
+                  try{
+                    const text=await readFileText(file);const parsed=JSON.parse(text);
+                    const result=validateBackup(parsed);
+                    if(!result.valid)return showToast(result.error||"Invalid backup","error");
+                    const d=result.data!;
+                    dispatch({type:"HYDRATE",payload:{
+                      ...(d.entries?{entries:d.entries}:{}),
+                      ...(d.bin?{bin:d.bin}:{}),
+                      ...(d.logs?{logs:d.logs}:{}),
+                      ...(d.comments?{comments:d.comments}:{}),
+                      ...(d.attendance?{attendance:d.attendance}:{}),
+                      ...(d.classRolls?{classRolls:d.classRolls}:{}),
+                      ...(d.staffList?{staffList:d.staffList}:{}),
+                      ...(d.schoolSettings?{schoolSettings:d.schoolSettings}:{}),
+                    }});
+                    showToast(`Backup restored — ${d.entries?.length||0} scores, ${d.attendance?.length||0} attendance records`);
+                  }catch{showToast("Failed to read backup file","error");}
+                };input.click();
+              }}><UploadCloud size={15}/>Restore from Backup</Btn>
+            </div>
+            <div className="border-t border-slate-100 pt-5 space-y-3">
+              <p className="text-sm font-black uppercase text-slate-700">Import Scores from CSV</p>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3"><p className="text-xs text-blue-700 font-medium">CSV format: <code className="bg-white px-1 rounded text-[10px]">Name, Subject, CA, Exam</code> (optionally <code className="bg-white px-1 rounded text-[10px]">Class</code> as 5th column). First row can be a header.</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <Sel label="Default Class" id="import-class" value="" onChange={()=>{}}><option value="">Select class</option>{ALL_CLASSES.map(c=><option key={c}>{c}</option>)}</Sel>
+                <div className="flex items-end"><Btn variant="primary" className="w-full" onClick={()=>{
+                  const classEl=document.getElementById("import-class") as HTMLSelectElement;
+                  const defaultClass=classEl?.value||"";
+                  if(!defaultClass)return showToast("Select a default class first","error");
+                  const input=document.createElement("input");input.type="file";input.accept=".csv,.txt";
+                  input.onchange=async(ev: any)=>{
+                    const file=ev.target.files[0];if(!file)return;
+                    try{
+                      const text=await readFileText(file);
+                      const parsed=parseScoresCSV(text,defaultClass,schoolSettings.term,schoolSettings.session);
+                      if(!parsed.length)return showToast("No valid scores found","error");
+                      let added=0;
+                      parsed.forEach(s=>{
+                        const exists=state.entries.some((e: any)=>e.studentName.toLowerCase()===s.studentName.toLowerCase()&&e.studentClass===s.studentClass&&e.subject===s.subject&&e.term===schoolSettings.term&&e.session===schoolSettings.session);
+                        if(!exists){dispatch({type:"ADD_ENTRY",payload:{id:uid(),studentName:s.studentName,studentClass:s.studentClass,subject:s.subject,ca1:s.ca,ca2:0,ca3:0,exam:s.exam,caScore:s.ca,examScore:s.exam,total:s.total,term:schoolSettings.term,session:schoolSettings.session,enteredBy:"admin",createdAt:new Date().toISOString()}});added++;}
+                      });
+                      showToast(`${added} scores imported (${parsed.length-added} duplicates skipped)`);
+                    }catch{showToast("Failed to read CSV file","error");}
+                  };input.click();
+                }}><Upload size={14}/>Import CSV</Btn></div>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 pt-5 space-y-3">
+              <p className="text-sm font-black uppercase text-slate-700">Export Data</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Btn variant="outline" onClick={()=>{if(!state.attendance.length)return showToast("No attendance records","error");exportAttendanceCSV(state.attendance);showToast("Attendance CSV downloaded");}}><Download size={14}/>Attendance CSV</Btn>
+                <Btn variant="outline" onClick={()=>{if(!state.attendance.length)return showToast("No attendance records","error");exportAttendanceExcel(state.attendance);showToast("Attendance Excel downloaded");}}><FileSpreadsheet size={14}/>Attendance Excel</Btn>
+              </div>
+            </div>
+          </Card>}
           {sec==="security"&&<Card className="p-6 space-y-4"><p className="text-sm font-black uppercase text-slate-700">Security & PIN</p><div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2"><AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5"/><p className="text-xs text-amber-700 font-medium">Keep Admin PIN private. Default: <strong>1234</strong></p></div>{([["cur","Current PIN"],["nxt","New PIN (min 4 digits)"],["cnf","Confirm New PIN"]] as const).map(([fk,fl])=><Field key={fk} label={fl}><div className="relative"><input type={pinSh[fk]?"text":"password"} value={pinF[fk]} maxLength={8} placeholder="••••••" onChange={(e: any)=>setPinF((p: any)=>({...p,[fk]:e.target.value.replace(/\D/g,"")}))} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-xl tracking-[0.5em] focus:border-primary outline-none transition-all pr-11"/><button type="button" onClick={()=>setPinSh((s: any)=>({...s,[fk]:!s[fk]}))} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">{pinSh[fk]?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></Field>)}{pinErr&&<p className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertTriangle size={12}/>{pinErr}</p>}<Btn variant="primary" size="lg" className="w-full" onClick={changePin}><Shield size={15}/>Update Admin PIN</Btn></Card>}
         </div>
       </div>
