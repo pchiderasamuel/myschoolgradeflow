@@ -7,12 +7,14 @@ import {
   UserX, UserCheck, Eye, EyeOff, KeyRound, Shield,
   Menu, BookOpen, MoreVertical, ChevronRight,
   CalendarDays, ClipboardList, Database, Edit2,
-  Download, FileSpreadsheet
+  Download, FileSpreadsheet, UploadCloud, HardDrive
 } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/report-export";
 import { parseCSV, readFileAsText } from "@/lib/csv-import";
 import { hashPin, verifyPin } from "@/lib/crypto-helpers";
 import emailjs from "@emailjs/browser";
+import { exportAttendanceCSV, exportAttendanceExcel, exportClassResultsExcel, exportBulkPDFs, exportBackup } from "@/lib/data-export";
+import { parseScoresCSV, validateBackup, readFileAsText as readFileText } from "@/lib/data-import";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRICULUM: Record<string, { classes: string[]; subjects: string[] }> = {
