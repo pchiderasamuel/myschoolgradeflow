@@ -82,12 +82,30 @@ interface AttendanceRecord {
   note: string;
   createdAt: string;
 }
+interface ReportTemplateConfig {
+  uploadedFile: string | null;       // base64 data URL of uploaded PDF/DOCX
+  uploadedFileName: string | null;
+  headerColor: string;               // hex color for header/footer
+  accentColor: string;               // hex color for accent bar
+  fontFamily: string;                // "Georgia" | "Helvetica" | "Times"
+  showLogo: boolean;
+  showMotto: boolean;
+  showAttendance: boolean;
+  showTeacherRemark: boolean;
+  showPrincipalRemark: boolean;
+  showResumptionDate: boolean;
+  showPosition: boolean;
+  showGrade: boolean;
+  showStamp: boolean;
+  tableStyle: "grid" | "striped" | "minimal";
+}
 interface SchoolSettings {
   name: string;
   motto: string;
   session: string;
   term: string;
   resumptionDate: string;
+  reportTemplate?: ReportTemplateConfig;
 }
 interface AppState {
   entries: Entry[];
@@ -1523,10 +1541,29 @@ const PrintDialog = memo(({ student, schoolName, schoolLogo, curC, attRate, scho
 });
 
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
+const DEFAULT_REPORT_TEMPLATE: ReportTemplateConfig = {
+  uploadedFile: null,
+  uploadedFileName: null,
+  headerColor: "#0f172a",
+  accentColor: "#2563eb",
+  fontFamily: "Georgia",
+  showLogo: true,
+  showMotto: true,
+  showAttendance: true,
+  showTeacherRemark: true,
+  showPrincipalRemark: true,
+  showResumptionDate: true,
+  showPosition: true,
+  showGrade: true,
+  showStamp: true,
+  tableStyle: "striped",
+};
+
 const SETTINGS_SECTIONS = [
   { id:"logo",     label:"School Logo",    icon:"🖼️" },
   { id:"info",     label:"School Info",    icon:"🏫" },
   { id:"session",  label:"Session & Term", icon:"📅" },
+  { id:"template", label:"Report Template",icon:"📋" },
   { id:"security", label:"Security & PIN", icon:"🔒" },
   { id:"database", label:"Database",       icon:"🗄️" },
 ];
