@@ -1736,6 +1736,151 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
               </div>
             </Card>
           )}
+          {sec === "template" && (() => {
+            const tpl = schoolSettings.reportTemplate || DEFAULT_REPORT_TEMPLATE;
+            const updateTpl = (patch: Partial<ReportTemplateConfig>) => {
+              dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { reportTemplate: { ...tpl, ...patch } } });
+              showToast("Template updated");
+            };
+            const handleTemplateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const validTypes = [
+                "application/pdf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/msword",
+              ];
+              if (!validTypes.includes(f.type)) return showToast("Please upload a PDF or DOCX file", "error");
+              if (f.size > 5242880) return showToast("File must be under 5MB", "error");
+              const r = new FileReader();
+              r.onload = ev => {
+                updateTpl({ uploadedFile: ev.target?.result as string, uploadedFileName: f.name });
+                showToast(`Template "${f.name}" uploaded`);
+              };
+              r.readAsDataURL(f);
+              e.target.value = "";
+            };
+            const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
+              <label className="flex items-center justify-between py-2.5 px-1 cursor-pointer group">
+                <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900">{label}</span>
+                <div className={`relative w-10 h-5 rounded-full transition-colors ${checked ? "bg-blue-600" : "bg-slate-200"}`}
+                  onClick={(e) => { e.preventDefault(); onChange(!checked); }}>
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
+                </div>
+              </label>
+            );
+            return (
+              <div className="space-y-4">
+                {/* Upload Template */}
+                <Card className="p-6 space-y-5">
+                  <div>
+                    <p className="text-sm font-black uppercase text-slate-700">Upload Report Template</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Upload a custom PDF or DOCX file to use as the base for generated reports.</p>
+                  </div>
+                  {tpl.uploadedFile ? (
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-lg">📄</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-slate-700 truncate">{tpl.uploadedFileName || "Custom Template"}</p>
+                        <p className="text-xs text-slate-400">Uploaded template active</p>
+                      </div>
+                      <Btn variant="ghost" size="sm" onClick={() => updateTpl({ uploadedFile: null, uploadedFileName: null })}>
+                        <X size={13} />Remove
+                      </Btn>
+                    </div>
+                  ) : (
+                    <label className="w-full flex flex-col items-center gap-2 px-6 py-8 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group">
+                      <Upload size={24} className="text-slate-300 group-hover:text-blue-400" />
+                      <p className="text-xs font-black uppercase text-slate-400 group-hover:text-blue-500">Click to upload PDF or DOCX</p>
+                      <p className="text-xs text-slate-300">Max 5MB</p>
+                      <input type="file" accept=".pdf,.docx,.doc" className="hidden" onChange={handleTemplateUpload} />
+                    </label>
+                  )}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <p className="text-xs text-amber-700 font-bold leading-relaxed">
+                      💡 Uploaded templates serve as a reference design. The system will match the layout style when generating student reports.
+                    </p>
+                  </div>
+                </Card>
+
+                {/* Customize Layout */}
+                <Card className="p-6 space-y-5">
+                  <div>
+                    <p className="text-sm font-black uppercase text-slate-700">Report Layout</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Choose which sections appear on generated reports.</p>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    <Toggle label="Show School Logo" checked={tpl.showLogo} onChange={v => updateTpl({ showLogo: v })} />
+                    <Toggle label="Show School Motto" checked={tpl.showMotto} onChange={v => updateTpl({ showMotto: v })} />
+                    <Toggle label="Show Student Position" checked={tpl.showPosition} onChange={v => updateTpl({ showPosition: v })} />
+                    <Toggle label="Show Grade Column" checked={tpl.showGrade} onChange={v => updateTpl({ showGrade: v })} />
+                    <Toggle label="Show Attendance Section" checked={tpl.showAttendance} onChange={v => updateTpl({ showAttendance: v })} />
+                    <Toggle label="Show Teacher's Remark" checked={tpl.showTeacherRemark} onChange={v => updateTpl({ showTeacherRemark: v })} />
+                    <Toggle label="Show Principal's Remark" checked={tpl.showPrincipalRemark} onChange={v => updateTpl({ showPrincipalRemark: v })} />
+                    <Toggle label="Show Stamp Box" checked={tpl.showStamp} onChange={v => updateTpl({ showStamp: v })} />
+                    <Toggle label="Show Resumption Date" checked={tpl.showResumptionDate} onChange={v => updateTpl({ showResumptionDate: v })} />
+                  </div>
+                </Card>
+
+                {/* Style Settings */}
+                <Card className="p-6 space-y-5">
+                  <div>
+                    <p className="text-sm font-black uppercase text-slate-700">Report Styling</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Customize colors, fonts and table appearance.</p>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Header Color</label>
+                      <div className="flex items-center gap-3">
+                        <input type="color" value={tpl.headerColor} onChange={e => updateTpl({ headerColor: e.target.value })}
+                          className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer" />
+                        <span className="text-sm font-bold text-slate-600 uppercase">{tpl.headerColor}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Accent Color</label>
+                      <div className="flex items-center gap-3">
+                        <input type="color" value={tpl.accentColor} onChange={e => updateTpl({ accentColor: e.target.value })}
+                          className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer" />
+                        <span className="text-sm font-bold text-slate-600 uppercase">{tpl.accentColor}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Font Family</label>
+                      <select value={tpl.fontFamily} onChange={e => updateTpl({ fontFamily: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="Georgia">Georgia (Serif)</option>
+                        <option value="Helvetica">Helvetica (Sans-serif)</option>
+                        <option value="Times">Times New Roman (Classic)</option>
+                        <option value="Courier">Courier (Monospace)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Table Style</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["grid", "striped", "minimal"] as const).map(style => (
+                          <button key={style} onClick={() => updateTpl({ tableStyle: style })}
+                            className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${tpl.tableStyle === style ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Reset */}
+                <div className="text-center">
+                  <Btn variant="ghost" size="sm" onClick={() => {
+                    dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { reportTemplate: { ...DEFAULT_REPORT_TEMPLATE } } });
+                    showToast("Template reset to defaults");
+                  }}>
+                    🔄 Reset to Default Template
+                  </Btn>
+                </div>
+              </div>
+            );
+          })()}
           {sec === "database" && (
             <div className="space-y-4">
               {/* Firebase Cloud Sync Card */}
