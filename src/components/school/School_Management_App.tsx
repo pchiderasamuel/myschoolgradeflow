@@ -2092,118 +2092,132 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
 });
 
 // ─── Report Sheet ─────────────────────────────────────────────────────────────
-const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }: any) => (
-  <div id="printable-report" className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-lg" style={{ fontFamily: "Georgia,serif" }}>
-    <div className="h-1.5 bg-blue-600" />
-    <div className="px-8 pt-7 pb-5 border-b-2 border-slate-900 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-4 min-w-0">
-        <SchoolLogo logoUrl={schoolLogo} size="lg" />
-        <div>
-          <h1 className="text-2xl font-black uppercase text-slate-900 tracking-tight leading-tight">{schoolSettings.name}</h1>
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">{schoolSettings.motto}</p>
+const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }: any) => {
+  const tpl: ReportTemplateConfig = schoolSettings.reportTemplate || DEFAULT_REPORT_TEMPLATE;
+  const headers = tpl.showGrade
+    ? ["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"]
+    : ["Subject", "CA /40", "Exam /60", "Total /100"];
+  const studentFields = [
+    ["Student", report.name, "font-black text-blue-700"],
+    ["Class", report.class, ""],
+    ...(tpl.showPosition ? [["Position", report.position, "font-black text-emerald-700"], ["In Class", report.classCount, ""]] : []),
+  ];
+  const remarkSections = [
+    ...(tpl.showTeacherRemark ? [["teacher", "Class Teacher's Remark", "teacherSig", ""] as const] : []),
+    ...(tpl.showPrincipalRemark ? [["principal", "Principal's Remark", "principalSig", "principal"] as const] : []),
+  ];
+  return (
+    <div id="printable-report" className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-lg" style={{ fontFamily: `${tpl.fontFamily},serif` }}>
+      <div className="h-1.5" style={{ backgroundColor: tpl.accentColor }} />
+      <div className="px-8 pt-7 pb-5 border-b-2 flex items-center justify-between gap-4" style={{ borderColor: tpl.headerColor }}>
+        <div className="flex items-center gap-4 min-w-0">
+          {tpl.showLogo && <SchoolLogo logoUrl={schoolLogo} size="lg" />}
+          <div>
+            <h1 className="text-2xl font-black uppercase tracking-tight leading-tight" style={{ color: tpl.headerColor }}>{schoolSettings.name}</h1>
+            {tpl.showMotto && <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: tpl.accentColor }}>{schoolSettings.motto}</p>}
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <span className="inline-block text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full" style={{ backgroundColor: tpl.headerColor }}>Report Sheet</span>
+          <p className="text-xs text-slate-500 font-bold mt-1.5">{schoolSettings.session} · {schoolSettings.term}</p>
         </div>
       </div>
-      <div className="text-right flex-shrink-0">
-        <span className="inline-block bg-slate-900 text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full">Report Sheet</span>
-        <p className="text-xs text-slate-500 font-bold mt-1.5">{schoolSettings.session} · {schoolSettings.term}</p>
-      </div>
-    </div>
-    <div className="bg-slate-50 px-8 py-3.5 border-b border-slate-100 grid grid-cols-4 gap-3">
-      {([
-        ["Student", report.name, "font-black text-blue-700"],
-        ["Class", report.class, ""],
-        ["Position", report.position, "font-black text-emerald-700"],
-        ["In Class", report.classCount, ""],
-      ] as const).map(([l, v, x]) => (
-        <div key={l}>
-          <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-0.5">{l}</p>
-          <p className={`text-sm font-black uppercase text-slate-900 ${x}`}>{v}</p>
-        </div>
-      ))}
-    </div>
-    <div className="px-8 pt-5 pb-3">
-      <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Academic Performance</p>
-      <table className="w-full border-collapse text-xs" style={{ borderTop: "2px solid #0f172a", borderBottom: "2px solid #0f172a" }}>
-        <thead>
-          <tr className="bg-slate-900 text-white">
-            {["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"].map((h, i) => (
-              <th key={i} style={{ padding:"9px 10px", textAlign: i === 0 ? "left" : "center", fontWeight:800, fontSize:"9px", letterSpacing:"0.1em", textTransform:"uppercase", borderRight: i < 5 ? "1px solid #334155" : "none" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {report.records.map((r: any, i: number) => {
-            const g = getGrade(r.total);
-            return (
-              <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", fontWeight:700, textTransform:"uppercase", fontSize:"10px" }}>{r.subject}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:700 }}>{r.caScore}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:700 }}>{r.examScore}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:900, fontSize:"12px" }}>{r.total}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:900, color:g.color }}>{g.grade}</td>
-                <td style={{ padding:"8px 10px", borderBottom:"1px solid #e2e8f0", fontStyle:"italic", color:"#64748b", fontSize:"10px" }}>{g.remark}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr style={{ background: "#0f172a" }}>
-            <td colSpan={3} style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Cumulative Total</td>
-            <td style={{ padding:"9px 10px", textAlign:"center", color:"#fff", fontWeight:900, fontSize:"14px" }}>{report.summary.total}<span style={{ fontSize:"9px", opacity:0.5 }}>/{report.summary.obtainable}</span></td>
-            <td style={{ padding:"9px 10px", textAlign:"center", color:"#34d399", fontWeight:900, fontSize:"12px" }}>{report.summary.avg}%</td>
-            <td style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase" }}>Avg.</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <div className="px-8 pt-4 pb-3">
-      <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Attendance</p>
-      <div className="grid grid-cols-4 gap-2">
-        {([
-          ["Days Opened",  curC.daysOpen    || "—", "bg-slate-100 text-slate-800"],
-          ["Days Present", curC.daysPresent || "—", "bg-emerald-50 text-emerald-800"],
-          ["Days Absent",  curC.daysAbsent  || "—", "bg-red-50 text-red-700"],
-          ["Rate", attRate !== null ? `${attRate}%` : "—", attRate === null ? "bg-slate-100 text-slate-800" : attRate >= 75 ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900"],
-        ] as const).map(([l, v, c]) => (
-          <div key={l} className={`${c} rounded-xl p-3 text-center`}>
-            <p className="text-xs font-black uppercase opacity-60 mb-0.5">{l}</p>
-            <p className="text-xl font-black">{v}</p>
+      <div className="bg-slate-50 px-8 py-3.5 border-b border-slate-100" style={{ display: "grid", gridTemplateColumns: `repeat(${studentFields.length}, 1fr)`, gap: "0.75rem" }}>
+        {studentFields.map(([l, v, x]) => (
+          <div key={l as string}>
+            <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-0.5">{l}</p>
+            <p className={`text-sm font-black uppercase text-slate-900 ${x}`}>{v}</p>
           </div>
         ))}
       </div>
-    </div>
-    <div className="px-8 pt-4 pb-5 grid grid-cols-2 gap-4">
-      {([
-        ["teacher",   "Class Teacher's Remark", "teacherSig",   ""],
-        ["principal", "Principal's Remark",     "principalSig", "principal"],
-      ] as const).map(([f, l, sf, role]) => (
-        <div key={f} className="border border-slate-200 rounded-xl p-4">
-          <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">{l}</p>
-          <div className="min-h-10 text-sm text-slate-700 italic border-b border-dashed border-slate-200 pb-2 mb-3">
-            {curC[f] || <span className="text-slate-300 not-italic text-xs">No remark entered</span>}
-          </div>
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-xs font-black uppercase text-slate-400 mb-0.5">Signature</p>
-              <p className="text-blue-600 italic text-base" style={{ fontFamily:"Georgia,serif" }}>{curC[sf] || "_____________________"}</p>
-            </div>
-            {role === "principal" && (
-              <div className="w-16 h-10 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center">
-                <p className="text-xs text-slate-300 font-bold">Stamp</p>
+      <div className="px-8 pt-5 pb-3">
+        <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Academic Performance</p>
+        <table className="w-full border-collapse text-xs" style={{ borderTop: `2px solid ${tpl.headerColor}`, borderBottom: `2px solid ${tpl.headerColor}` }}>
+          <thead>
+            <tr style={{ backgroundColor: tpl.headerColor, color: "#fff" }}>
+              {headers.map((h, i) => (
+                <th key={i} style={{ padding:"9px 10px", textAlign: i === 0 ? "left" : "center", fontWeight:800, fontSize:"9px", letterSpacing:"0.1em", textTransform:"uppercase", borderRight: i < headers.length - 1 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {report.records.map((r: any, i: number) => {
+              const g = getGrade(r.total);
+              const bg = tpl.tableStyle === "striped" ? (i % 2 === 0 ? "#fff" : "#f8fafc") : "#fff";
+              const border = tpl.tableStyle === "minimal" ? "none" : "1px solid #e2e8f0";
+              return (
+                <tr key={i} style={{ background: bg }}>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, fontWeight:700, textTransform:"uppercase", fontSize:"10px" }}>{r.subject}</td>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:700 }}>{r.caScore}</td>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:700 }}>{r.examScore}</td>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:900, fontSize:"12px" }}>{r.total}</td>
+                  {tpl.showGrade && <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:900, color:g.color }}>{g.grade}</td>}
+                  {tpl.showGrade && <td style={{ padding:"8px 10px", borderBottom: border, fontStyle:"italic", color:"#64748b", fontSize:"10px" }}>{g.remark}</td>}
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{ background: tpl.headerColor }}>
+              <td colSpan={tpl.showGrade ? 3 : 3} style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Cumulative Total</td>
+              <td style={{ padding:"9px 10px", textAlign:"center", color:"#fff", fontWeight:900, fontSize:"14px" }}>{report.summary.total}<span style={{ fontSize:"9px", opacity:0.5 }}>/{report.summary.obtainable}</span></td>
+              {tpl.showGrade && <td style={{ padding:"9px 10px", textAlign:"center", color:"#34d399", fontWeight:900, fontSize:"12px" }}>{report.summary.avg}%</td>}
+              {tpl.showGrade && <td style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase" }}>Avg.</td>}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {tpl.showAttendance && (
+        <div className="px-8 pt-4 pb-3">
+          <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Attendance</p>
+          <div className="grid grid-cols-4 gap-2">
+            {([
+              ["Days Opened",  curC.daysOpen    || "—", "bg-slate-100 text-slate-800"],
+              ["Days Present", curC.daysPresent || "—", "bg-emerald-50 text-emerald-800"],
+              ["Days Absent",  curC.daysAbsent  || "—", "bg-red-50 text-red-700"],
+              ["Rate", attRate !== null ? `${attRate}%` : "—", attRate === null ? "bg-slate-100 text-slate-800" : attRate >= 75 ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900"],
+            ] as const).map(([l, v, c]) => (
+              <div key={l} className={`${c} rounded-xl p-3 text-center`}>
+                <p className="text-xs font-black uppercase opacity-60 mb-0.5">{l}</p>
+                <p className="text-xl font-black">{v}</p>
               </div>
-            )}
+            ))}
           </div>
         </div>
-      ))}
+      )}
+      {remarkSections.length > 0 && (
+        <div className={`px-8 pt-4 pb-5 grid gap-4 ${remarkSections.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {remarkSections.map(([f, l, sf, role]) => (
+            <div key={f} className="border border-slate-200 rounded-xl p-4">
+              <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">{l}</p>
+              <div className="min-h-10 text-sm text-slate-700 italic border-b border-dashed border-slate-200 pb-2 mb-3">
+                {curC[f] || <span className="text-slate-300 not-italic text-xs">No remark entered</span>}
+              </div>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase text-slate-400 mb-0.5">Signature</p>
+                  <p className="italic text-base" style={{ fontFamily:`${tpl.fontFamily},serif`, color: tpl.accentColor }}>{curC[sf] || "_____________________"}</p>
+                </div>
+                {role === "principal" && tpl.showStamp && (
+                  <div className="w-16 h-10 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center">
+                    <p className="text-xs text-slate-300 font-bold">Stamp</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {tpl.showResumptionDate && (
+        <div className="px-8 py-3 flex items-center justify-between" style={{ backgroundColor: tpl.headerColor }}>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next Term Resumption</p>
+          <p className="text-sm font-black text-white uppercase">{schoolSettings.resumptionDate}</p>
+        </div>
+      )}
+      <div className="h-1.5" style={{ backgroundColor: tpl.accentColor }} />
     </div>
-    <div className="bg-slate-900 px-8 py-3 flex items-center justify-between">
-      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next Term Resumption</p>
-      <p className="text-sm font-black text-white uppercase">{schoolSettings.resumptionDate}</p>
-    </div>
-    <div className="h-1.5 bg-blue-600" />
-  </div>
-));
-
+  );
+});
 // ─────────────────────────────────────────────────────────────────────────────
 // ATTENDANCE TAB
 // ─────────────────────────────────────────────────────────────────────────────
