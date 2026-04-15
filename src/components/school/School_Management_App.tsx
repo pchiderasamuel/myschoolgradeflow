@@ -82,12 +82,30 @@ interface AttendanceRecord {
   note: string;
   createdAt: string;
 }
+interface ReportTemplateConfig {
+  uploadedFile: string | null;       // base64 data URL of uploaded PDF/DOCX
+  uploadedFileName: string | null;
+  headerColor: string;               // hex color for header/footer
+  accentColor: string;               // hex color for accent bar
+  fontFamily: string;                // "Georgia" | "Helvetica" | "Times"
+  showLogo: boolean;
+  showMotto: boolean;
+  showAttendance: boolean;
+  showTeacherRemark: boolean;
+  showPrincipalRemark: boolean;
+  showResumptionDate: boolean;
+  showPosition: boolean;
+  showGrade: boolean;
+  showStamp: boolean;
+  tableStyle: "grid" | "striped" | "minimal";
+}
 interface SchoolSettings {
   name: string;
   motto: string;
   session: string;
   term: string;
   resumptionDate: string;
+  reportTemplate?: ReportTemplateConfig;
 }
 interface AppState {
   entries: Entry[];
@@ -278,60 +296,85 @@ async function exportReportToPDF(report: any, curC: any, attRate: number | null,
   const ok = await loadJsPDF();
   if (!ok) { window.print(); return; }
 
+  const tpl: ReportTemplateConfig = schoolSettings.reportTemplate || {
+    headerColor: "#0f172a", accentColor: "#2563eb", fontFamily: "Helvetica",
+    showLogo: true, showMotto: true, showAttendance: true, showTeacherRemark: true,
+    showPrincipalRemark: true, showResumptionDate: true, showPosition: true,
+    showGrade: true, showStamp: true, tableStyle: "striped",
+    uploadedFile: null, uploadedFileName: null,
+  };
+
+  const hexToRGB = (hex: string) => {
+    const h = hex.replace("#", "");
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)] as [number,number,number];
+  };
+  const hdrRGB = hexToRGB(tpl.headerColor);
+  const accRGB = hexToRGB(tpl.accentColor);
+
   const { jsPDF } = (window as any).jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const W = 210, margin = 14;
 
   // ── Header ──
-  doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 28, "F");
+  doc.setFillColor(...hdrRGB); doc.rect(0, 0, W, 28, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16); doc.setFont("helvetica", "bold");
   doc.text(schoolSettings.name.toUpperCase(), margin, 12);
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
-  doc.text(schoolSettings.motto, margin, 18);
+  if (tpl.showMotto) doc.text(schoolSettings.motto, margin, 18);
   doc.setFontSize(7);
   doc.text(`${schoolSettings.session} · ${schoolSettings.term}`, W - margin, 12, { align: "right" });
   doc.text("ACADEMIC REPORT SHEET", W - margin, 18, { align: "right" });
 
-  // ── Blue accent bar ──
-  doc.setFillColor(37, 99, 235); doc.rect(0, 28, W, 2, "F");
+  // ── Accent bar ──
+  doc.setFillColor(...accRGB); doc.rect(0, 28, W, 2, "F");
 
   // ── Student info band ──
   doc.setFillColor(248, 250, 252); doc.rect(0, 30, W, 14, "F");
   doc.setTextColor(71, 85, 105); doc.setFontSize(7); doc.setFont("helvetica", "bold");
   const infoY = 36;
-  const cols4 = [margin, 65, 115, 160];
-  ["STUDENT", "CLASS", "POSITION", "IN CLASS"].forEach((h, i) => doc.text(h, cols4[i], infoY - 2));
+  const infoLabels = ["STUDENT", "CLASS"];
+  const infoVals = [report.name, report.class];
+  if (tpl.showPosition) { infoLabels.push("POSITION", "IN CLASS"); infoVals.push(report.position, String(report.classCount)); }
+  const colW = (W - margin * 2) / infoLabels.length;
+  infoLabels.forEach((h, i) => doc.text(h, margin + i * colW, infoY - 2));
   doc.setTextColor(15, 23, 42); doc.setFontSize(9); doc.setFont("helvetica", "bold");
-  [report.name, report.class, report.position, String(report.classCount)].forEach((v, i) => doc.text(v, cols4[i], infoY + 4));
+  infoVals.forEach((v, i) => doc.text(v, margin + i * colW, infoY + 4));
 
   // ── Scores table ──
+  const tableHead = tpl.showGrade
+    ? [["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"]]
+    : [["Subject", "CA /40", "Exam /60", "Total /100"]];
   const tableData = report.records.map((r: any) => {
     const g = getGrade(r.total);
-    return [r.subject.toUpperCase(), r.caScore, r.examScore, r.total, g.grade, g.remark];
+    return tpl.showGrade
+      ? [r.subject.toUpperCase(), r.caScore, r.examScore, r.total, g.grade, g.remark]
+      : [r.subject.toUpperCase(), r.caScore, r.examScore, r.total];
   });
-  tableData.push(["CUMULATIVE TOTAL", "", "", report.summary.total, `${report.summary.avg}%`, "Average"]);
+  const footRow = tpl.showGrade
+    ? ["CUMULATIVE TOTAL", "", "", report.summary.total, `${report.summary.avg}%`, "Average"]
+    : ["CUMULATIVE TOTAL", "", "", report.summary.total];
+  tableData.push(footRow);
 
   (doc as any).autoTable({
     startY: 47,
-    head: [["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"]],
+    head: tableHead,
     body: tableData,
-    theme: "grid",
-    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7, fontStyle: "bold", halign: "center" },
+    theme: tpl.tableStyle === "grid" ? "grid" : tpl.tableStyle === "minimal" ? "plain" : "grid",
+    headStyles: { fillColor: hdrRGB, textColor: 255, fontSize: 7, fontStyle: "bold", halign: "center" },
     columnStyles: {
-      0: { halign: "left",   fontStyle: "bold", fontSize: 8 },
+      0: { halign: "left", fontStyle: "bold", fontSize: 8 },
       1: { halign: "center", fontSize: 8 },
       2: { halign: "center", fontSize: 8 },
       3: { halign: "center", fontStyle: "bold", fontSize: 9 },
-      4: { halign: "center", fontStyle: "bold", fontSize: 8 },
-      5: { halign: "left",   fontStyle: "italic", fontSize: 7, textColor: [100, 116, 139] },
+      ...(tpl.showGrade ? { 4: { halign: "center", fontStyle: "bold", fontSize: 8 }, 5: { halign: "left", fontStyle: "italic", fontSize: 7, textColor: [100, 116, 139] } } : {}),
     },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    alternateRowStyles: tpl.tableStyle === "striped" ? { fillColor: [248, 250, 252] } : {},
     margin: { left: margin, right: margin },
     foot: [],
     didParseCell: (data: any) => {
       if (data.row.index === tableData.length - 1) {
-        data.cell.styles.fillColor = [15, 23, 42];
+        data.cell.styles.fillColor = hdrRGB;
         data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = "bold";
       }
@@ -341,53 +384,61 @@ async function exportReportToPDF(report: any, curC: any, attRate: number | null,
   let y = (doc as any).lastAutoTable.finalY + 8;
 
   // ── Attendance ──
-  doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(100, 116, 139);
-  doc.text("ATTENDANCE", margin, y); y += 4;
-  const attCols = [
-    ["Days Opened",  curC.daysOpen  || "—"],
-    ["Days Present", curC.daysPresent || "—"],
-    ["Days Absent",  curC.daysAbsent  || "—"],
-    ["Rate",         attRate !== null ? `${attRate}%` : "—"],
-  ];
-  const attW = (W - margin * 2) / 4;
-  attCols.forEach(([label, val], i) => {
-    const x = margin + i * attW;
-    doc.setFillColor(i === 3 && attRate !== null && attRate >= 75 ? 209 : i === 3 ? 254 : 241, i === 3 && attRate !== null && attRate >= 75 ? 250 : i === 3 ? 226 : 245, i === 3 && attRate !== null && attRate >= 75 ? 235 : i === 3 ? 226 : 248);
-    doc.rect(x, y, attW - 1, 12, "F");
-    doc.setTextColor(100, 116, 139); doc.setFontSize(6); doc.setFont("helvetica", "bold");
-    doc.text(label.toUpperCase(), x + 2, y + 4);
-    doc.setTextColor(15, 23, 42); doc.setFontSize(10); doc.setFont("helvetica", "bold");
-    doc.text(String(val), x + 2, y + 10);
-  });
-  y += 16;
+  if (tpl.showAttendance) {
+    doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(100, 116, 139);
+    doc.text("ATTENDANCE", margin, y); y += 4;
+    const attCols = [
+      ["Days Opened",  curC.daysOpen  || "—"],
+      ["Days Present", curC.daysPresent || "—"],
+      ["Days Absent",  curC.daysAbsent  || "—"],
+      ["Rate",         attRate !== null ? `${attRate}%` : "—"],
+    ];
+    const attW = (W - margin * 2) / 4;
+    attCols.forEach(([label, val], i) => {
+      const x = margin + i * attW;
+      doc.setFillColor(241, 245, 249);
+      doc.rect(x, y, attW - 1, 12, "F");
+      doc.setTextColor(100, 116, 139); doc.setFontSize(6); doc.setFont("helvetica", "bold");
+      doc.text(label.toUpperCase(), x + 2, y + 4);
+      doc.setTextColor(15, 23, 42); doc.setFontSize(10); doc.setFont("helvetica", "bold");
+      doc.text(String(val), x + 2, y + 10);
+    });
+    y += 16;
+  }
 
   // ── Remarks ──
-  const remW = (W - margin * 2 - 4) / 2;
-  [["Class Teacher's Remark", curC.teacher, curC.teacherSig], ["Principal's Remark", curC.principal, curC.principalSig]].forEach(([title, remark, sig], i) => {
-    const x = margin + i * (remW + 4);
-    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
-    doc.rect(x, y, remW, 28);
-    doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(148, 163, 184);
-    doc.text(title.toUpperCase(), x + 3, y + 5);
-    doc.setFontSize(8); doc.setFont("helvetica", "normalitalic"); doc.setTextColor(71, 85, 105);
-    const wrapped = doc.splitTextToSize(remark || "No remark entered.", remW - 6);
-    doc.text(wrapped.slice(0, 2), x + 3, y + 11);
-    doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(37, 99, 235);
-    doc.text(sig || "_______________________", x + 3, y + 24);
-  });
-  y += 32;
+  const remarks: [string, string, string][] = [];
+  if (tpl.showTeacherRemark) remarks.push(["Class Teacher's Remark", curC.teacher, curC.teacherSig]);
+  if (tpl.showPrincipalRemark) remarks.push(["Principal's Remark", curC.principal, curC.principalSig]);
+  if (remarks.length > 0) {
+    const remW = remarks.length === 2 ? (W - margin * 2 - 4) / 2 : W - margin * 2;
+    remarks.forEach(([title, remark, sig], i) => {
+      const x = margin + i * (remW + 4);
+      doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+      doc.rect(x, y, remW, 28);
+      doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(148, 163, 184);
+      doc.text(title.toUpperCase(), x + 3, y + 5);
+      doc.setFontSize(8); doc.setFont("helvetica", "normalitalic"); doc.setTextColor(71, 85, 105);
+      const wrapped = doc.splitTextToSize(remark || "No remark entered.", remW - 6);
+      doc.text(wrapped.slice(0, 2), x + 3, y + 11);
+      doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(...accRGB);
+      doc.text(sig || "_______________________", x + 3, y + 24);
+    });
+    y += 32;
+  }
 
   // ── Footer ──
-  doc.setFillColor(15, 23, 42); doc.rect(0, y, W, 10, "F");
-  doc.setTextColor(148, 163, 184); doc.setFontSize(7); doc.setFont("helvetica", "bold");
-  doc.text("NEXT TERM RESUMPTION", margin, y + 6);
-  doc.setTextColor(255, 255, 255); doc.setFontSize(8);
-  doc.text(schoolSettings.resumptionDate.toUpperCase(), W - margin, y + 6, { align: "right" });
-  doc.setFillColor(37, 99, 235); doc.rect(0, y + 10, W, 1.5, "F");
+  if (tpl.showResumptionDate) {
+    doc.setFillColor(...hdrRGB); doc.rect(0, y, W, 10, "F");
+    doc.setTextColor(148, 163, 184); doc.setFontSize(7); doc.setFont("helvetica", "bold");
+    doc.text("NEXT TERM RESUMPTION", margin, y + 6);
+    doc.setTextColor(255, 255, 255); doc.setFontSize(8);
+    doc.text(schoolSettings.resumptionDate.toUpperCase(), W - margin, y + 6, { align: "right" });
+    doc.setFillColor(...accRGB); doc.rect(0, y + 10, W, 1.5, "F");
+  }
 
   doc.save(`${report.name.replace(/\s+/g, "_")}_Report_${schoolSettings.term.replace(/\s+/g, "_")}.pdf`);
 }
-
 // ─── UPGRADE 3b: Export to Excel ─────────────────────────────────────────────
 // Generates a full end-of-term Excel workbook with per-student sheets + summary.
 
@@ -1523,10 +1574,29 @@ const PrintDialog = memo(({ student, schoolName, schoolLogo, curC, attRate, scho
 });
 
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
+const DEFAULT_REPORT_TEMPLATE: ReportTemplateConfig = {
+  uploadedFile: null,
+  uploadedFileName: null,
+  headerColor: "#0f172a",
+  accentColor: "#2563eb",
+  fontFamily: "Georgia",
+  showLogo: true,
+  showMotto: true,
+  showAttendance: true,
+  showTeacherRemark: true,
+  showPrincipalRemark: true,
+  showResumptionDate: true,
+  showPosition: true,
+  showGrade: true,
+  showStamp: true,
+  tableStyle: "striped",
+};
+
 const SETTINGS_SECTIONS = [
   { id:"logo",     label:"School Logo",    icon:"🖼️" },
   { id:"info",     label:"School Info",    icon:"🏫" },
   { id:"session",  label:"Session & Term", icon:"📅" },
+  { id:"template", label:"Report Template",icon:"📋" },
   { id:"security", label:"Security & PIN", icon:"🔒" },
   { id:"database", label:"Database",       icon:"🗄️" },
 ];
@@ -1699,6 +1769,151 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
               </div>
             </Card>
           )}
+          {sec === "template" && (() => {
+            const tpl = schoolSettings.reportTemplate || DEFAULT_REPORT_TEMPLATE;
+            const updateTpl = (patch: Partial<ReportTemplateConfig>) => {
+              dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { reportTemplate: { ...tpl, ...patch } } });
+              showToast("Template updated");
+            };
+            const handleTemplateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const validTypes = [
+                "application/pdf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/msword",
+              ];
+              if (!validTypes.includes(f.type)) return showToast("Please upload a PDF or DOCX file", "error");
+              if (f.size > 5242880) return showToast("File must be under 5MB", "error");
+              const r = new FileReader();
+              r.onload = ev => {
+                updateTpl({ uploadedFile: ev.target?.result as string, uploadedFileName: f.name });
+                showToast(`Template "${f.name}" uploaded`);
+              };
+              r.readAsDataURL(f);
+              e.target.value = "";
+            };
+            const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
+              <label className="flex items-center justify-between py-2.5 px-1 cursor-pointer group">
+                <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900">{label}</span>
+                <div className={`relative w-10 h-5 rounded-full transition-colors ${checked ? "bg-blue-600" : "bg-slate-200"}`}
+                  onClick={(e) => { e.preventDefault(); onChange(!checked); }}>
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
+                </div>
+              </label>
+            );
+            return (
+              <div className="space-y-4">
+                {/* Upload Template */}
+                <Card className="p-6 space-y-5">
+                  <div>
+                    <p className="text-sm font-black uppercase text-slate-700">Upload Report Template</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Upload a custom PDF or DOCX file to use as the base for generated reports.</p>
+                  </div>
+                  {tpl.uploadedFile ? (
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-lg">📄</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-slate-700 truncate">{tpl.uploadedFileName || "Custom Template"}</p>
+                        <p className="text-xs text-slate-400">Uploaded template active</p>
+                      </div>
+                      <Btn variant="ghost" size="sm" onClick={() => updateTpl({ uploadedFile: null, uploadedFileName: null })}>
+                        <X size={13} />Remove
+                      </Btn>
+                    </div>
+                  ) : (
+                    <label className="w-full flex flex-col items-center gap-2 px-6 py-8 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group">
+                      <Upload size={24} className="text-slate-300 group-hover:text-blue-400" />
+                      <p className="text-xs font-black uppercase text-slate-400 group-hover:text-blue-500">Click to upload PDF or DOCX</p>
+                      <p className="text-xs text-slate-300">Max 5MB</p>
+                      <input type="file" accept=".pdf,.docx,.doc" className="hidden" onChange={handleTemplateUpload} />
+                    </label>
+                  )}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <p className="text-xs text-amber-700 font-bold leading-relaxed">
+                      💡 Uploaded templates serve as a reference design. The system will match the layout style when generating student reports.
+                    </p>
+                  </div>
+                </Card>
+
+                {/* Customize Layout */}
+                <Card className="p-6 space-y-5">
+                  <div>
+                    <p className="text-sm font-black uppercase text-slate-700">Report Layout</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Choose which sections appear on generated reports.</p>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    <Toggle label="Show School Logo" checked={tpl.showLogo} onChange={v => updateTpl({ showLogo: v })} />
+                    <Toggle label="Show School Motto" checked={tpl.showMotto} onChange={v => updateTpl({ showMotto: v })} />
+                    <Toggle label="Show Student Position" checked={tpl.showPosition} onChange={v => updateTpl({ showPosition: v })} />
+                    <Toggle label="Show Grade Column" checked={tpl.showGrade} onChange={v => updateTpl({ showGrade: v })} />
+                    <Toggle label="Show Attendance Section" checked={tpl.showAttendance} onChange={v => updateTpl({ showAttendance: v })} />
+                    <Toggle label="Show Teacher's Remark" checked={tpl.showTeacherRemark} onChange={v => updateTpl({ showTeacherRemark: v })} />
+                    <Toggle label="Show Principal's Remark" checked={tpl.showPrincipalRemark} onChange={v => updateTpl({ showPrincipalRemark: v })} />
+                    <Toggle label="Show Stamp Box" checked={tpl.showStamp} onChange={v => updateTpl({ showStamp: v })} />
+                    <Toggle label="Show Resumption Date" checked={tpl.showResumptionDate} onChange={v => updateTpl({ showResumptionDate: v })} />
+                  </div>
+                </Card>
+
+                {/* Style Settings */}
+                <Card className="p-6 space-y-5">
+                  <div>
+                    <p className="text-sm font-black uppercase text-slate-700">Report Styling</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Customize colors, fonts and table appearance.</p>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Header Color</label>
+                      <div className="flex items-center gap-3">
+                        <input type="color" value={tpl.headerColor} onChange={e => updateTpl({ headerColor: e.target.value })}
+                          className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer" />
+                        <span className="text-sm font-bold text-slate-600 uppercase">{tpl.headerColor}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Accent Color</label>
+                      <div className="flex items-center gap-3">
+                        <input type="color" value={tpl.accentColor} onChange={e => updateTpl({ accentColor: e.target.value })}
+                          className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer" />
+                        <span className="text-sm font-bold text-slate-600 uppercase">{tpl.accentColor}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Font Family</label>
+                      <select value={tpl.fontFamily} onChange={e => updateTpl({ fontFamily: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="Georgia">Georgia (Serif)</option>
+                        <option value="Helvetica">Helvetica (Sans-serif)</option>
+                        <option value="Times">Times New Roman (Classic)</option>
+                        <option value="Courier">Courier (Monospace)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Table Style</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["grid", "striped", "minimal"] as const).map(style => (
+                          <button key={style} onClick={() => updateTpl({ tableStyle: style })}
+                            className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${tpl.tableStyle === style ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Reset */}
+                <div className="text-center">
+                  <Btn variant="ghost" size="sm" onClick={() => {
+                    dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { reportTemplate: { ...DEFAULT_REPORT_TEMPLATE } } });
+                    showToast("Template reset to defaults");
+                  }}>
+                    🔄 Reset to Default Template
+                  </Btn>
+                </div>
+              </div>
+            );
+          })()}
           {sec === "database" && (
             <div className="space-y-4">
               {/* Firebase Cloud Sync Card */}
@@ -1910,118 +2125,132 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
 });
 
 // ─── Report Sheet ─────────────────────────────────────────────────────────────
-const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }: any) => (
-  <div id="printable-report" className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-lg" style={{ fontFamily: "Georgia,serif" }}>
-    <div className="h-1.5 bg-blue-600" />
-    <div className="px-8 pt-7 pb-5 border-b-2 border-slate-900 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-4 min-w-0">
-        <SchoolLogo logoUrl={schoolLogo} size="lg" />
-        <div>
-          <h1 className="text-2xl font-black uppercase text-slate-900 tracking-tight leading-tight">{schoolSettings.name}</h1>
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">{schoolSettings.motto}</p>
+const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }: any) => {
+  const tpl: ReportTemplateConfig = schoolSettings.reportTemplate || DEFAULT_REPORT_TEMPLATE;
+  const headers = tpl.showGrade
+    ? ["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"]
+    : ["Subject", "CA /40", "Exam /60", "Total /100"];
+  const studentFields = [
+    ["Student", report.name, "font-black text-blue-700"],
+    ["Class", report.class, ""],
+    ...(tpl.showPosition ? [["Position", report.position, "font-black text-emerald-700"], ["In Class", report.classCount, ""]] : []),
+  ];
+  const remarkSections = [
+    ...(tpl.showTeacherRemark ? [["teacher", "Class Teacher's Remark", "teacherSig", ""] as const] : []),
+    ...(tpl.showPrincipalRemark ? [["principal", "Principal's Remark", "principalSig", "principal"] as const] : []),
+  ];
+  return (
+    <div id="printable-report" className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-lg" style={{ fontFamily: `${tpl.fontFamily},serif` }}>
+      <div className="h-1.5" style={{ backgroundColor: tpl.accentColor }} />
+      <div className="px-8 pt-7 pb-5 border-b-2 flex items-center justify-between gap-4" style={{ borderColor: tpl.headerColor }}>
+        <div className="flex items-center gap-4 min-w-0">
+          {tpl.showLogo && <SchoolLogo logoUrl={schoolLogo} size="lg" />}
+          <div>
+            <h1 className="text-2xl font-black uppercase tracking-tight leading-tight" style={{ color: tpl.headerColor }}>{schoolSettings.name}</h1>
+            {tpl.showMotto && <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: tpl.accentColor }}>{schoolSettings.motto}</p>}
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <span className="inline-block text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full" style={{ backgroundColor: tpl.headerColor }}>Report Sheet</span>
+          <p className="text-xs text-slate-500 font-bold mt-1.5">{schoolSettings.session} · {schoolSettings.term}</p>
         </div>
       </div>
-      <div className="text-right flex-shrink-0">
-        <span className="inline-block bg-slate-900 text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full">Report Sheet</span>
-        <p className="text-xs text-slate-500 font-bold mt-1.5">{schoolSettings.session} · {schoolSettings.term}</p>
-      </div>
-    </div>
-    <div className="bg-slate-50 px-8 py-3.5 border-b border-slate-100 grid grid-cols-4 gap-3">
-      {([
-        ["Student", report.name, "font-black text-blue-700"],
-        ["Class", report.class, ""],
-        ["Position", report.position, "font-black text-emerald-700"],
-        ["In Class", report.classCount, ""],
-      ] as const).map(([l, v, x]) => (
-        <div key={l}>
-          <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-0.5">{l}</p>
-          <p className={`text-sm font-black uppercase text-slate-900 ${x}`}>{v}</p>
-        </div>
-      ))}
-    </div>
-    <div className="px-8 pt-5 pb-3">
-      <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Academic Performance</p>
-      <table className="w-full border-collapse text-xs" style={{ borderTop: "2px solid #0f172a", borderBottom: "2px solid #0f172a" }}>
-        <thead>
-          <tr className="bg-slate-900 text-white">
-            {["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"].map((h, i) => (
-              <th key={i} style={{ padding:"9px 10px", textAlign: i === 0 ? "left" : "center", fontWeight:800, fontSize:"9px", letterSpacing:"0.1em", textTransform:"uppercase", borderRight: i < 5 ? "1px solid #334155" : "none" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {report.records.map((r: any, i: number) => {
-            const g = getGrade(r.total);
-            return (
-              <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", fontWeight:700, textTransform:"uppercase", fontSize:"10px" }}>{r.subject}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:700 }}>{r.caScore}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:700 }}>{r.examScore}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:900, fontSize:"12px" }}>{r.total}</td>
-                <td style={{ padding:"8px 10px", borderRight:"1px solid #e2e8f0", borderBottom:"1px solid #e2e8f0", textAlign:"center", fontWeight:900, color:g.color }}>{g.grade}</td>
-                <td style={{ padding:"8px 10px", borderBottom:"1px solid #e2e8f0", fontStyle:"italic", color:"#64748b", fontSize:"10px" }}>{g.remark}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr style={{ background: "#0f172a" }}>
-            <td colSpan={3} style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Cumulative Total</td>
-            <td style={{ padding:"9px 10px", textAlign:"center", color:"#fff", fontWeight:900, fontSize:"14px" }}>{report.summary.total}<span style={{ fontSize:"9px", opacity:0.5 }}>/{report.summary.obtainable}</span></td>
-            <td style={{ padding:"9px 10px", textAlign:"center", color:"#34d399", fontWeight:900, fontSize:"12px" }}>{report.summary.avg}%</td>
-            <td style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase" }}>Avg.</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <div className="px-8 pt-4 pb-3">
-      <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Attendance</p>
-      <div className="grid grid-cols-4 gap-2">
-        {([
-          ["Days Opened",  curC.daysOpen    || "—", "bg-slate-100 text-slate-800"],
-          ["Days Present", curC.daysPresent || "—", "bg-emerald-50 text-emerald-800"],
-          ["Days Absent",  curC.daysAbsent  || "—", "bg-red-50 text-red-700"],
-          ["Rate", attRate !== null ? `${attRate}%` : "—", attRate === null ? "bg-slate-100 text-slate-800" : attRate >= 75 ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900"],
-        ] as const).map(([l, v, c]) => (
-          <div key={l} className={`${c} rounded-xl p-3 text-center`}>
-            <p className="text-xs font-black uppercase opacity-60 mb-0.5">{l}</p>
-            <p className="text-xl font-black">{v}</p>
+      <div className="bg-slate-50 px-8 py-3.5 border-b border-slate-100" style={{ display: "grid", gridTemplateColumns: `repeat(${studentFields.length}, 1fr)`, gap: "0.75rem" }}>
+        {studentFields.map(([l, v, x]) => (
+          <div key={l as string}>
+            <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-0.5">{l}</p>
+            <p className={`text-sm font-black uppercase text-slate-900 ${x}`}>{v}</p>
           </div>
         ))}
       </div>
-    </div>
-    <div className="px-8 pt-4 pb-5 grid grid-cols-2 gap-4">
-      {([
-        ["teacher",   "Class Teacher's Remark", "teacherSig",   ""],
-        ["principal", "Principal's Remark",     "principalSig", "principal"],
-      ] as const).map(([f, l, sf, role]) => (
-        <div key={f} className="border border-slate-200 rounded-xl p-4">
-          <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">{l}</p>
-          <div className="min-h-10 text-sm text-slate-700 italic border-b border-dashed border-slate-200 pb-2 mb-3">
-            {curC[f] || <span className="text-slate-300 not-italic text-xs">No remark entered</span>}
-          </div>
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-xs font-black uppercase text-slate-400 mb-0.5">Signature</p>
-              <p className="text-blue-600 italic text-base" style={{ fontFamily:"Georgia,serif" }}>{curC[sf] || "_____________________"}</p>
-            </div>
-            {role === "principal" && (
-              <div className="w-16 h-10 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center">
-                <p className="text-xs text-slate-300 font-bold">Stamp</p>
+      <div className="px-8 pt-5 pb-3">
+        <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Academic Performance</p>
+        <table className="w-full border-collapse text-xs" style={{ borderTop: `2px solid ${tpl.headerColor}`, borderBottom: `2px solid ${tpl.headerColor}` }}>
+          <thead>
+            <tr style={{ backgroundColor: tpl.headerColor, color: "#fff" }}>
+              {headers.map((h, i) => (
+                <th key={i} style={{ padding:"9px 10px", textAlign: i === 0 ? "left" : "center", fontWeight:800, fontSize:"9px", letterSpacing:"0.1em", textTransform:"uppercase", borderRight: i < headers.length - 1 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {report.records.map((r: any, i: number) => {
+              const g = getGrade(r.total);
+              const bg = tpl.tableStyle === "striped" ? (i % 2 === 0 ? "#fff" : "#f8fafc") : "#fff";
+              const border = tpl.tableStyle === "minimal" ? "none" : "1px solid #e2e8f0";
+              return (
+                <tr key={i} style={{ background: bg }}>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, fontWeight:700, textTransform:"uppercase", fontSize:"10px" }}>{r.subject}</td>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:700 }}>{r.caScore}</td>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:700 }}>{r.examScore}</td>
+                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:900, fontSize:"12px" }}>{r.total}</td>
+                  {tpl.showGrade && <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:900, color:g.color }}>{g.grade}</td>}
+                  {tpl.showGrade && <td style={{ padding:"8px 10px", borderBottom: border, fontStyle:"italic", color:"#64748b", fontSize:"10px" }}>{g.remark}</td>}
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{ background: tpl.headerColor }}>
+              <td colSpan={tpl.showGrade ? 3 : 3} style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Cumulative Total</td>
+              <td style={{ padding:"9px 10px", textAlign:"center", color:"#fff", fontWeight:900, fontSize:"14px" }}>{report.summary.total}<span style={{ fontSize:"9px", opacity:0.5 }}>/{report.summary.obtainable}</span></td>
+              {tpl.showGrade && <td style={{ padding:"9px 10px", textAlign:"center", color:"#34d399", fontWeight:900, fontSize:"12px" }}>{report.summary.avg}%</td>}
+              {tpl.showGrade && <td style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase" }}>Avg.</td>}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {tpl.showAttendance && (
+        <div className="px-8 pt-4 pb-3">
+          <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Attendance</p>
+          <div className="grid grid-cols-4 gap-2">
+            {([
+              ["Days Opened",  curC.daysOpen    || "—", "bg-slate-100 text-slate-800"],
+              ["Days Present", curC.daysPresent || "—", "bg-emerald-50 text-emerald-800"],
+              ["Days Absent",  curC.daysAbsent  || "—", "bg-red-50 text-red-700"],
+              ["Rate", attRate !== null ? `${attRate}%` : "—", attRate === null ? "bg-slate-100 text-slate-800" : attRate >= 75 ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900"],
+            ] as const).map(([l, v, c]) => (
+              <div key={l} className={`${c} rounded-xl p-3 text-center`}>
+                <p className="text-xs font-black uppercase opacity-60 mb-0.5">{l}</p>
+                <p className="text-xl font-black">{v}</p>
               </div>
-            )}
+            ))}
           </div>
         </div>
-      ))}
+      )}
+      {remarkSections.length > 0 && (
+        <div className={`px-8 pt-4 pb-5 grid gap-4 ${remarkSections.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {remarkSections.map(([f, l, sf, role]) => (
+            <div key={f} className="border border-slate-200 rounded-xl p-4">
+              <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">{l}</p>
+              <div className="min-h-10 text-sm text-slate-700 italic border-b border-dashed border-slate-200 pb-2 mb-3">
+                {curC[f] || <span className="text-slate-300 not-italic text-xs">No remark entered</span>}
+              </div>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase text-slate-400 mb-0.5">Signature</p>
+                  <p className="italic text-base" style={{ fontFamily:`${tpl.fontFamily},serif`, color: tpl.accentColor }}>{curC[sf] || "_____________________"}</p>
+                </div>
+                {role === "principal" && tpl.showStamp && (
+                  <div className="w-16 h-10 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center">
+                    <p className="text-xs text-slate-300 font-bold">Stamp</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {tpl.showResumptionDate && (
+        <div className="px-8 py-3 flex items-center justify-between" style={{ backgroundColor: tpl.headerColor }}>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next Term Resumption</p>
+          <p className="text-sm font-black text-white uppercase">{schoolSettings.resumptionDate}</p>
+        </div>
+      )}
+      <div className="h-1.5" style={{ backgroundColor: tpl.accentColor }} />
     </div>
-    <div className="bg-slate-900 px-8 py-3 flex items-center justify-between">
-      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next Term Resumption</p>
-      <p className="text-sm font-black text-white uppercase">{schoolSettings.resumptionDate}</p>
-    </div>
-    <div className="h-1.5 bg-blue-600" />
-  </div>
-));
-
+  );
+});
 // ─────────────────────────────────────────────────────────────────────────────
 // ATTENDANCE TAB
 // ─────────────────────────────────────────────────────────────────────────────
