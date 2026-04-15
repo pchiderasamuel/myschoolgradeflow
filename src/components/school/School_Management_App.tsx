@@ -296,60 +296,85 @@ async function exportReportToPDF(report: any, curC: any, attRate: number | null,
   const ok = await loadJsPDF();
   if (!ok) { window.print(); return; }
 
+  const tpl: ReportTemplateConfig = schoolSettings.reportTemplate || {
+    headerColor: "#0f172a", accentColor: "#2563eb", fontFamily: "Helvetica",
+    showLogo: true, showMotto: true, showAttendance: true, showTeacherRemark: true,
+    showPrincipalRemark: true, showResumptionDate: true, showPosition: true,
+    showGrade: true, showStamp: true, tableStyle: "striped",
+    uploadedFile: null, uploadedFileName: null,
+  };
+
+  const hexToRGB = (hex: string) => {
+    const h = hex.replace("#", "");
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)] as [number,number,number];
+  };
+  const hdrRGB = hexToRGB(tpl.headerColor);
+  const accRGB = hexToRGB(tpl.accentColor);
+
   const { jsPDF } = (window as any).jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const W = 210, margin = 14;
 
   // ── Header ──
-  doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 28, "F");
+  doc.setFillColor(...hdrRGB); doc.rect(0, 0, W, 28, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16); doc.setFont("helvetica", "bold");
   doc.text(schoolSettings.name.toUpperCase(), margin, 12);
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
-  doc.text(schoolSettings.motto, margin, 18);
+  if (tpl.showMotto) doc.text(schoolSettings.motto, margin, 18);
   doc.setFontSize(7);
   doc.text(`${schoolSettings.session} · ${schoolSettings.term}`, W - margin, 12, { align: "right" });
   doc.text("ACADEMIC REPORT SHEET", W - margin, 18, { align: "right" });
 
-  // ── Blue accent bar ──
-  doc.setFillColor(37, 99, 235); doc.rect(0, 28, W, 2, "F");
+  // ── Accent bar ──
+  doc.setFillColor(...accRGB); doc.rect(0, 28, W, 2, "F");
 
   // ── Student info band ──
   doc.setFillColor(248, 250, 252); doc.rect(0, 30, W, 14, "F");
   doc.setTextColor(71, 85, 105); doc.setFontSize(7); doc.setFont("helvetica", "bold");
   const infoY = 36;
-  const cols4 = [margin, 65, 115, 160];
-  ["STUDENT", "CLASS", "POSITION", "IN CLASS"].forEach((h, i) => doc.text(h, cols4[i], infoY - 2));
+  const infoLabels = ["STUDENT", "CLASS"];
+  const infoVals = [report.name, report.class];
+  if (tpl.showPosition) { infoLabels.push("POSITION", "IN CLASS"); infoVals.push(report.position, String(report.classCount)); }
+  const colW = (W - margin * 2) / infoLabels.length;
+  infoLabels.forEach((h, i) => doc.text(h, margin + i * colW, infoY - 2));
   doc.setTextColor(15, 23, 42); doc.setFontSize(9); doc.setFont("helvetica", "bold");
-  [report.name, report.class, report.position, String(report.classCount)].forEach((v, i) => doc.text(v, cols4[i], infoY + 4));
+  infoVals.forEach((v, i) => doc.text(v, margin + i * colW, infoY + 4));
 
   // ── Scores table ──
+  const tableHead = tpl.showGrade
+    ? [["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"]]
+    : [["Subject", "CA /40", "Exam /60", "Total /100"]];
   const tableData = report.records.map((r: any) => {
     const g = getGrade(r.total);
-    return [r.subject.toUpperCase(), r.caScore, r.examScore, r.total, g.grade, g.remark];
+    return tpl.showGrade
+      ? [r.subject.toUpperCase(), r.caScore, r.examScore, r.total, g.grade, g.remark]
+      : [r.subject.toUpperCase(), r.caScore, r.examScore, r.total];
   });
-  tableData.push(["CUMULATIVE TOTAL", "", "", report.summary.total, `${report.summary.avg}%`, "Average"]);
+  const footRow = tpl.showGrade
+    ? ["CUMULATIVE TOTAL", "", "", report.summary.total, `${report.summary.avg}%`, "Average"]
+    : ["CUMULATIVE TOTAL", "", "", report.summary.total];
+  tableData.push(footRow);
 
   (doc as any).autoTable({
     startY: 47,
-    head: [["Subject", "CA /40", "Exam /60", "Total /100", "Grade", "Remark"]],
+    head: tableHead,
     body: tableData,
-    theme: "grid",
-    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7, fontStyle: "bold", halign: "center" },
+    theme: tpl.tableStyle === "grid" ? "grid" : tpl.tableStyle === "minimal" ? "plain" : "grid",
+    headStyles: { fillColor: hdrRGB, textColor: 255, fontSize: 7, fontStyle: "bold", halign: "center" },
     columnStyles: {
-      0: { halign: "left",   fontStyle: "bold", fontSize: 8 },
+      0: { halign: "left", fontStyle: "bold", fontSize: 8 },
       1: { halign: "center", fontSize: 8 },
       2: { halign: "center", fontSize: 8 },
       3: { halign: "center", fontStyle: "bold", fontSize: 9 },
-      4: { halign: "center", fontStyle: "bold", fontSize: 8 },
-      5: { halign: "left",   fontStyle: "italic", fontSize: 7, textColor: [100, 116, 139] },
+      ...(tpl.showGrade ? { 4: { halign: "center", fontStyle: "bold", fontSize: 8 }, 5: { halign: "left", fontStyle: "italic", fontSize: 7, textColor: [100, 116, 139] } } : {}),
     },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    alternateRowStyles: tpl.tableStyle === "striped" ? { fillColor: [248, 250, 252] } : {},
     margin: { left: margin, right: margin },
     foot: [],
     didParseCell: (data: any) => {
       if (data.row.index === tableData.length - 1) {
-        data.cell.styles.fillColor = [15, 23, 42];
+        data.cell.styles.fillColor = hdrRGB;
         data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = "bold";
       }
@@ -359,53 +384,61 @@ async function exportReportToPDF(report: any, curC: any, attRate: number | null,
   let y = (doc as any).lastAutoTable.finalY + 8;
 
   // ── Attendance ──
-  doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(100, 116, 139);
-  doc.text("ATTENDANCE", margin, y); y += 4;
-  const attCols = [
-    ["Days Opened",  curC.daysOpen  || "—"],
-    ["Days Present", curC.daysPresent || "—"],
-    ["Days Absent",  curC.daysAbsent  || "—"],
-    ["Rate",         attRate !== null ? `${attRate}%` : "—"],
-  ];
-  const attW = (W - margin * 2) / 4;
-  attCols.forEach(([label, val], i) => {
-    const x = margin + i * attW;
-    doc.setFillColor(i === 3 && attRate !== null && attRate >= 75 ? 209 : i === 3 ? 254 : 241, i === 3 && attRate !== null && attRate >= 75 ? 250 : i === 3 ? 226 : 245, i === 3 && attRate !== null && attRate >= 75 ? 235 : i === 3 ? 226 : 248);
-    doc.rect(x, y, attW - 1, 12, "F");
-    doc.setTextColor(100, 116, 139); doc.setFontSize(6); doc.setFont("helvetica", "bold");
-    doc.text(label.toUpperCase(), x + 2, y + 4);
-    doc.setTextColor(15, 23, 42); doc.setFontSize(10); doc.setFont("helvetica", "bold");
-    doc.text(String(val), x + 2, y + 10);
-  });
-  y += 16;
+  if (tpl.showAttendance) {
+    doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(100, 116, 139);
+    doc.text("ATTENDANCE", margin, y); y += 4;
+    const attCols = [
+      ["Days Opened",  curC.daysOpen  || "—"],
+      ["Days Present", curC.daysPresent || "—"],
+      ["Days Absent",  curC.daysAbsent  || "—"],
+      ["Rate",         attRate !== null ? `${attRate}%` : "—"],
+    ];
+    const attW = (W - margin * 2) / 4;
+    attCols.forEach(([label, val], i) => {
+      const x = margin + i * attW;
+      doc.setFillColor(241, 245, 249);
+      doc.rect(x, y, attW - 1, 12, "F");
+      doc.setTextColor(100, 116, 139); doc.setFontSize(6); doc.setFont("helvetica", "bold");
+      doc.text(label.toUpperCase(), x + 2, y + 4);
+      doc.setTextColor(15, 23, 42); doc.setFontSize(10); doc.setFont("helvetica", "bold");
+      doc.text(String(val), x + 2, y + 10);
+    });
+    y += 16;
+  }
 
   // ── Remarks ──
-  const remW = (W - margin * 2 - 4) / 2;
-  [["Class Teacher's Remark", curC.teacher, curC.teacherSig], ["Principal's Remark", curC.principal, curC.principalSig]].forEach(([title, remark, sig], i) => {
-    const x = margin + i * (remW + 4);
-    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
-    doc.rect(x, y, remW, 28);
-    doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(148, 163, 184);
-    doc.text(title.toUpperCase(), x + 3, y + 5);
-    doc.setFontSize(8); doc.setFont("helvetica", "normalitalic"); doc.setTextColor(71, 85, 105);
-    const wrapped = doc.splitTextToSize(remark || "No remark entered.", remW - 6);
-    doc.text(wrapped.slice(0, 2), x + 3, y + 11);
-    doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(37, 99, 235);
-    doc.text(sig || "_______________________", x + 3, y + 24);
-  });
-  y += 32;
+  const remarks: [string, string, string][] = [];
+  if (tpl.showTeacherRemark) remarks.push(["Class Teacher's Remark", curC.teacher, curC.teacherSig]);
+  if (tpl.showPrincipalRemark) remarks.push(["Principal's Remark", curC.principal, curC.principalSig]);
+  if (remarks.length > 0) {
+    const remW = remarks.length === 2 ? (W - margin * 2 - 4) / 2 : W - margin * 2;
+    remarks.forEach(([title, remark, sig], i) => {
+      const x = margin + i * (remW + 4);
+      doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+      doc.rect(x, y, remW, 28);
+      doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(148, 163, 184);
+      doc.text(title.toUpperCase(), x + 3, y + 5);
+      doc.setFontSize(8); doc.setFont("helvetica", "normalitalic"); doc.setTextColor(71, 85, 105);
+      const wrapped = doc.splitTextToSize(remark || "No remark entered.", remW - 6);
+      doc.text(wrapped.slice(0, 2), x + 3, y + 11);
+      doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(...accRGB);
+      doc.text(sig || "_______________________", x + 3, y + 24);
+    });
+    y += 32;
+  }
 
   // ── Footer ──
-  doc.setFillColor(15, 23, 42); doc.rect(0, y, W, 10, "F");
-  doc.setTextColor(148, 163, 184); doc.setFontSize(7); doc.setFont("helvetica", "bold");
-  doc.text("NEXT TERM RESUMPTION", margin, y + 6);
-  doc.setTextColor(255, 255, 255); doc.setFontSize(8);
-  doc.text(schoolSettings.resumptionDate.toUpperCase(), W - margin, y + 6, { align: "right" });
-  doc.setFillColor(37, 99, 235); doc.rect(0, y + 10, W, 1.5, "F");
+  if (tpl.showResumptionDate) {
+    doc.setFillColor(...hdrRGB); doc.rect(0, y, W, 10, "F");
+    doc.setTextColor(148, 163, 184); doc.setFontSize(7); doc.setFont("helvetica", "bold");
+    doc.text("NEXT TERM RESUMPTION", margin, y + 6);
+    doc.setTextColor(255, 255, 255); doc.setFontSize(8);
+    doc.text(schoolSettings.resumptionDate.toUpperCase(), W - margin, y + 6, { align: "right" });
+    doc.setFillColor(...accRGB); doc.rect(0, y + 10, W, 1.5, "F");
+  }
 
   doc.save(`${report.name.replace(/\s+/g, "_")}_Report_${schoolSettings.term.replace(/\s+/g, "_")}.pdf`);
 }
-
 // ─── UPGRADE 3b: Export to Excel ─────────────────────────────────────────────
 // Generates a full end-of-term Excel workbook with per-student sheets + summary.
 
