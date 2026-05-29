@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/hooks/useSchool";
+import { useTimetablePermission } from "@/hooks/useTimetablePermission";
 import {
-  getClasses, getSubjects, getTeachers,
+  getClasses, getSubjects, getTeachers, saveSubject,
   getTimetable, saveTimetableSlot, bulkSaveTimetable, deleteTimetableSlot,
   Class, Subject, Teacher, TimetableSlot,
 } from "@/supabase/schoolService";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, Printer, RefreshCw, Save } from "lucide-react";
+import { Loader2, Plus, Trash2, Printer, RefreshCw, Save, Pencil, ChevronUp, ChevronDown, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"] as const;
@@ -112,6 +113,7 @@ export default function TimetablePage() {
   const { schoolId } = useAuth();
   const { school } = useSchool();
   const { toast } = useToast();
+  const { canEditTimetable, isLoadingRole } = useTimetablePermission();
 
   const [classes, setClasses] = useState<Class[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -132,6 +134,45 @@ export default function TimetablePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<{ day: Day; period_number: number; existing?: TimetableSlot } | null>(null);
   const [draft, setDraft] = useState<SlotDraft>(EMPTY_DRAFT);
+
+  // Inline subject editing state
+  const [editingCell, setEditingCell] = useState<{ day: Day; period_number: number } | null>(null);
+  const [editingSubject, setEditingSubject] = useState("");
+  const [savingInline, setSavingInline] = useState(false);
+
+  // Period settings panel state
+  const [periodsPanelOpen, setPeriodsPanelOpen] = useState(false);
+  const [periodsList, setPeriodsList] = useState<DefaultPeriod[]>(DEFAULT_PERIODS);
+  const [deletingPeriod, setDeletingPeriod] = useState<number | null>(null);
+
+  // Add period popover state
+  const [addPeriodDay, setAddPeriodDay] = useState<Day | null>(null);
+  const [addPeriodDraft, setAddPeriodDraft] = useState<{
+    period_type: TimetableSlot["period_type"];
+    start_time: string;
+    end_time: string;
+  }>({ period_type: "lesson", start_time: "09:00", end_time: "09:40" });
+  const [savingAddPeriod, setSavingAddPeriod] = useState(false);
+
+  // Edit period popover state
+  const [editPeriodCell, setEditPeriodCell] = useState<{ day: Day; period_number: number } | null>(null);
+  const [editPeriodDraft, setEditPeriodDraft] = useState<{
+    period_type: TimetableSlot["period_type"];
+    start_time: string;
+    end_time: string;
+  }>({ period_type: "lesson", start_time: "09:00", end_time: "09:40" });
+  const [savingEditPeriod, setSavingEditPeriod] = useState(false);
+
+  // Subject picker popover state
+  const [subjectPickerCell, setSubjectPickerCell] = useState<{ day: Day; period_number: number } | null>(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [customSubjectName, setCustomSubjectName] = useState("");
+  const [isCustomSubject, setIsCustomSubject] = useState(false);
+  const [savingSubject, setSavingSubject] = useState(false);
+
+  // Delete confirmation state
+  const [deleteConfirmCell, setDeleteConfirmCell] = useState<{ day: Day; period_number: number } | null>(null);
+  const [deletingSlot, setDeletingSlot] = useState(false);
 
   // ── Load initial data ──────────────────────────────────────────────
   const loadInit = useCallback(async () => {
@@ -397,6 +438,432 @@ export default function TimetablePage() {
     }
   };
 
+  // ── Inline subject editing handlers ───────────────────────────────────
+  const startInlineEdit = (day: Day, period_number: number) => {
+    const slot = slotMap[`${day}|${period_number}`];
+    setEditingCell({ day, period_number });
+    setEditingSubject(slot?.subject_name ?? "");
+  };
+
+  const saveInlineEdit = async () => {
+    if (!editingCell || !schoolId || !selectedClassId) return;
+    const { day, period_number } = editingCell;
+    const existing = slotMap[`${day}|${period_number}`];
+    const sub = subjects.find((s) => s.name === editingSubject);
+
+    setSavingInline(true);
+    try {
+      const cls = selectedClass;
+      const result = await saveTimetableSlot(schoolId, {
+        ...(existing?.id ? { id: existing.id } : {}),
+        class_id: selectedClassId,
+        class_name: cls?.name ?? "",
+        academic_year: selectedYear,
+        term: selectedTerm,
+        day,
+        period_number,
+        period_type: existing?.period_type ?? "lesson",
+        start_time: existing?.start_time ?? "00:00",
+        end_time: existing?.end_time ?? "00:00",
+        subject_id: sub?.id ?? null,
+        subject_name: editingSubject || null,
+        teacher_id: existing?.teacher_id ?? null,
+        teacher_name: existing?.teacher_name ?? null,
+        room: existing?.room ?? null,
+        notes: existing?.notes ?? null,
+      });
+
+      setSlots((prev) => {
+        const idx = prev.findIndex((s) => s.day === day && s.period_number === period_number);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = result;
+          return updated;
+        }
+        return [...prev, result];
+      });
+
+      toast({ title: "Saved", description: "Subject updated." });
+    } catch (e) {
+      toast({
+        title: "Error saving",
+        description: (e as Error).message,
+        variant: "destructive",
+        action: <Button size="sm" onClick={saveInlineEdit}>Retry</Button>,
+      });
+    } finally {
+      setSavingInline(false);
+      setEditingCell(null);
+    }
+  };
+
+  const cancelInlineEdit = () => {
+    setEditingCell(null);
+    setEditingSubject("");
+  };
+
+  // ── Period settings panel handlers ─────────────────────────────────────
+  const addPeriod = () => {
+    const maxNum = periodsList.length > 0 ? Math.max(...periodsList.map((p) => p.period_number)) : -1;
+    const newPeriod: DefaultPeriod = {
+      period_number: maxNum + 1,
+      period_type: "lesson",
+      start_time: "09:00",
+      end_time: "09:40",
+    };
+    setPeriodsList([...periodsList, newPeriod]);
+  };
+
+  const deletePeriod = (periodNumber: number) => {
+    setDeletingPeriod(periodNumber);
+  };
+
+  const confirmDeletePeriod = () => {
+    if (deletingPeriod === null) return;
+    setPeriodsList(periodsList.filter((p) => p.period_number !== deletingPeriod));
+    setDeletingPeriod(null);
+  };
+
+  const updatePeriod = (periodNumber: number, field: keyof DefaultPeriod, value: string) => {
+    setPeriodsList(periodsList.map((p) => (p.period_number === periodNumber ? { ...p, [field]: value } : p)));
+  };
+
+  const movePeriodUp = (index: number) => {
+    if (index === 0) return;
+    const newPeriods = [...periodsList];
+    [newPeriods[index - 1], newPeriods[index]] = [newPeriods[index], newPeriods[index - 1]];
+    setPeriodsList(newPeriods);
+  };
+
+  const movePeriodDown = (index: number) => {
+    if (index === periodsList.length - 1) return;
+    const newPeriods = [...periodsList];
+    [newPeriods[index], newPeriods[index + 1]] = [newPeriods[index + 1], newPeriods[index]];
+    setPeriodsList(newPeriods);
+  };
+
+  // ── Add period to specific day ─────────────────────────────────────────
+  const openAddPeriod = (day: Day) => {
+    setAddPeriodDay(day);
+    setAddPeriodDraft({ period_type: "lesson", start_time: "09:00", end_time: "09:40" });
+  };
+
+  const saveAddPeriod = async () => {
+    if (!addPeriodDay || !schoolId || !selectedClassId) return;
+    setSavingAddPeriod(true);
+    try {
+      const cls = selectedClass;
+      const maxPn = slots.length > 0 ? Math.max(...slots.map((s) => s.period_number)) : -1;
+      const newPn = maxPn + 1;
+
+      const result = await saveTimetableSlot(schoolId, {
+        class_id: selectedClassId,
+        class_name: cls?.name ?? "",
+        academic_year: selectedYear,
+        term: selectedTerm,
+        day: addPeriodDay,
+        period_number: newPn,
+        period_type: addPeriodDraft.period_type,
+        start_time: addPeriodDraft.start_time,
+        end_time: addPeriodDraft.end_time,
+        subject_id: null,
+        subject_name: null,
+        teacher_id: null,
+        teacher_name: null,
+        room: null,
+        notes: null,
+      });
+
+      setSlots((prev) => [...prev, result]);
+      toast({ title: "Period added", description: `New period added to ${DAY_LABELS[addPeriodDay]}.` });
+      setAddPeriodDay(null);
+    } catch (e) {
+      toast({
+        title: "Error adding period",
+        description: (e as Error).message,
+        variant: "destructive",
+        action: <Button size="sm" onClick={saveAddPeriod}>Retry</Button>,
+      });
+    } finally {
+      setSavingAddPeriod(false);
+    }
+  };
+
+  // ── Edit period popover handlers ───────────────────────────────────────
+  const openEditPeriod = (day: Day, period_number: number) => {
+    const slot = slotMap[`${day}|${period_number}`];
+    const meta = getPeriodMeta(period_number);
+    setEditPeriodCell({ day, period_number });
+    setEditPeriodDraft({
+      period_type: slot?.period_type ?? meta.period_type,
+      start_time: slot ? normTime(slot.start_time) : meta.start_time,
+      end_time: slot ? normTime(slot.end_time) : meta.end_time,
+    });
+  };
+
+  const saveEditPeriod = async () => {
+    if (!editPeriodCell || !schoolId || !selectedClassId) return;
+    const { day, period_number } = editPeriodCell;
+    const existing = slotMap[`${day}|${period_number}`];
+    setSavingEditPeriod(true);
+    try {
+      const cls = selectedClass;
+      const result = await saveTimetableSlot(schoolId, {
+        ...(existing?.id ? { id: existing.id } : {}),
+        class_id: selectedClassId,
+        class_name: cls?.name ?? "",
+        academic_year: selectedYear,
+        term: selectedTerm,
+        day,
+        period_number,
+        period_type: editPeriodDraft.period_type,
+        start_time: editPeriodDraft.start_time,
+        end_time: editPeriodDraft.end_time,
+        subject_id: existing?.subject_id ?? null,
+        subject_name: existing?.subject_name ?? null,
+        teacher_id: existing?.teacher_id ?? null,
+        teacher_name: existing?.teacher_name ?? null,
+        room: existing?.room ?? null,
+        notes: existing?.notes ?? null,
+      });
+
+      setSlots((prev) => {
+        const idx = prev.findIndex((s) => s.day === day && s.period_number === period_number);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = result;
+          return updated;
+        }
+        return [...prev, result];
+      });
+
+      toast({ title: "Period updated", description: "Period details saved." });
+      setEditPeriodCell(null);
+    } catch (e) {
+      toast({
+        title: "Error updating period",
+        description: (e as Error).message,
+        variant: "destructive",
+        action: <Button size="sm" onClick={saveEditPeriod}>Retry</Button>,
+      });
+    } finally {
+      setSavingEditPeriod(false);
+    }
+  };
+
+  // ── Subject picker popover handlers ────────────────────────────────────
+  const openSubjectPicker = (day: Day, period_number: number) => {
+    const slot = slotMap[`${day}|${period_number}`];
+    setSubjectPickerCell({ day, period_number });
+    setSelectedSubjectId(slot?.subject_id ?? "");
+    setCustomSubjectName("");
+    setIsCustomSubject(false);
+  };
+
+  const saveSubjectPicker = async () => {
+    if (!subjectPickerCell || !schoolId || !selectedClassId) return;
+    const { day, period_number } = subjectPickerCell;
+    const existing = slotMap[`${day}|${period_number}`];
+    setSavingSubject(true);
+    try {
+      let subjectId: string | null = null;
+      let subjectName: string | null = null;
+
+      if (isCustomSubject && customSubjectName.trim()) {
+        // Save custom subject to subjects table
+        const newSubject = await saveSubject(schoolId, {
+          name: customSubjectName.trim(),
+          code: null,
+          description: null,
+        });
+        subjectId = newSubject.id;
+        subjectName = newSubject.name;
+        // Reload subjects to include the new one
+        const updatedSubjects = await getSubjects(schoolId);
+        setSubjects(updatedSubjects);
+      } else if (selectedSubjectId) {
+        const sub = subjects.find((s) => s.id === selectedSubjectId);
+        subjectId = sub?.id ?? null;
+        subjectName = sub?.name ?? null;
+      }
+
+      const cls = selectedClass;
+      const result = await saveTimetableSlot(schoolId, {
+        ...(existing?.id ? { id: existing.id } : {}),
+        class_id: selectedClassId,
+        class_name: cls?.name ?? "",
+        academic_year: selectedYear,
+        term: selectedTerm,
+        day,
+        period_number,
+        period_type: existing?.period_type ?? "lesson",
+        start_time: existing?.start_time ?? "00:00",
+        end_time: existing?.end_time ?? "00:00",
+        subject_id: subjectId,
+        subject_name: subjectName,
+        teacher_id: existing?.teacher_id ?? null,
+        teacher_name: existing?.teacher_name ?? null,
+        room: existing?.room ?? null,
+        notes: existing?.notes ?? null,
+      });
+
+      setSlots((prev) => {
+        const idx = prev.findIndex((s) => s.day === day && s.period_number === period_number);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = result;
+          return updated;
+        }
+        return [...prev, result];
+      });
+
+      toast({ title: "Subject saved", description: subjectName || "Subject cleared." });
+      setSubjectPickerCell(null);
+    } catch (e) {
+      toast({
+        title: "Error saving subject",
+        description: (e as Error).message,
+        variant: "destructive",
+        action: <Button size="sm" onClick={saveSubjectPicker}>Retry</Button>,
+      });
+    } finally {
+      setSavingSubject(false);
+    }
+  };
+
+  const clearSubject = async () => {
+    if (!subjectPickerCell || !schoolId || !selectedClassId) return;
+    const { day, period_number } = subjectPickerCell;
+    const existing = slotMap[`${day}|${period_number}`];
+    setSavingSubject(true);
+    try {
+      const cls = selectedClass;
+      const result = await saveTimetableSlot(schoolId, {
+        ...(existing?.id ? { id: existing.id } : {}),
+        class_id: selectedClassId,
+        class_name: cls?.name ?? "",
+        academic_year: selectedYear,
+        term: selectedTerm,
+        day,
+        period_number,
+        period_type: existing?.period_type ?? "lesson",
+        start_time: existing?.start_time ?? "00:00",
+        end_time: existing?.end_time ?? "00:00",
+        subject_id: null,
+        subject_name: null,
+        teacher_id: existing?.teacher_id ?? null,
+        teacher_name: existing?.teacher_name ?? null,
+        room: existing?.room ?? null,
+        notes: existing?.notes ?? null,
+      });
+
+      setSlots((prev) => {
+        const idx = prev.findIndex((s) => s.day === day && s.period_number === period_number);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = result;
+          return updated;
+        }
+        return [...prev, result];
+      });
+
+      toast({ title: "Subject cleared" });
+      setSubjectPickerCell(null);
+    } catch (e) {
+      toast({
+        title: "Error clearing subject",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSubject(false);
+    }
+  };
+
+  // ── Delete slot handlers ───────────────────────────────────────────────
+  const confirmDeleteSlot = async () => {
+    if (!deleteConfirmCell || !schoolId) return;
+    const { day, period_number } = deleteConfirmCell;
+    const slot = slotMap[`${day}|${period_number}`];
+    if (!slot?.id) return;
+
+    setDeletingSlot(true);
+    try {
+      await deleteTimetableSlot(schoolId, slot.id);
+      setSlots((prev) => prev.filter((s) => !(s.day === day && s.period_number === period_number)));
+      toast({ title: "Period removed" });
+      setDeleteConfirmCell(null);
+    } catch (e) {
+      toast({
+        title: "Error removing period",
+        description: (e as Error).message,
+        variant: "destructive",
+        action: <Button size="sm" onClick={confirmDeleteSlot}>Retry</Button>,
+      });
+    } finally {
+      setDeletingSlot(false);
+    }
+  };
+
+  // ── Save period settings to Supabase ─────────────────────────────────────
+  const savePeriodSettings = async () => {
+    if (!schoolId || !selectedClassId || !selectedYear) {
+      toast({ title: "Select class and year first", variant: "destructive" });
+      return;
+    }
+
+    setSavingAll(true);
+    try {
+      const cls = selectedClass;
+
+      // Delete all existing slots for this class/term/year to avoid orphaned data
+      // Then recreate all slots based on the new period structure
+      const existingSlots = slots.filter(
+        (s) => s.class_id === selectedClassId && s.term === selectedTerm && s.academic_year === selectedYear
+      );
+
+      // Delete existing slots
+      for (const slot of existingSlots) {
+        if (slot.id) await deleteTimetableSlot(schoolId, slot.id);
+      }
+
+      // Create new slots based on updated periodsList
+      const newSlots = DAYS.flatMap((day) =>
+        periodsList.map((p) => ({
+          class_id: selectedClassId,
+          class_name: cls?.name ?? "",
+          academic_year: selectedYear,
+          term: selectedTerm,
+          day,
+          period_number: p.period_number,
+          period_type: p.period_type,
+          start_time: p.start_time,
+          end_time: p.end_time,
+          subject_id: null as null,
+          subject_name: null as null,
+          teacher_id: null as null,
+          teacher_name: null as null,
+          room: null as null,
+          notes: null,
+        }))
+      );
+
+      const saved = await bulkSaveTimetable(schoolId, newSlots);
+      setSlots(saved);
+      toast({ title: "Periods updated", description: `${saved.length} slots saved with new period structure.` });
+      setPeriodsPanelOpen(false);
+    } catch (e) {
+      toast({
+        title: "Error saving periods",
+        description: (e as Error).message,
+        variant: "destructive",
+        action: <Button size="sm" onClick={savePeriodSettings}>Retry</Button>,
+      });
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────
   if (loadingInit) {
     return (
@@ -457,6 +924,12 @@ export default function TimetablePage() {
               <RefreshCw size={14} className={cn("mr-1.5", loadingSlots && "animate-spin")} />
               Refresh
             </Button>
+            {canEditTimetable && (
+              <Button variant="outline" size="sm" onClick={() => setPeriodsPanelOpen(true)}>
+                <Settings size={14} className="mr-1.5" />
+                Manage Periods
+              </Button>
+            )}
             <Button
               variant="outline" size="sm"
               onClick={handleLoadTemplate}
@@ -621,34 +1094,292 @@ export default function TimetablePage() {
                             /* ── Lesson cells — one per day ── */
                             DAYS.map((day) => {
                               const slot = slotMap[`${day}|${pn}`];
+                              const isEditing = editingCell?.day === day && editingCell?.period_number === pn;
+                              const isEditingPeriod = editPeriodCell?.day === day && editPeriodCell?.period_number === pn;
                               return (
                                 <td key={day} className="px-1.5 py-1.5 align-top">
-                                  <button
-                                    onClick={() => openDrawer(day, pn)}
+                                  <div
                                     className={cn(
-                                      "w-full min-h-[56px] p-2 rounded-lg text-left transition-all",
+                                      "w-full min-h-[56px] p-2 rounded-lg transition-all relative",
                                       "hover:ring-2 hover:ring-blue-400 hover:shadow-sm",
                                       slot
                                         ? "bg-white border border-slate-200 shadow-sm"
                                         : "bg-slate-50 border border-dashed border-slate-200 no-print"
                                     )}
                                   >
-                                    {slot ? (
+                                    {/* Edit period pencil icon - only when authorized */}
+                                    {canEditTimetable && !isEditing && !isEditingPeriod && !deleteConfirmCell && (
+                                      <button
+                                        onClick={() => openEditPeriod(day, pn)}
+                                        className="absolute top-1 right-1 p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Edit period"
+                                      >
+                                        <Pencil size={12} />
+                                      </button>
+                                    )}
+                                    {/* Delete trash icon - only when authorized */}
+                                    {canEditTimetable && !isEditing && !isEditingPeriod && !deleteConfirmCell && slot && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteConfirmCell({ day, period_number: pn });
+                                        }}
+                                        className="absolute top-1 right-7 p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Remove period"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    )}
+                                    {/* Delete confirmation popover */}
+                                    {deleteConfirmCell?.day === day && deleteConfirmCell?.period_number === pn && (
+                                      <div className="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-lg shadow-lg border border-slate-200 z-40">
+                                        <p className="text-xs font-medium text-slate-700 mb-3">Remove this period?</p>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={confirmDeleteSlot}
+                                            disabled={deletingSlot}
+                                            className="flex-1"
+                                          >
+                                            {deletingSlot ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Trash2 size={12} className="mr-1" />}
+                                            Yes, remove
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setDeleteConfirmCell(null)}
+                                            disabled={deletingSlot}
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Saving overlay on slot */}
+                                    {(savingAddPeriod && addPeriodDay === day) ||
+                                     (savingEditPeriod && editPeriodCell?.day === day && editPeriodCell?.period_number === pn) ||
+                                     (savingSubject && subjectPickerCell?.day === day && subjectPickerCell?.period_number === pn) ||
+                                     (deletingSlot && deleteConfirmCell?.day === day && deleteConfirmCell?.period_number === pn) ||
+                                     (savingInline && editingCell?.day === day && editingCell?.period_number === pn) ? (
+                                      <div className="absolute inset-0 bg-white/50 rounded-lg flex items-center justify-center z-50">
+                                        <Loader2 size={16} className="animate-spin text-blue-500" />
+                                      </div>
+                                    ) : null}
+                                    {/* Edit period popover */}
+                                    {isEditingPeriod && (
+                                      <div className="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-lg shadow-lg border border-slate-200 z-20">
+                                        <div className="space-y-2">
+                                          <div className="space-y-1">
+                                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Period Type</label>
+                                            <Select
+                                              value={editPeriodDraft.period_type}
+                                              onValueChange={(v) => setEditPeriodDraft((d) => ({ ...d, period_type: v as TimetableSlot["period_type"] }))}
+                                            >
+                                              <SelectTrigger className="h-7 text-xs">
+                                                <SelectValue />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="lesson">Lesson</SelectItem>
+                                                <SelectItem value="assembly">Assembly</SelectItem>
+                                                <SelectItem value="short_break">Short Break</SelectItem>
+                                                <SelectItem value="lunch">Lunch</SelectItem>
+                                                <SelectItem value="closing">Closing</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <div className="space-y-1">
+                                              <label className="text-[10px] font-semibold text-slate-500 uppercase">Start</label>
+                                              <Input
+                                                type="time"
+                                                value={editPeriodDraft.start_time}
+                                                onChange={(e) => setEditPeriodDraft((d) => ({ ...d, start_time: e.target.value }))}
+                                                className="h-7 text-xs"
+                                              />
+                                            </div>
+                                            <div className="space-y-1">
+                                              <label className="text-[10px] font-semibold text-slate-500 uppercase">End</label>
+                                              <Input
+                                                type="time"
+                                                value={editPeriodDraft.end_time}
+                                                onChange={(e) => setEditPeriodDraft((d) => ({ ...d, end_time: e.target.value }))}
+                                                className="h-7 text-xs"
+                                              />
+                                            </div>
+                                          </div>
+                                          <div className="flex gap-2 pt-1">
+                                            <Button
+                                              size="sm"
+                                              onClick={saveEditPeriod}
+                                              disabled={savingEditPeriod}
+                                              className="flex-1"
+                                            >
+                                              {savingEditPeriod ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Save size={12} className="mr-1" />}
+                                              Save
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => setEditPeriodCell(null)}
+                                              disabled={savingEditPeriod}
+                                            >
+                                              Cancel
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Inline subject edit pencil icon - only when authorized and not editing period */}
+                                    {canEditTimetable && !isEditing && !isEditingPeriod && (
+                                      <button
+                                        onClick={() => startInlineEdit(day, pn)}
+                                        className="absolute top-1 right-7 p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Edit subject"
+                                      >
+                                        <Pencil size={12} />
+                                      </button>
+                                    )}
+                                    {/* Inline edit input */}
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1">
+                                        <Input
+                                          value={editingSubject}
+                                          onChange={(e) => setEditingSubject(e.target.value)}
+                                          onBlur={saveInlineEdit}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") saveInlineEdit();
+                                            if (e.key === "Escape") cancelInlineEdit();
+                                          }}
+                                          className="h-7 text-[11px] px-2 py-1"
+                                          placeholder="Subject name"
+                                          disabled={savingInline}
+                                          autoFocus
+                                        />
+                                        {savingInline && <Loader2 size={12} className="animate-spin text-blue-500" />}
+                                      </div>
+                                    ) : (
+                                      /* Display mode - click to open drawer */
                                       <>
-                                        <p className="font-semibold text-slate-800 text-[11px] leading-tight line-clamp-1">
-                                          {slot.subject_name ?? <span className="italic text-slate-400">No subject</span>}
-                                        </p>
-                                        {slot.teacher_name && (
-                                          <p className="text-slate-500 text-[10px] mt-0.5 truncate">{slot.teacher_name}</p>
+                                        <button
+                                          onClick={() => openDrawer(day, pn)}
+                                          className="w-full text-left"
+                                        >
+                                          {slot ? (
+                                            <>
+                                              <p className="font-semibold text-slate-800 text-[11px] leading-tight line-clamp-1">
+                                                {slot.subject_name ?? <span className="italic text-slate-400">No subject</span>}
+                                              </p>
+                                              {slot.teacher_name && (
+                                                <p className="text-slate-500 text-[10px] mt-0.5 truncate">{slot.teacher_name}</p>
+                                              )}
+                                              {slot.room && (
+                                                <p className="text-slate-400 text-[10px]">Rm {slot.room}</p>
+                                              )}
+                                            </>
+                                          ) : (
+                                            <p className="text-[10px] text-slate-400 italic no-print">+ Add lesson</p>
+                                          )}
+                                        </button>
+                                        {/* Subject label clickable area for picker */}
+                                        {canEditTimetable && slot && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openSubjectPicker(day, pn);
+                                            }}
+                                            className="absolute inset-0 z-10"
+                                            title="Change subject"
+                                          />
                                         )}
-                                        {slot.room && (
-                                          <p className="text-slate-400 text-[10px]">Rm {slot.room}</p>
+                                        {/* Subject picker popover */}
+                                        {subjectPickerCell?.day === day && subjectPickerCell?.period_number === pn && (
+                                          <div className="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-lg shadow-lg border border-slate-200 z-30">
+                                            <div className="space-y-2">
+                                              {!isCustomSubject ? (
+                                                <>
+                                                  <div className="space-y-1">
+                                                    <label className="text-[10px] font-semibold text-slate-500 uppercase">Select Subject</label>
+                                                    {subjects.length === 0 ? (
+                                                      <div className="text-[10px] text-slate-500 italic p-2 bg-slate-50 rounded">
+                                                        No subjects yet — type a custom subject to add one
+                                                      </div>
+                                                    ) : (
+                                                      <Select
+                                                        value={selectedSubjectId}
+                                                        onValueChange={setSelectedSubjectId}
+                                                      >
+                                                        <SelectTrigger className="h-7 text-xs">
+                                                          <SelectValue placeholder="Select subject..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                          {subjects.map((s) => (
+                                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                          ))}
+                                                        </SelectContent>
+                                                      </Select>
+                                                    )}
+                                                  </div>
+                                                  <button
+                                                    onClick={() => setIsCustomSubject(true)}
+                                                    className="text-[10px] text-blue-600 hover:underline"
+                                                  >
+                                                    Type custom subject
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <div className="space-y-1">
+                                                    <label className="text-[10px] font-semibold text-slate-500 uppercase">Custom Subject</label>
+                                                    <Input
+                                                      value={customSubjectName}
+                                                      onChange={(e) => setCustomSubjectName(e.target.value)}
+                                                      className="h-7 text-xs"
+                                                      placeholder="Subject name"
+                                                      autoFocus
+                                                    />
+                                                  </div>
+                                                  <button
+                                                    onClick={() => setIsCustomSubject(false)}
+                                                    className="text-[10px] text-blue-600 hover:underline"
+                                                  >
+                                                    Back to list
+                                                  </button>
+                                                </>
+                                              )}
+                                              <div className="flex gap-2 pt-1">
+                                                <Button
+                                                  size="sm"
+                                                  onClick={saveSubjectPicker}
+                                                  disabled={savingSubject}
+                                                  className="flex-1"
+                                                >
+                                                  {savingSubject ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Save size={12} className="mr-1" />}
+                                                  Save
+                                                </Button>
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={clearSubject}
+                                                  disabled={savingSubject}
+                                                >
+                                                  Clear
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => setSubjectPickerCell(null)}
+                                                  disabled={savingSubject}
+                                                >
+                                                  Cancel
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          </div>
                                         )}
                                       </>
-                                    ) : (
-                                      <p className="text-[10px] text-slate-400 italic no-print">+ Add lesson</p>
                                     )}
-                                  </button>
+                                  </div>
                                 </td>
                               );
                             })
@@ -657,6 +1388,90 @@ export default function TimetablePage() {
                       );
                     })}
                   </tbody>
+                  {/* ── Footer row with add period buttons ── */}
+                  {canEditTimetable && (
+                    <tfoot>
+                      <tr>
+                        <td className="px-3 py-2"></td>
+                        {DAYS.map((day) => (
+                          <td key={day} className="px-1.5 py-2 align-top">
+                            <div className="relative">
+                              <button
+                                onClick={() => openAddPeriod(day)}
+                                className="w-full min-h-[32px] rounded-lg border border-dashed border-slate-300 text-slate-400 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center"
+                              >
+                                <Plus size={14} />
+                              </button>
+                              {/* Add period popover */}
+                              {addPeriodDay === day && (
+                                <div className="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-lg shadow-lg border border-slate-200 z-10">
+                                  <div className="space-y-2">
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-semibold text-slate-500 uppercase">Period Type</label>
+                                      <Select
+                                        value={addPeriodDraft.period_type}
+                                        onValueChange={(v) => setAddPeriodDraft((d) => ({ ...d, period_type: v as TimetableSlot["period_type"] }))}
+                                      >
+                                        <SelectTrigger className="h-7 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="lesson">Lesson</SelectItem>
+                                          <SelectItem value="assembly">Assembly</SelectItem>
+                                          <SelectItem value="short_break">Short Break</SelectItem>
+                                          <SelectItem value="lunch">Lunch</SelectItem>
+                                          <SelectItem value="closing">Closing</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] font-semibold text-slate-500 uppercase">Start</label>
+                                        <Input
+                                          type="time"
+                                          value={addPeriodDraft.start_time}
+                                          onChange={(e) => setAddPeriodDraft((d) => ({ ...d, start_time: e.target.value }))}
+                                          className="h-7 text-xs"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] font-semibold text-slate-500 uppercase">End</label>
+                                        <Input
+                                          type="time"
+                                          value={addPeriodDraft.end_time}
+                                          onChange={(e) => setAddPeriodDraft((d) => ({ ...d, end_time: e.target.value }))}
+                                          className="h-7 text-xs"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 pt-1">
+                                      <Button
+                                        size="sm"
+                                        onClick={saveAddPeriod}
+                                        disabled={savingAddPeriod}
+                                        className="flex-1"
+                                      >
+                                        {savingAddPeriod ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Plus size={12} className="mr-1" />}
+                                        Add
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setAddPeriodDay(null)}
+                                        disabled={savingAddPeriod}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        ))}
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             )}
@@ -826,6 +1641,146 @@ export default function TimetablePage() {
             <Button size="sm" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
               Save
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Period Settings Panel ── */}
+      <Sheet open={periodsPanelOpen} onOpenChange={setPeriodsPanelOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <SheetTitle>Manage Periods</SheetTitle>
+                <p className="text-sm text-slate-500">Configure period types, times, and order</p>
+              </div>
+              {savingAll && (
+                <div className="flex items-center gap-2 text-sm text-blue-600">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Saving...</span>
+                </div>
+              )}
+            </div>
+          </SheetHeader>
+
+          <div className="space-y-4 py-4">
+            {periodsList.map((period, index) => (
+              <div key={period.period_number} className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 bg-white">
+                {/* Reorder buttons */}
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => movePeriodUp(index)}
+                    disabled={index === 0}
+                    className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                    title="Move up"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => movePeriodDown(index)}
+                    disabled={index === periodsList.length - 1}
+                    className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                    title="Move down"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+
+                {/* Period type dropdown */}
+                <div className="flex-1 min-w-0">
+                  <Select
+                    value={period.period_type}
+                    onValueChange={(v) => updatePeriod(period.period_number, "period_type", v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lesson">Lesson</SelectItem>
+                      <SelectItem value="assembly">Assembly</SelectItem>
+                      <SelectItem value="short_break">Short Break</SelectItem>
+                      <SelectItem value="lunch">Lunch</SelectItem>
+                      <SelectItem value="closing">Closing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Time inputs */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    value={period.start_time}
+                    onChange={(e) => updatePeriod(period.period_number, "start_time", e.target.value)}
+                    className="h-8 w-24 text-xs"
+                  />
+                  <span className="text-slate-400 text-xs">–</span>
+                  <Input
+                    type="time"
+                    value={period.end_time}
+                    onChange={(e) => updatePeriod(period.period_number, "end_time", e.target.value)}
+                    className="h-8 w-24 text-xs"
+                  />
+                </div>
+
+                {/* Delete button */}
+                <button
+                  onClick={() => deletePeriod(period.period_number)}
+                  className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  title="Delete period"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+
+            {/* Add period button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addPeriod}
+              className="w-full"
+            >
+              <Plus size={14} className="mr-1.5" />
+              Add Period
+            </Button>
+          </div>
+
+          {/* Delete confirmation dialog */}
+          {deletingPeriod !== null && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-lg">
+                <h3 className="font-semibold text-slate-900 mb-2">Delete Period?</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  This will remove period #{deletingPeriod} from the timetable. Any lessons scheduled in this period will be lost.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeletingPeriod(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={confirmDeletePeriod}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <SheetFooter className="pt-4">
+            <Button variant="outline" onClick={() => setPeriodsPanelOpen(false)} disabled={savingAll}>
+              Cancel
+            </Button>
+            <Button onClick={savePeriodSettings} disabled={savingAll}>
+              {savingAll ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
+              Save Changes
             </Button>
           </SheetFooter>
         </SheetContent>

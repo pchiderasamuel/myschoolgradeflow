@@ -465,6 +465,22 @@ export async function getSubjects(schoolId: string | null): Promise<Subject[]> {
   return (data ?? []) as Subject[];
 }
 
+export async function saveSubject(schoolId: string | null, subject: Omit<Subject, "id" | "school_id" | "created_at" | "updated_at">): Promise<Subject> {
+  const sid = requireSchoolId(schoolId);
+  const { data, error } = await db()
+    .from("subjects")
+    .insert({
+      school_id: sid,
+      name: subject.name,
+      code: subject.code,
+      description: subject.description,
+    })
+    .select()
+    .single();
+  throwIfError(error, "saveSubject");
+  return data as Subject;
+}
+
 // ─── Attendance ────────────────────────────────────────────────────────
 
 export async function getAttendance(
