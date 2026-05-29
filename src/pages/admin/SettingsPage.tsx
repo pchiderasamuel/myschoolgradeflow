@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/hooks/useSchool";
 import { updateSchoolProfile } from "@/supabase/schoolService";
@@ -18,32 +18,37 @@ export default function SettingsPage() {
 
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const formInitialized = useRef(false);
 
   const [form, setForm] = useState({
-    name: school?.name ?? "",
-    email: school?.email ?? "",
-    phone: school?.phone ?? "",
-    address_street: school?.address_street ?? "",
-    address_city: school?.address_city ?? "",
-    address_state: school?.address_state ?? "",
-    address_country: school?.address_country ?? "Nigeria",
-    timezone: school?.timezone ?? "Africa/Lagos",
-    academic_year: school?.academic_year ?? "2025/2026",
-    current_term: school?.current_term ?? "first",
+    name: "",
+    email: "",
+    phone: "",
+    address_street: "",
+    address_city: "",
+    address_state: "",
+    address_country: "Nigeria",
+    timezone: "Africa/Lagos",
+    academic_year: "2025/2026",
+    current_term: "first",
   });
 
-  // Sync form once when school data first arrives — never auto-reset after that
-  if (school && !formInitialized.current) {
-    formInitialized.current = true;
-    setForm({
-      name: school.name, email: school.email ?? "", phone: school.phone ?? "",
-      address_street: school.address_street ?? "", address_city: school.address_city ?? "",
-      address_state: school.address_state ?? "", address_country: school.address_country ?? "Nigeria",
-      timezone: school.timezone ?? "Africa/Lagos", academic_year: school.academic_year ?? "2025/2026",
-      current_term: school.current_term ?? "first",
-    });
-  }
+  // Sync form when school profile loads or changes
+  useEffect(() => {
+    if (school) {
+      setForm({
+        name: school.name,
+        email: school.email ?? "",
+        phone: school.phone ?? "",
+        address_street: school.address_street ?? "",
+        address_city: school.address_city ?? "",
+        address_state: school.address_state ?? "",
+        address_country: school.address_country ?? "Nigeria",
+        timezone: school.timezone ?? "Africa/Lagos",
+        academic_year: school.academic_year ?? "2025/2026",
+        current_term: school.current_term ?? "first",
+      });
+    }
+  }, [school]);
 
   const handleSave = async () => {
     if (!schoolId) return;

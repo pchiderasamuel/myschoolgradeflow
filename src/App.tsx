@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SchoolProvider } from "@/hooks/useSchool";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import SchoolLock from "./pages/SchoolLock";
 import TenantApp from "./pages/TenantApp";
@@ -57,7 +58,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
+          <SchoolProvider>
+            <Routes>
             <Route path="/" element={<SchoolLock />} />
             <Route path="/app" element={<TenantApp />} />
             <Route path="/auth" element={<Auth />} />
@@ -137,7 +139,8 @@ const App = () => (
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </AuthProvider>
+        </SchoolProvider>
+      </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

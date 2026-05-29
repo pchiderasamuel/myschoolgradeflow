@@ -79,7 +79,7 @@ interface DefaultPeriod {
 }
 
 const DEFAULT_PERIODS: DefaultPeriod[] = [
-  { period_number: 0,  period_type: "assembly",    start_time: "07:30", end_time: "08:00" },
+  { period_number: 0,  period_type: "assembly",    start_time: "07:30", end_time: "07:50" },
   { period_number: 1,  period_type: "lesson",      start_time: "08:00", end_time: "08:40" },
   { period_number: 2,  period_type: "lesson",      start_time: "08:40", end_time: "09:20" },
   { period_number: 3,  period_type: "lesson",      start_time: "09:20", end_time: "10:00" },
@@ -90,8 +90,7 @@ const DEFAULT_PERIODS: DefaultPeriod[] = [
   { period_number: 8,  period_type: "lunch",       start_time: "12:30", end_time: "13:10" },
   { period_number: 9,  period_type: "lesson",      start_time: "13:10", end_time: "13:50" },
   { period_number: 10, period_type: "lesson",      start_time: "13:50", end_time: "14:30" },
-  { period_number: 11, period_type: "lesson",      start_time: "14:30", end_time: "15:00" },
-  { period_number: 12, period_type: "closing",     start_time: "15:00", end_time: "15:10" },
+  { period_number: 11, period_type: "closing",     start_time: "14:30", end_time: "15:00" },
 ];
 
 interface SlotDraft {

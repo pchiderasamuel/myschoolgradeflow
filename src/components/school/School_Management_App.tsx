@@ -315,7 +315,7 @@ const DB_KEY = "greatmind_school_db_v2";
 
 // Bump this when you change the default timetable structure so existing
 // browsers auto-upgrade instead of staying on the old cached version.
-const TIMETABLE_SCHEMA_VERSION = "tt_v4_napps_break";
+const TIMETABLE_SCHEMA_VERSION = "tt_v5_12periods";
 
 function loadDB(): Partial<AppState> {
   try {
@@ -333,12 +333,18 @@ function loadDB(): Partial<AppState> {
 
 function saveDB(state: AppState) {
   try {
+    const raw = localStorage.getItem(DB_KEY);
+    const existing = raw ? JSON.parse(raw) : {};
     localStorage.setItem(DB_KEY, JSON.stringify({
       ...state,
+      _rev: existing._rev,
+      _updatedAt: existing._updatedAt,
+      _deviceId: existing._deviceId,
       _timetableVersion: TIMETABLE_SCHEMA_VERSION,
     }));
   } catch { /* storage full */ }
 }
+
 
 let _saveTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedSaveDB(state: AppState, pushCloud = true) {
@@ -712,49 +718,63 @@ const fmtDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"2-digit", month:"short", year:"numeric" });
 
 // ─── State / Reducer ──────────────────────────────────────────────────────────
-const _saved = loadDB();
-
 // Default staff — plain PINs, automatically migrated to hashed on first login
 const _defaultStaff: StaffMember[] = [
   { id:"s1", name:"Mrs. Amaka Obi",  role:"Class Teacher",   pin:"5678", status:"active", assignedClasses:["Primary 3","Primary 4"], assignedSubjects:[], permissions:{scoreEntry:true,viewReports:true,printReports:true,manageRecords:false},  createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
   { id:"s2", name:"Mr. Chidi Eze",   role:"Subject Teacher", pin:"9012", status:"active", assignedClasses:["JSS 1","JSS 2","JSS 3"],  assignedSubjects:["Mathematics"], permissions:{scoreEntry:true,viewReports:true,printReports:false,manageRecords:false}, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
 ];
 
-// NAPPS-Standard Timetable: Assembly → 4 lessons → Break (10:40-11:10) →
-// 2 lessons → Lunch → 3 lessons → Closing at 3:00PM (NAPPS).
+// Standard Timetable: Assembly → 4 lessons → Short Break → 2 lessons → Lunch → 2 lessons → Closing
 const _defaultTimetable: TimetableState = {
   periods: [
-    { id: "asm", label: "Assembly",                     start: "07:30", end: "08:00" },
-    { id: "p1",  label: "Period 1",                     start: "08:00", end: "08:40" },
-    { id: "p2",  label: "Period 2",                     start: "08:40", end: "09:20" },
-    { id: "p3",  label: "Period 3",                     start: "09:20", end: "10:00" },
-    { id: "p4",  label: "Period 4",                     start: "10:00", end: "10:40" },
-    { id: "sbr", label: "Lesson Break",                 start: "10:40", end: "11:10" },
-    { id: "p5",  label: "Period 5",                     start: "11:10", end: "11:50" },
-    { id: "p6",  label: "Period 6",                     start: "11:50", end: "12:30" },
-    { id: "lbr", label: "Lunch Break",                  start: "12:30", end: "13:10" },
-    { id: "p7",  label: "Period 7",                     start: "13:10", end: "13:50" },
-    { id: "p8",  label: "Period 8",                     start: "13:50", end: "14:30" },
-    { id: "p9",  label: "Period 9",                     start: "14:30", end: "15:00" },
-    { id: "cls", label: "Closing Time – 3:00PM (NAPPS)", start: "15:00", end: "15:10" },
+    { id: "asm", label: "Assembly",     start: "07:30", end: "07:50" },
+    { id: "p1",  label: "Period 1",     start: "08:00", end: "08:40" },
+    { id: "p2",  label: "Period 2",     start: "08:40", end: "09:20" },
+    { id: "p3",  label: "Period 3",     start: "09:20", end: "10:00" },
+    { id: "p4",  label: "Period 4",     start: "10:00", end: "10:40" },
+    { id: "sbr", label: "Short Break",  start: "10:40", end: "11:10" },
+    { id: "p5",  label: "Period 5",     start: "11:10", end: "11:50" },
+    { id: "p6",  label: "Period 6",     start: "11:50", end: "12:30" },
+    { id: "lbr", label: "Lunch",       start: "12:30", end: "13:10" },
+    { id: "p7",  label: "Period 7",     start: "13:10", end: "13:50" },
+    { id: "p8",  label: "Period 8",     start: "13:50", end: "14:30" },
+    { id: "cls", label: "Closing",      start: "14:30", end: "15:00" },
   ],
   days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
   cells: {},
 };
 
-const initialState: AppState = {
-  entries:        _saved.entries        ?? [],
-  bin:            _saved.bin            ?? [],
-  logs:           _saved.logs           ?? [],
-  comments:       _saved.comments       ?? {},
-  attendance:     _saved.attendance     ?? [],
-  classRolls:     _saved.classRolls     ?? {},
-  staffList:      _saved.staffList      ?? _defaultStaff,
-  schoolSettings: _saved.schoolSettings ?? { name:"Greatmind Academy", motto:"Excellence in every child", session:"2024/2025", term:"First Term", resumptionDate:"January 8th, 2025" },
-  timetable:      _saved.timetable      ?? _defaultTimetable,
-  notifications:  _saved.notifications  ?? [],
-  staffSignIns:   _saved.staffSignIns   ?? [],
+const defaultState: AppState = {
+  entries:        [],
+  bin:            [],
+  logs:           [],
+  comments:       {},
+  attendance:     [],
+  classRolls:     {},
+  staffList:      _defaultStaff,
+  schoolSettings: { name:"Greatmind Academy", motto:"Excellence in every child", session:"2024/2025", term:"First Term", resumptionDate:"January 8th, 2025" },
+  timetable:      _defaultTimetable,
+  notifications:  [],
+  staffSignIns:   [],
 };
+
+function getInitialState(): AppState {
+  const saved = loadDB();
+  return {
+    entries:        saved.entries        ?? [],
+    bin:            saved.bin            ?? [],
+    logs:           saved.logs           ?? [],
+    comments:       saved.comments       ?? {},
+    attendance:     saved.attendance     ?? [],
+    classRolls:     saved.classRolls     ?? {},
+    staffList:      saved.staffList      ?? _defaultStaff,
+    schoolSettings: saved.schoolSettings ?? { name:"Greatmind Academy", motto:"Excellence in every child", session:"2024/2025", term:"First Term", resumptionDate:"January 8th, 2025" },
+    timetable:      saved.timetable      ?? _defaultTimetable,
+    notifications:  saved.notifications  ?? [],
+    staffSignIns:   saved.staffSignIns   ?? [],
+  };
+}
+
 
 function mkLog(action: string, student: string, subject: string, detail = "", actor = "") {
   return { id:uid(), action, student, subject, detail, ts:new Date().toISOString(), actor };
@@ -4371,8 +4391,8 @@ const PERIOD_NUM_TO_ID: Record<number, string> = {
   5: "sbr",
   6: "p5", 7: "p6",
   8: "lbr",
-  9: "p7", 10: "p8", 11: "p9",
-  12: "cls",
+  9: "p7", 10: "p8",
+  11: "cls",
 };
 // Supabase full day name → TenantApp short day
 const SUPABASE_DAY_TO_SHORT: Record<string, string> = {
@@ -4861,7 +4881,7 @@ function InboxView({
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App({ onTenantSignOut, tenantId }: { onTenantSignOut?: () => void; tenantId?: string } = {}) {
-  const [appState, dispatchRaw] = useReducer(appReducer, initialState);
+  const [appState, dispatchRaw] = useReducer(appReducer, null, getInitialState);
   const dispatch = useCallback((action: any) => {
     dispatchRaw(action);
     // Background sync to Supabase
@@ -5280,7 +5300,7 @@ export default function App({ onTenantSignOut, tenantId }: { onTenantSignOut?: (
         // Apply remote state
         const { _deviceId: _d, _updatedAt: _u, ...cleanState } = remote;
         Object.keys(cleanState).forEach(key => {
-          if ((initialState as any)[key] !== undefined) {
+          if ((defaultState as any)[key] !== undefined) {
             dispatch({ type: "__HYDRATE__", key, value: cleanState[key] });
           }
         });
