@@ -67,6 +67,9 @@ const toMinutes = (t: string) => {
   return (h || 0) * 60 + (m || 0);
 };
 
+// Normalise DB TIME format "HH:MM:SS" → "HH:MM"
+const normTime = (t: string) => (t ?? "").slice(0, 5);
+
 const PERIOD_EMOJIS: Record<string, string> = {
   assembly:    "🎒",
   short_break: "☕️",
@@ -188,6 +191,16 @@ export default function TimetablePage() {
   const [timeSlotDraft, setTimeSlotDraft] = useState<Partial<TimeSlot>>({});
   const [savingTimeSlot, setSavingTimeSlot] = useState(false);
 
+  // Edit row period state
+  const [editRowPeriodPn, setEditRowPeriodPn] = useState<number | null>(null);
+  const [editRowPeriodDraft, setEditRowPeriodDraft] = useState<{
+    label: string;
+    start_time: string;
+    end_time: string;
+    period_type: TimetableSlot["period_type"];
+  }>({ label: "", start_time: "09:00", end_time: "09:40", period_type: "lesson" });
+  const [savingRowPeriod, setSavingRowPeriod] = useState(false);
+
   // ── Load initial data ──────────────────────────────────────────────
   const loadInit = useCallback(async () => {
     if (!schoolId) return;
@@ -236,32 +249,64 @@ export default function TimetablePage() {
 
   useEffect(() => { loadSlots(); }, [loadSlots]);
 
+  // Sync periodsList with custom timeSlots if defined
+  useEffect(() => {
+    if (timeSlots.length > 0) {
+      setPeriodsList(
+        timeSlots.map((ts) => ({
+          period_number: ts.sort_order,
+          period_type: (ts.slot_type === "break" ? "short_break" : ts.slot_type) as TimetableSlot["period_type"],
+          start_time: normTime(ts.start_time),
+          end_time: normTime(ts.end_time),
+        }))
+      );
+    } else {
+      setPeriodsList(DEFAULT_PERIODS);
+    }
+  }, [timeSlots]);
+
   // ── Derived data ───────────────────────────────────────────────────
   const slotMap: Record<string, TimetableSlot> = {};
   slots.forEach((s) => { slotMap[`${s.day}|${s.period_number}`] = s; });
 
   const selectedClass = classes.find((c) => c.id === selectedClassId);
 
-  // Period list: ALWAYS show all 13 DEFAULT rows, plus any extra periods saved in DB
+  // Period list: ALWAYS show all custom time slots or default rows, plus any extra periods saved in DB
   const periodNumbers = (() => {
-    const base = DEFAULT_PERIODS.map((p) => p.period_number);
+    const base = timeSlots.length > 0
+      ? timeSlots.map((ts) => ts.sort_order)
+      : DEFAULT_PERIODS.map((p) => p.period_number);
     const fromDb = slots.map((s) => s.period_number);
     return [...new Set([...base, ...fromDb])].sort((a, b) => a - b);
   })();
 
-  // Normalise DB TIME format "HH:MM:SS" → "HH:MM"
-  const normTime = (t: string) => (t ?? "").slice(0, 5);
-
   // For each period number, determine the canonical type + times (from any day's slot, or template)
-  const getPeriodMeta = (pn: number): { period_type: string; start_time: string; end_time: string } => {
+  const getPeriodMeta = (pn: number): { period_type: string; start_time: string; end_time: string; label?: string } => {
     const existing = DAYS.map((d) => slotMap[`${d}|${pn}`]).find(Boolean);
     if (existing) return {
       period_type: existing.period_type,
       start_time: normTime(existing.start_time),
       end_time:   normTime(existing.end_time),
+      label: timeSlots.find((ts) => ts.sort_order === pn)?.label,
     };
+
+    if (timeSlots.length > 0) {
+      const match = timeSlots.find((ts) => ts.sort_order === pn);
+      if (match) return {
+        period_type: (match.slot_type === "break" ? "short_break" : match.slot_type) as TimetableSlot["period_type"],
+        start_time: normTime(match.start_time),
+        end_time:   normTime(match.end_time),
+        label: match.label,
+      };
+    }
+
     const def = DEFAULT_PERIODS.find((p) => p.period_number === pn);
-    return { period_type: def?.period_type ?? "lesson", start_time: def?.start_time ?? "", end_time: def?.end_time ?? "" };
+    return {
+      period_type: def?.period_type ?? "lesson",
+      start_time: def?.start_time ?? "",
+      end_time: def?.end_time ?? "",
+      label: undefined,
+    };
   };
 
   // Returns the display label for a break row (custom from notes, or default)
@@ -414,8 +459,17 @@ export default function TimetablePage() {
     setSaving(true);
     try {
       const cls = selectedClass;
+      const basePeriods = timeSlots.length > 0
+        ? timeSlots.map((ts) => ({
+            period_number: ts.sort_order,
+            period_type: (ts.slot_type === "break" ? "short_break" : ts.slot_type) as TimetableSlot["period_type"],
+            start_time: normTime(ts.start_time),
+            end_time: normTime(ts.end_time),
+          }))
+        : DEFAULT_PERIODS;
+
       const templateSlots = DAYS.flatMap((day) =>
-        DEFAULT_PERIODS.map((p) => ({
+        basePeriods.map((p) => ({
           class_id:      selectedClassId,
           class_name:    cls?.name ?? "",
           academic_year: selectedYear,
@@ -425,11 +479,11 @@ export default function TimetablePage() {
           period_type:   p.period_type,
           start_time:    p.start_time,
           end_time:      p.end_time,
-          subject_id:    null as null,
-          subject_name:  null as null,
-          teacher_id:    null as null,
-          teacher_name:  null as null,
-          room:          null as null,
+          subject_id:    null,
+          subject_name:  null,
+          teacher_id:    null,
+          teacher_name:  null,
+          room:          null,
           notes:         null,
         }))
       );
@@ -868,6 +922,117 @@ export default function TimetablePage() {
     }
   };
 
+  const openEditRowPeriod = (pn: number) => {
+    const meta = getPeriodMeta(pn);
+    setEditRowPeriodPn(pn);
+    setEditRowPeriodDraft({
+      label: meta.label || (pn === 0 ? "Assembly" : meta.period_type === "lesson" ? `Period ${pn}` : PERIOD_LABELS[meta.period_type] || meta.period_type),
+      start_time: meta.start_time,
+      end_time: meta.end_time,
+      period_type: meta.period_type as TimetableSlot["period_type"],
+    });
+  };
+
+  const saveRowPeriodHandler = async () => {
+    if (editRowPeriodPn === null || !schoolId) return;
+
+    if (editRowPeriodDraft.period_type === "lesson" && toMinutes(editRowPeriodDraft.end_time) > toMinutes(NAPPS_CLOSING_TIME)) {
+      toast({
+        title: "NAPPS restriction",
+        description: "Lesson periods cannot end after 3:00PM (NAPPS standard). Adjust the end time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingRowPeriod(true);
+    try {
+      let updatedTimeSlots: TimeSlot[] = [];
+
+      if (timeSlots.length === 0) {
+        // Initialize all DEFAULT_PERIODS into time_slots table in order
+        const toCreate = DEFAULT_PERIODS.map((p) => ({
+          label: p.period_number === 0 ? "Assembly" : p.period_type === "lesson" ? `Period ${p.period_number}` : PERIOD_LABELS[p.period_type] || p.period_type,
+          start_time: p.start_time,
+          end_time: p.end_time,
+          slot_type: (p.period_type === "short_break" || p.period_type === "long_break" ? "break" : p.period_type) as TimeSlot["slot_type"],
+          sort_order: p.period_number,
+        }));
+
+        for (const slotDraft of toCreate) {
+          if (slotDraft.sort_order === editRowPeriodPn) {
+            slotDraft.label = editRowPeriodDraft.label;
+            slotDraft.start_time = editRowPeriodDraft.start_time;
+            slotDraft.end_time = editRowPeriodDraft.end_time;
+            slotDraft.slot_type = (editRowPeriodDraft.period_type === "short_break" || editRowPeriodDraft.period_type === "long_break" ? "break" : editRowPeriodDraft.period_type) as TimeSlot["slot_type"];
+          }
+          const created = await saveTimeSlot(schoolId, slotDraft);
+          updatedTimeSlots.push(created);
+        }
+        setTimeSlots(updatedTimeSlots);
+      } else {
+        // Find existing custom time slot in state
+        const match = timeSlots.find((ts) => ts.sort_order === editRowPeriodPn);
+        if (match) {
+          const updated = await updateTimeSlot(schoolId, match.id, {
+            label: editRowPeriodDraft.label,
+            start_time: editRowPeriodDraft.start_time,
+            end_time: editRowPeriodDraft.end_time,
+            slot_type: (editRowPeriodDraft.period_type === "short_break" || editRowPeriodDraft.period_type === "long_break" ? "break" : editRowPeriodDraft.period_type) as TimeSlot["slot_type"],
+          });
+          setTimeSlots((prev) => prev.map((ts) => (ts.id === match.id ? updated : ts)));
+        } else {
+          // Create it if not exists
+          const created = await saveTimeSlot(schoolId, {
+            label: editRowPeriodDraft.label,
+            start_time: editRowPeriodDraft.start_time,
+            end_time: editRowPeriodDraft.end_time,
+            slot_type: (editRowPeriodDraft.period_type === "short_break" || editRowPeriodDraft.period_type === "long_break" ? "break" : editRowPeriodDraft.period_type) as TimeSlot["slot_type"],
+            sort_order: editRowPeriodPn,
+          });
+          setTimeSlots((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
+        }
+      }
+
+      // Also update any existing timetable slots for this period number across all days for this class/term/year
+      if (selectedClassId && selectedTerm && selectedYear) {
+        const existingSlotsForPn = slots.filter(
+          (s) => s.period_number === editRowPeriodPn && s.class_id === selectedClassId && s.term === selectedTerm && s.academic_year === selectedYear
+        );
+        if (existingSlotsForPn.length > 0) {
+          const updated = existingSlotsForPn.map((s) => ({
+            ...s,
+            start_time: editRowPeriodDraft.start_time,
+            end_time: editRowPeriodDraft.end_time,
+            period_type: editRowPeriodDraft.period_type,
+          }));
+          const saved = await bulkSaveTimetable(schoolId, updated.map(({ id, school_id, created_at, updated_at, ...rest }) => ({ ...rest, id })));
+          
+          setSlots((prev) => {
+            const updatedSlots = [...prev];
+            saved.forEach((s) => {
+              const idx = updatedSlots.findIndex((x) => x.day === s.day && x.period_number === s.period_number);
+              if (idx >= 0) updatedSlots[idx] = s;
+              else updatedSlots.push(s);
+            });
+            return updatedSlots;
+          });
+        }
+      }
+
+      toast({ title: "Row timing updated" });
+      setEditRowPeriodPn(null);
+    } catch (e) {
+      toast({
+        title: "Error updating row timing",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingRowPeriod(false);
+    }
+  };
+
   const saveTimeSlotHandler = async () => {
     if (!schoolId || !timeSlotDraft.label || !timeSlotDraft.start_time || !timeSlotDraft.end_time) {
       toast({ title: "Missing fields", description: "Please fill in all required fields", variant: "destructive" });
@@ -1216,16 +1381,29 @@ export default function TimetablePage() {
                       return (
                         <tr key={pn} className={cn("border-b border-slate-100", idx % 2 === 0 ? "bg-white" : "bg-slate-50/50")}>
                           {/* Period label cell */}
-                          <td className="px-3 py-2 align-middle whitespace-nowrap">
-                            <p className="font-bold text-slate-700 text-[11px]">
-                              {pn === 0 ? "Asm" : isBreak ? "" : `P${pn}`}
-                            </p>
-                            <p className="text-slate-400 text-[10px] mt-0.5">
-                              {meta.start_time.slice(0, 5)} – {meta.end_time.slice(0, 5)}
-                            </p>
-                            {meta.period_type === "lesson" && meta.end_time > NAPPS_CLOSING_TIME && (
-                              <span className="text-[9px] font-semibold text-red-500">&#9888; After NAPPS limit</span>
-                            )}
+                          <td className="px-3 py-2 align-middle whitespace-nowrap relative group/period">
+                            <div className="flex items-center justify-between gap-1">
+                              <div>
+                                <p className="font-bold text-slate-700 text-[11px]">
+                                  {meta.label || (pn === 0 ? "Asm" : isBreak ? "" : `P${pn}`)}
+                                </p>
+                                <p className="text-slate-400 text-[10px] mt-0.5">
+                                  {meta.start_time.slice(0, 5)} – {meta.end_time.slice(0, 5)}
+                                </p>
+                                {meta.period_type === "lesson" && meta.end_time > NAPPS_CLOSING_TIME && (
+                                  <span className="text-[9px] font-semibold text-red-500 block">&#9888; After NAPPS limit</span>
+                                )}
+                              </div>
+                              {canEditTimetable && (
+                                <button
+                                  onClick={() => openEditRowPeriod(pn)}
+                                  className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover/period:opacity-100 transition-opacity"
+                                  title="Edit row timing"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                              )}
+                            </div>
                           </td>
 
                           {isBreak ? (
@@ -2034,6 +2212,75 @@ export default function TimetablePage() {
             <Button onClick={saveTimeSlotHandler} disabled={savingTimeSlot}>
               {savingTimeSlot ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
               Save
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Row Period Edit Modal ── */}
+      <Sheet open={editRowPeriodPn !== null} onOpenChange={() => setEditRowPeriodPn(null)}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle>Edit Row Timing</SheetTitle>
+            <p className="text-sm text-slate-500 font-medium">Configure timings and details for this period row across all days</p>
+          </SheetHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Label</label>
+              <Input
+                value={editRowPeriodDraft.label}
+                onChange={(e) => setEditRowPeriodDraft({ ...editRowPeriodDraft, label: e.target.value })}
+                placeholder="e.g. Period 1, Break, assembly"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Start Time</label>
+                <Input
+                  type="time"
+                  value={editRowPeriodDraft.start_time}
+                  onChange={(e) => setEditRowPeriodDraft({ ...editRowPeriodDraft, start_time: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">End Time</label>
+                <Input
+                  type="time"
+                  value={editRowPeriodDraft.end_time}
+                  onChange={(e) => setEditRowPeriodDraft({ ...editRowPeriodDraft, end_time: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Period Type</label>
+              <Select
+                value={editRowPeriodDraft.period_type}
+                onValueChange={(v) => setEditRowPeriodDraft({ ...editRowPeriodDraft, period_type: v as TimetableSlot["period_type"] })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lesson">Lesson</SelectItem>
+                  <SelectItem value="assembly">Assembly</SelectItem>
+                  <SelectItem value="short_break">Break</SelectItem>
+                  <SelectItem value="lunch">Lunch</SelectItem>
+                  <SelectItem value="closing">Closing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <SheetFooter className="pt-4">
+            <Button variant="outline" onClick={() => setEditRowPeriodPn(null)} disabled={savingRowPeriod}>
+              Cancel
+            </Button>
+            <Button onClick={saveRowPeriodHandler} disabled={savingRowPeriod}>
+              {savingRowPeriod ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
+              Save Row
             </Button>
           </SheetFooter>
         </SheetContent>
