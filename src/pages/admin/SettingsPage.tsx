@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Upload, Loader2 } from "lucide-react";
+import SessionHistory from "@/components/SessionHistory";
 
 export default function SettingsPage() {
   const { schoolId } = useAuth();
@@ -193,6 +194,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Security & Activity */}
+      <SessionHistory />
 
       <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
         {saving ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
