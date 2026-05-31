@@ -74,6 +74,27 @@ export default function SessionHistory() {
     }
 
     fetchSessionLogs();
+
+    // Set up realtime subscription for INSERT events
+    const channel = supabase
+      .channel("session_logs_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "session_logs",
+        },
+        (payload) => {
+          const newLog = payload.new as SessionLog;
+          setLogs((prev) => [newLog, ...prev].slice(0, 20));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (

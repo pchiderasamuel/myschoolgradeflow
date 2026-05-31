@@ -87,6 +87,39 @@ export default function SuperAdminSessionHistory() {
 
   useEffect(() => {
     fetchSessionLogs();
+
+    // Set up realtime subscription for INSERT events
+    const channel = supabase
+      .channel("session_logs_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "session_logs",
+        },
+        (payload) => {
+          const newLog = payload.new as SessionLog;
+          setLogs((prev) => {
+            const updated = [newLog, ...prev];
+            // Update users list if new user
+            if (!prev.some((log) => log.user_id === newLog.user_id)) {
+              setUsers((currentUsers) => {
+                const newUser = { id: newLog.user_id, name: newLog.user_name || null };
+                return [...currentUsers, newUser].sort((a, b) => 
+                  (a.name || "").localeCompare(b.name || "")
+                );
+              });
+            }
+            return updated;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const filteredLogs = selectedUserId === "all" 
