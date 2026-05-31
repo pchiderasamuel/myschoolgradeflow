@@ -6477,8 +6477,9 @@ export default function App({ onTenantSignOut, tenantId }: { onTenantSignOut?: (
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Btn variant="ghost" size="lg" onClick={() => setShowLogout(false)}>Stay</Btn>
-              <Btn variant="danger" size="lg" onClick={() => {
-                logAuthEvent({ authType: "staff", eventType: "logout", tenantId, staffId: auth.user?.id ?? "admin" }).catch(() => {});
+              <Btn variant="danger" size="lg" onClick={async () => {
+                await logAuthEvent({ authType: "staff", eventType: "logout", tenantId, staffId: auth.user?.id ?? "admin" }).catch(() => {});
+                await supabase.auth.signOut();
                 setAuth({ loggedIn:false, user:null });
                 setLoginId("admin"); setLoginPass(""); setShowLogout(false);
                 setActiveTab("dashboard"); setActiveReport(null); setMenuOpen(false);

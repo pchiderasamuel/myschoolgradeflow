@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export type AppRole = "super_admin" | "school_admin" | "authorised_staff" | "principal" | "head_teacher" | "teacher" | "student" | "unassigned";
 
@@ -30,6 +31,18 @@ async function insertSessionLog(
   profile: AuthProfile
 ): Promise<void> {
   try {
+    // Get client IP address
+    let ipAddress: string | null = null;
+    try {
+      const response = await fetch("https://api.ipify.org?format=json").catch(() => null);
+      if (response?.ok) {
+        const data = await response.json();
+        ipAddress = data.ip;
+      }
+    } catch {
+      // Silently fail to get IP
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from("session_logs").insert({
       user_id:   profile.userId,
@@ -37,6 +50,7 @@ async function insertSessionLog(
       user_name: [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.email || profile.userId,
       role:      profile.role,
       action,
+      ip_address: ipAddress,
       device:    navigator.userAgent.slice(0, 200),
     });
   } catch { /* non-critical — never block auth flow */ }
@@ -82,6 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const profileRef = useRef<AuthProfile | null>(null);
   // Track whether we already logged a login for this session to avoid duplicates
   const loggedLoginRef = useRef<string | null>(null);
+  const { toast } = useToast();
+  const sessionExpiredShownRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -111,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Log login once per session id
           if (event === "SIGNED_IN" && loggedLoginRef.current !== s.access_token) {
             loggedLoginRef.current = s.access_token ?? null;
+            sessionExpiredShownRef.current = false;
             insertSessionLog("login", p);
           }
         });
@@ -118,13 +135,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
         profileRef.current = null;
         setLoading(false);
+        // Show session expired notification if not a manual logout
+        if (event === "SIGNED_OUT" && !sessionExpiredShownRef.current) {
+          sessionExpiredShownRef.current = true;
+          toast({
+            title: "Session expired",
+            description: "Your session has expired. Please log in again.",
+            variant: "destructive",
+          });
+        }
       }
     });
 
-    return () => listener.subscription.unsubscribe();
+    // Cross-tab session invalidation
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "supabase-auth-token" && e.newValue === null) {
+        // Another tab logged out - clear local state
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        profileRef.current = null;
+        loggedLoginRef.current = null;
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      listener.subscription.unsubscribe();
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   const signOut = async () => {
+    sessionExpiredShownRef.current = true; // Prevent showing expired toast on manual logout
     if (profileRef.current) {
       await insertSessionLog("logout", profileRef.current);
     }
