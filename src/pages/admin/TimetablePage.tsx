@@ -61,6 +61,12 @@ const PERIOD_LABELS: Record<string, string> = {
 const DEFAULT_BREAK_LABEL = "Lesson Break";
 const NAPPS_CLOSING_TIME   = "15:00";
 
+const toMinutes = (t: string) => {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
 const PERIOD_EMOJIS: Record<string, string> = {
   assembly:    "🎒",
   short_break: "☕️",
@@ -313,7 +319,7 @@ export default function TimetablePage() {
     const isLesson = draft.period_type === "lesson";
 
     // NAPPS enforcement: no lesson may end after 3:00PM
-    if (isLesson && draft.end_time > NAPPS_CLOSING_TIME) {
+    if (isLesson && toMinutes(draft.end_time) > toMinutes(NAPPS_CLOSING_TIME)) {
       toast({
         title: "NAPPS restriction",
         description: "Lesson periods cannot end after 3:00PM (NAPPS standard). Adjust the end time.",
@@ -352,7 +358,7 @@ export default function TimetablePage() {
       }
 
       setSlots((prev) => {
-        let updated = [...prev];
+        const updated = [...prev];
         saved.forEach((s) => {
           const idx = updated.findIndex((x) => x.day === s.day && x.period_number === s.period_number);
           if (idx >= 0) updated[idx] = s;
@@ -400,6 +406,11 @@ export default function TimetablePage() {
       toast({ title: "Select class and year first", variant: "destructive" });
       return;
     }
+
+    if (!window.confirm("Loading this template will overwrite all existing subject and teacher assignments for this timetable. This action cannot be undone. Are you sure you want to continue?")) {
+      return;
+    }
+
     setSaving(true);
     try {
       const cls = selectedClass;
@@ -559,6 +570,16 @@ export default function TimetablePage() {
 
   const saveAddPeriod = async () => {
     if (!addPeriodDay || !schoolId || !selectedClassId) return;
+
+    if (addPeriodDraft.period_type === "lesson" && toMinutes(addPeriodDraft.end_time) > toMinutes(NAPPS_CLOSING_TIME)) {
+      toast({
+        title: "NAPPS restriction",
+        description: "Lesson periods cannot end after 3:00PM (NAPPS standard). Adjust the end time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSavingAddPeriod(true);
     try {
       const cls = selectedClass;
@@ -612,6 +633,16 @@ export default function TimetablePage() {
 
   const saveEditPeriod = async () => {
     if (!editPeriodCell || !schoolId || !selectedClassId) return;
+
+    if (editPeriodDraft.period_type === "lesson" && toMinutes(editPeriodDraft.end_time) > toMinutes(NAPPS_CLOSING_TIME)) {
+      toast({
+        title: "NAPPS restriction",
+        description: "Lesson periods cannot end after 3:00PM (NAPPS standard). Adjust the end time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { day, period_number } = editPeriodCell;
     const existing = slotMap[`${day}|${period_number}`];
     setSavingEditPeriod(true);
@@ -889,6 +920,16 @@ export default function TimetablePage() {
       return;
     }
 
+    const hasInvalidLesson = periodsList.some(p => p.period_type === "lesson" && toMinutes(p.end_time) > toMinutes(NAPPS_CLOSING_TIME));
+    if (hasInvalidLesson) {
+      toast({
+        title: "NAPPS restriction",
+        description: "Lesson periods cannot end after 3:00PM (NAPPS standard). Please adjust the period times.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSavingAll(true);
     try {
       const cls = selectedClass;
@@ -899,6 +940,9 @@ export default function TimetablePage() {
         (s) => s.class_id === selectedClassId && s.term === selectedTerm && s.academic_year === selectedYear
       );
 
+      const existingSlotMap = new Map<string, TimetableSlot>();
+      existingSlots.forEach((s) => existingSlotMap.set(`${s.day}|${s.period_number}`, s));
+
       // Delete existing slots
       for (const slot of existingSlots) {
         if (slot.id) await deleteTimetableSlot(schoolId, slot.id);
@@ -906,23 +950,26 @@ export default function TimetablePage() {
 
       // Create new slots based on updated periodsList
       const newSlots = DAYS.flatMap((day) =>
-        periodsList.map((p) => ({
-          class_id: selectedClassId,
-          class_name: cls?.name ?? "",
-          academic_year: selectedYear,
-          term: selectedTerm,
-          day,
-          period_number: p.period_number,
-          period_type: p.period_type,
-          start_time: p.start_time,
-          end_time: p.end_time,
-          subject_id: null as null,
-          subject_name: null as null,
-          teacher_id: null as null,
-          teacher_name: null as null,
-          room: null as null,
-          notes: null,
-        }))
+        periodsList.map((p) => {
+          const oldSlot = existingSlotMap.get(`${day}|${p.period_number}`);
+          return {
+            class_id: selectedClassId,
+            class_name: cls?.name ?? "",
+            academic_year: selectedYear,
+            term: selectedTerm,
+            day,
+            period_number: p.period_number,
+            period_type: p.period_type,
+            start_time: p.start_time,
+            end_time: p.end_time,
+            subject_id: oldSlot?.subject_id ?? null,
+            subject_name: oldSlot?.subject_name ?? null,
+            teacher_id: oldSlot?.teacher_id ?? null,
+            teacher_name: oldSlot?.teacher_name ?? null,
+            room: oldSlot?.room ?? null,
+            notes: oldSlot?.notes ?? null,
+          };
+        })
       );
 
       const saved = await bulkSaveTimetable(schoolId, newSlots);
