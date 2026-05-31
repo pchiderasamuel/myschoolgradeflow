@@ -1361,11 +1361,48 @@ export async function getSessionLogs(
   limit = 50
 ): Promise<unknown[]> {
   const { data, error } = await from("session_logs")
-    .select(superadmin ? "*, schools(name)" : "*", { count: "exact" })
-    .order("created_at", { ascending: false })
+    .select(`
+      id,
+      user_id,
+      event,
+      timestamp,
+      ip_address,
+      user_agent,
+      provider,
+      profiles (
+        first_name,
+        last_name,
+        role,
+        school_id,
+        schools:school_id (
+          name
+        )
+      )
+    `)
+    .order("timestamp", { ascending: false })
     .limit(limit);
+
   throwIfError(error, "getSessionLogs");
-  return (data ?? []) as unknown[];
+
+  // Map to the legacy structure expected by existing views
+  return (data ?? []).map((row: any) => {
+    const profile = row.profiles;
+    const name = profile
+      ? [profile.first_name, profile.last_name].filter(Boolean).join(" ")
+      : "Unknown User";
+
+    return {
+      id: row.id,
+      school_id: profile?.school_id ?? null,
+      user_id: row.user_id,
+      user_name: name,
+      role: profile?.role ?? "unassigned",
+      action: row.event === "LOGIN" ? "login" : "logout",
+      device: row.user_agent,
+      created_at: row.timestamp,
+      schools: profile?.schools ?? null,
+    };
+  });
 }
 
 export async function insertSessionLog(log: {
@@ -1375,7 +1412,15 @@ export async function insertSessionLog(log: {
   event_type: string;
   details?: Record<string, unknown> | null;
 }): Promise<void> {
-  const { error } = await from("session_logs").insert(log);
+  // Client should no longer write directly to session_logs due to RLS,
+  // but we keep this method with fallback behavior to prevent compilation issues.
+  const { error } = await from("session_logs").insert({
+    user_id: log.user_id,
+    event: log.event_type.toUpperCase(),
+    ip_address: (log.details as any)?.ip_address ?? null,
+    user_agent: (log.details as any)?.user_agent ?? null,
+    provider: (log.details as any)?.provider ?? "email",
+  });
   throwIfError(error, "insertSessionLog");
 }
 

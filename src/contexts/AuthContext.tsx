@@ -27,32 +27,20 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function insertSessionLogAuth(
-  action: "login" | "logout",
-  profile: AuthProfile
+async function logSessionEvent(
+  user: User | { id: string; app_metadata?: any; identities?: any },
+  eventType: "LOGIN" | "LOGOUT"
 ): Promise<void> {
   try {
-    // Get client IP address
-    let ipAddress: string | null = null;
-    try {
-      const response = await fetch("https://api.ipify.org?format=json").catch(() => null);
-      if (response?.ok) {
-        const data = await response.json();
-        ipAddress = data.ip;
-      }
-    } catch {
-      // Silently fail to get IP
-    }
-
-    await insertSessionLog({
-      user_id:   profile.userId,
-      school_id: profile.schoolId ?? null,
-      user_name: [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.email || profile.userId,
-      event_type: action,
-      ip_address: ipAddress,
-      device:    navigator.userAgent.slice(0, 200),
+    const { error } = await supabase.functions.invoke("log-session", {
+      body: { user, event_type: eventType },
     });
-  } catch { /* non-critical — never block auth flow */ }
+    if (error) {
+      console.warn(`Failed to log ${eventType} event via edge function:`, error);
+    }
+  } catch (err) {
+    console.warn(`Error invoking log-session edge function:`, err);
+  }
 }
 
 async function fetchProfile(userId: string, email: string | null): Promise<AuthProfile> {
@@ -85,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const profileRef = useRef<AuthProfile | null>(null);
+  const currentUserRef = useRef<User | null>(null);
   // Track whether we already logged a login for this session to avoid duplicates
   const loggedLoginRef = useRef<string | null>(null);
   const { toast } = useToast();
@@ -96,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
+        currentUserRef.current = s.user;
         fetchProfile(s.user.id, s.user.email ?? null).then((p) => {
           setProfile(p);
           profileRef.current = p;
@@ -110,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
+        currentUserRef.current = s.user;
         setLoading(true);
         fetchProfile(s.user.id, s.user.email ?? null).then((p) => {
           setProfile(p);
@@ -119,21 +110,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (event === "SIGNED_IN" && loggedLoginRef.current !== s.access_token) {
             loggedLoginRef.current = s.access_token ?? null;
             sessionExpiredShownRef.current = false;
-            insertSessionLogAuth("login", p);
+            logSessionEvent(s.user, "LOGIN");
           }
         });
       } else {
         setProfile(null);
         profileRef.current = null;
         setLoading(false);
-        // Show session expired notification if not a manual logout
-        if (event === "SIGNED_OUT" && !sessionExpiredShownRef.current) {
-          sessionExpiredShownRef.current = true;
-          toast({
-            title: "Session expired",
-            description: "Your session has expired. Please log in again.",
-            variant: "destructive",
-          });
+        
+        // Log logout event on SIGNED_OUT using the cached user object
+        if (event === "SIGNED_OUT") {
+          if (currentUserRef.current) {
+            logSessionEvent(currentUserRef.current, "LOGOUT");
+            currentUserRef.current = null;
+          }
+          
+          if (!sessionExpiredShownRef.current) {
+            sessionExpiredShownRef.current = true;
+            toast({
+              title: "Session expired",
+              description: "Your session has expired. Please log in again.",
+              variant: "destructive",
+            });
+          }
         }
       }
     });
@@ -147,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
         profileRef.current = null;
         loggedLoginRef.current = null;
+        currentUserRef.current = null;
       }
     };
     window.addEventListener("storage", handleStorageChange);
@@ -159,9 +159,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     sessionExpiredShownRef.current = true; // Prevent showing expired toast on manual logout
-    if (profileRef.current) {
-      await insertSessionLogAuth("logout", profileRef.current);
-    }
     await supabase.auth.signOut();
   };
 
