@@ -5,7 +5,8 @@ import { useTimetablePermission } from "@/hooks/useTimetablePermission";
 import {
   getClasses, getSubjects, getTeachers, saveSubject,
   getTimetable, saveTimetableSlot, bulkSaveTimetable, deleteTimetableSlot,
-  Class, Subject, Teacher, TimetableSlot,
+  getTimeSlots, saveTimeSlot, updateTimeSlot, deleteTimeSlot,
+  Class, Subject, Teacher, TimetableSlot, TimeSlot,
 } from "@/supabase/schoolService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,18 +175,26 @@ export default function TimetablePage() {
   const [deleteConfirmCell, setDeleteConfirmCell] = useState<{ day: Day; period_number: number } | null>(null);
   const [deletingSlot, setDeletingSlot] = useState(false);
 
+  // Time slots state
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
+  const [editingTimeSlot, setEditingTimeSlot] = useState<TimeSlot | null>(null);
+  const [timeSlotDraft, setTimeSlotDraft] = useState<Partial<TimeSlot>>({});
+  const [savingTimeSlot, setSavingTimeSlot] = useState(false);
+
   // ── Load initial data ──────────────────────────────────────────────
   const loadInit = useCallback(async () => {
     if (!schoolId) return;
     setLoadingInit(true);
     setInitError(null);
     try {
-      const [cls, subs, tchs] = await Promise.all([
-        getClasses(schoolId), getSubjects(schoolId), getTeachers(schoolId),
+      const [cls, subs, tchs, ts] = await Promise.all([
+        getClasses(schoolId), getSubjects(schoolId), getTeachers(schoolId), getTimeSlots(schoolId),
       ]);
       setClasses(cls);
       setSubjects(subs);
       setTeachers(tchs);
+      setTimeSlots(ts);
       if (cls.length) setSelectedClassId(cls[0].id);
     } catch (e) {
       const msg = (e as Error).message;
@@ -805,6 +814,74 @@ export default function TimetablePage() {
     }
   };
 
+  // ── Time slots handlers ───────────────────────────────────────────────
+  const openEditTimeSlot = (timeSlot: TimeSlot | null = null) => {
+    setEditingTimeSlot(timeSlot);
+    if (timeSlot) {
+      setTimeSlotDraft({
+        label: timeSlot.label,
+        start_time: timeSlot.start_time,
+        end_time: timeSlot.end_time,
+        slot_type: timeSlot.slot_type,
+        sort_order: timeSlot.sort_order,
+      });
+    } else {
+      const maxOrder = timeSlots.length > 0 ? Math.max(...timeSlots.map((ts) => ts.sort_order)) : -1;
+      setTimeSlotDraft({
+        label: "",
+        start_time: "09:00",
+        end_time: "09:40",
+        slot_type: "lesson",
+        sort_order: maxOrder + 1,
+      });
+    }
+  };
+
+  const saveTimeSlotHandler = async () => {
+    if (!schoolId || !timeSlotDraft.label || !timeSlotDraft.start_time || !timeSlotDraft.end_time) {
+      toast({ title: "Missing fields", description: "Please fill in all required fields", variant: "destructive" });
+      return;
+    }
+
+    setSavingTimeSlot(true);
+    try {
+      if (editingTimeSlot) {
+        const updated = await updateTimeSlot(schoolId, editingTimeSlot.id, timeSlotDraft);
+        setTimeSlots((prev) => prev.map((ts) => (ts.id === editingTimeSlot.id ? updated : ts)));
+        toast({ title: "Time slot updated" });
+      } else {
+        const created = await saveTimeSlot(schoolId, timeSlotDraft as Omit<TimeSlot, "id" | "school_id" | "created_at" | "updated_at">);
+        setTimeSlots((prev) => [...prev, created]);
+        toast({ title: "Time slot added" });
+      }
+      setEditingTimeSlot(null);
+      setTimeSlotDraft({});
+    } catch (e) {
+      toast({
+        title: "Error saving time slot",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingTimeSlot(false);
+    }
+  };
+
+  const deleteTimeSlotHandler = async (id: string) => {
+    if (!schoolId) return;
+    try {
+      await deleteTimeSlot(schoolId, id);
+      setTimeSlots((prev) => prev.filter((ts) => ts.id !== id));
+      toast({ title: "Time slot deleted" });
+    } catch (e) {
+      toast({
+        title: "Error deleting time slot",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    }
+  };
+
   // ── Save period settings to Supabase ─────────────────────────────────────
   const savePeriodSettings = async () => {
     if (!schoolId || !selectedClassId || !selectedYear) {
@@ -956,6 +1033,55 @@ export default function TimetablePage() {
             </Button>
           </div>
         </div>
+
+        {/* ── Time Slots Management ── */}
+        {canEditTimetable && (
+          <div className="rounded-lg border border-slate-200 bg-white p-4 no-print">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-800">Time Slots</h2>
+              <Button size="sm" onClick={() => openEditTimeSlot(null)}>
+                <Plus size={14} className="mr-1" />
+                Add Time Slot
+              </Button>
+            </div>
+            {timeSlots.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">No time slots configured yet. Add your first time slot to get started.</p>
+            ) : (
+              <div className="space-y-2">
+                {timeSlots.map((ts) => (
+                  <div key={ts.id} className="flex items-center gap-3 p-2 rounded border border-slate-100 bg-slate-50">
+                    <div className="flex-1 grid grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-500">Label:</span>
+                        <span className="ml-1 font-medium">{ts.label}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Time:</span>
+                        <span className="ml-1 font-medium">{ts.start_time} - {ts.end_time}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Type:</span>
+                        <span className="ml-1 font-medium capitalize">{ts.slot_type}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Order:</span>
+                        <span className="ml-1 font-medium">{ts.sort_order}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => openEditTimeSlot(ts)}>
+                        <Pencil size={12} />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteTimeSlotHandler(ts.id)}>
+                        <Trash2 size={12} className="text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Filters ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 no-print">
@@ -1781,6 +1907,86 @@ export default function TimetablePage() {
             <Button onClick={savePeriodSettings} disabled={savingAll}>
               {savingAll ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
               Save Changes
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Time Slot Edit Modal ── */}
+      <Sheet open={editingTimeSlot !== null} onOpenChange={() => setEditingTimeSlot(null)}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle>{editingTimeSlot ? "Edit Time Slot" : "Add Time Slot"}</SheetTitle>
+            <p className="text-sm text-slate-500">Configure time slot details</p>
+          </SheetHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Label</label>
+              <Input
+                value={timeSlotDraft.label || ""}
+                onChange={(e) => setTimeSlotDraft({ ...timeSlotDraft, label: e.target.value })}
+                placeholder="e.g., Period 1, Morning Break"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Start Time</label>
+                <Input
+                  type="time"
+                  value={timeSlotDraft.start_time || ""}
+                  onChange={(e) => setTimeSlotDraft({ ...timeSlotDraft, start_time: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">End Time</label>
+                <Input
+                  type="time"
+                  value={timeSlotDraft.end_time || ""}
+                  onChange={(e) => setTimeSlotDraft({ ...timeSlotDraft, end_time: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Slot Type</label>
+              <Select
+                value={timeSlotDraft.slot_type || "lesson"}
+                onValueChange={(v) => setTimeSlotDraft({ ...timeSlotDraft, slot_type: v as TimeSlot["slot_type"] })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lesson">Lesson</SelectItem>
+                  <SelectItem value="break">Break</SelectItem>
+                  <SelectItem value="assembly">Assembly</SelectItem>
+                  <SelectItem value="lunch">Lunch</SelectItem>
+                  <SelectItem value="closing">Closing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Sort Order</label>
+              <Input
+                type="number"
+                value={timeSlotDraft.sort_order ?? 0}
+                onChange={(e) => setTimeSlotDraft({ ...timeSlotDraft, sort_order: parseInt(e.target.value) || 0 })}
+                min="0"
+              />
+              <p className="text-[10px] text-slate-400">Lower numbers appear first in the timetable</p>
+            </div>
+          </div>
+
+          <SheetFooter className="pt-4">
+            <Button variant="outline" onClick={() => setEditingTimeSlot(null)} disabled={savingTimeSlot}>
+              Cancel
+            </Button>
+            <Button onClick={saveTimeSlotHandler} disabled={savingTimeSlot}>
+              {savingTimeSlot ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
+              Save
             </Button>
           </SheetFooter>
         </SheetContent>

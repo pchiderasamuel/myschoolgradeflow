@@ -104,6 +104,18 @@ export interface Subject {
   created_at: string;
 }
 
+export interface TimeSlot {
+  id: string;
+  school_id: string;
+  label: string;
+  start_time: string;
+  end_time: string;
+  slot_type: "lesson" | "break" | "assembly" | "lunch" | "closing";
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AttendanceRecord {
   id: string;
   school_id: string;
@@ -479,6 +491,66 @@ export async function saveSubject(schoolId: string | null, subject: Omit<Subject
     .single();
   throwIfError(error, "saveSubject");
   return data as Subject;
+}
+
+// ─── Time Slots ─────────────────────────────────────────────────────────
+
+export async function getTimeSlots(schoolId: string | null): Promise<TimeSlot[]> {
+  const sid = requireSchoolId(schoolId);
+  const { data, error } = await db()
+    .from("time_slots")
+    .select("*")
+    .eq("school_id", sid)
+    .order("sort_order", { ascending: true });
+  throwIfError(error, "getTimeSlots");
+  return (data ?? []) as TimeSlot[];
+}
+
+export async function saveTimeSlot(schoolId: string | null, timeSlot: Omit<TimeSlot, "id" | "school_id" | "created_at" | "updated_at">): Promise<TimeSlot> {
+  const sid = requireSchoolId(schoolId);
+  const { data, error } = await db()
+    .from("time_slots")
+    .insert({
+      school_id: sid,
+      label: timeSlot.label,
+      start_time: timeSlot.start_time,
+      end_time: timeSlot.end_time,
+      slot_type: timeSlot.slot_type,
+      sort_order: timeSlot.sort_order,
+    })
+    .select()
+    .single();
+  throwIfError(error, "saveTimeSlot");
+  return data as TimeSlot;
+}
+
+export async function updateTimeSlot(schoolId: string | null, id: string, timeSlot: Partial<Omit<TimeSlot, "id" | "school_id" | "created_at" | "updated_at">>): Promise<TimeSlot> {
+  const sid = requireSchoolId(schoolId);
+  const { data, error } = await db()
+    .from("time_slots")
+    .update({
+      label: timeSlot.label,
+      start_time: timeSlot.start_time,
+      end_time: timeSlot.end_time,
+      slot_type: timeSlot.slot_type,
+      sort_order: timeSlot.sort_order,
+    })
+    .eq("id", id)
+    .eq("school_id", sid)
+    .select()
+    .single();
+  throwIfError(error, "updateTimeSlot");
+  return data as TimeSlot;
+}
+
+export async function deleteTimeSlot(schoolId: string | null, id: string): Promise<void> {
+  const sid = requireSchoolId(schoolId);
+  const { error } = await db()
+    .from("time_slots")
+    .delete()
+    .eq("id", id)
+    .eq("school_id", sid);
+  throwIfError(error, "deleteTimeSlot");
 }
 
 // ─── Attendance ────────────────────────────────────────────────────────
