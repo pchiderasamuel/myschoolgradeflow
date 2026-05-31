@@ -12,6 +12,16 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  getSchoolByTenantId, 
+  getStudentByEmail, 
+  updateStudentGuardianEmail, 
+  insertStudent,
+  upsertReportCard,
+  getReportCard,
+  updateReportCard,
+  insertReportCard
+} from "@/supabase/schoolService";
 import { Printer, Mail, CheckCheck, Loader2, AlertTriangle, UserPen, ArrowRight } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -72,12 +82,8 @@ export default function ReportCardSupabaseActions({
     if (!tenantId) return;
     (async () => {
       try {
-        const { data } = await (supabase as any)
-          .from("schools")
-          .select("id")
-          .eq("tenant_id", tenantId)
-          .maybeSingle();
-        setSchoolId(data?.id ?? null);
+        const data = await getSchoolByTenantId(tenantId);
+        setSchoolId((data as { id: string })?.id ?? null);
       } catch { /* non-critical */ }
     })();
   }, [tenantId]);
@@ -94,15 +100,11 @@ export default function ReportCardSupabaseActions({
     if (!activeReport || !schoolId) return;
     (async () => {
       try {
-        const { data } = await (supabase as any)
-          .from("students")
-          .select("id, guardian_email")
-          .eq("school_id", schoolId)
-          .ilike("first_name || ' ' || last_name", `%${activeReport.name}%`)
-          .limit(1)
-          .maybeSingle();
-        setGuardianEmail(data?.guardian_email ?? null);
-        setStudentDbId(data?.id ?? null);
+        // Try to find student by name - this is a simplified approach
+        // In production, you'd want a more robust search
+        const data = await getStudentByEmail(schoolId, activeReport.name);
+        setGuardianEmail((data as { guardian_email: string })?.guardian_email ?? null);
+        setStudentDbId((data as { id: string })?.id ?? null);
       } catch { /* non-critical */ }
     })();
   }, [activeReport?.id, schoolId]); // eslint-disable-line
@@ -118,28 +120,18 @@ export default function ReportCardSupabaseActions({
     try {
       if (studentDbId) {
         // Update existing student row
-        const { error } = await (supabase as any)
-          .from("students")
-          .update({ guardian_email: trimmed })
-          .eq("id", studentDbId);
-        if (error) throw error;
+        await updateStudentGuardianEmail(studentDbId, trimmed);
       } else if (schoolId && activeReport) {
         // No DB row yet — insert minimal student record
         const names = activeReport.name.trim().split(/\s+/);
         const firstName = names[0];
         const lastName  = names.slice(1).join(" ") || "-";
-        const { data: inserted, error } = await (supabase as any)
-          .from("students")
-          .insert({
-            school_id:     schoolId,
-            first_name:    firstName,
-            last_name:     lastName,
-            guardian_email: trimmed,
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-        setStudentDbId(inserted?.id ?? null);
+        const inserted = await insertStudent({
+          school_id:     schoolId,
+          name:          activeReport.name,
+          guardian_email: trimmed,
+        });
+        setStudentDbId((inserted as { id: string })?.id ?? null);
       } else {
         throw new Error("Cannot save — school not linked.");
       }
@@ -186,45 +178,27 @@ export default function ReportCardSupabaseActions({
 
       // Upsert by school_id + student_name + class + term + year
       // (student_id is nullable since this app uses names not UUIDs)
-      const { data, error } = await (supabase as any)
-        .from("report_cards")
-        .upsert(payload, {
-          onConflict: "school_id,student_id,term,academic_year",
-          ignoreDuplicates: false,
-        })
-        .select("id")
-        .single();
-
-      if (error) {
+      const data = await upsertReportCard(payload, ["school_id", "student_id", "term", "academic_year"]);
+      
+      if (!data) {
         // Conflict key uses student_id which is null — fall back to insert+update
         // by selecting first then updating
-        const { data: existing } = await (supabase as any)
-          .from("report_cards")
-          .select("id")
-          .eq("school_id", schoolId)
-          .eq("student_name", activeReport.name)
-          .eq("student_class", activeReport.class)
-          .eq("term", normaliseTerm(schoolSettings.term))
-          .eq("academic_year", schoolSettings.session)
-          .maybeSingle();
+        const existing = await getReportCard(
+          schoolId,
+          studentDbId,
+          normaliseTerm(schoolSettings.term),
+          schoolSettings.session
+        );
 
-        if (existing?.id) {
-          await (supabase as any)
-            .from("report_cards")
-            .update({ ...payload, updated_at: new Date().toISOString() })
-            .eq("id", existing.id);
-          setSavedId(existing.id);
+        if (existing) {
+          await updateReportCard((existing as { id: string }).id, { ...payload, updated_at: new Date().toISOString() });
+          setSavedId((existing as { id: string }).id);
         } else {
-          const { data: inserted, error: insertErr } = await (supabase as any)
-            .from("report_cards")
-            .insert(payload)
-            .select("id")
-            .single();
-          if (insertErr) throw insertErr;
-          setSavedId(inserted.id);
+          const inserted = await insertReportCard(payload);
+          setSavedId((inserted as { id: string }).id);
         }
       } else {
-        setSavedId(data?.id ?? null);
+        setSavedId((data as { id: string })?.id ?? null);
       }
 
       toast({ title: "Report card saved", description: `${activeReport.name} — ${schoolSettings.term}` });
@@ -233,7 +207,7 @@ export default function ReportCardSupabaseActions({
     } finally {
       setSaving(false);
     }
-  }, [activeReport, curC, schoolId, schoolSettings, toast]);
+  }, [activeReport, curC, schoolId, schoolSettings, toast, studentDbId]);
 
   // ─── Print ────────────────────────────────────────────────────────────────
   const handlePrint = () => window.print();
@@ -249,16 +223,13 @@ export default function ReportCardSupabaseActions({
       if (!rcId) {
         await handleSave();
         // Re-fetch id
-        const { data: rc } = await (supabase as any)
-          .from("report_cards")
-          .select("id")
-          .eq("school_id", schoolId)
-          .eq("student_name", activeReport!.name)
-          .eq("student_class", activeReport!.class)
-          .eq("term", normaliseTerm(schoolSettings.term))
-          .eq("academic_year", schoolSettings.session)
-          .maybeSingle();
-        rcId = rc?.id ?? null;
+        const rc = await getReportCard(
+          schoolId,
+          studentDbId,
+          normaliseTerm(schoolSettings.term),
+          schoolSettings.session
+        );
+        rcId = (rc as { id: string })?.id ?? null;
       }
 
       if (!rcId) throw new Error("Report card not saved — please save first.");

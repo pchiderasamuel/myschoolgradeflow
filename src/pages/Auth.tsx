@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { logAuthEvent } from "@/lib/auth-logger";
+import { getUserRole } from "@/supabase/schoolService";
 import { Shield } from "lucide-react";
 
 function Spinner() {
@@ -26,18 +27,17 @@ export default function Auth() {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) return;
       const userId = data.session.user.id;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profileRow } = await (supabase as any)
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .maybeSingle();
-      const role = profileRow?.role ?? "unassigned";
-      if (role === "super_admin") navigate("/superadmin", { replace: true });
-      else if (role === "student") navigate("/student", { replace: true });
-      else if (["school_admin", "principal", "head_teacher", "teacher"].includes(role))
-        navigate("/school", { replace: true });
-      else navigate("/superadmin", { replace: true });
+      try {
+        const role = await getUserRole(userId);
+        const userRole = role ?? "unassigned";
+        if (userRole === "super_admin") navigate("/superadmin", { replace: true });
+        else if (userRole === "student") navigate("/student", { replace: true });
+        else if (["school_admin", "principal", "head_teacher", "teacher"].includes(userRole))
+          navigate("/school", { replace: true });
+        else navigate("/superadmin", { replace: true });
+      } catch {
+        navigate("/superadmin", { replace: true });
+      }
     });
   }, [navigate]);
 
@@ -54,15 +54,10 @@ export default function Auth() {
           eventType: "login",
           userId: data.user.id,
         });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profileRow } = await (supabase as any)
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .maybeSingle();
-        const role = profileRow?.role ?? "unassigned";
-        if (role === "student") navigate("/student", { replace: true });
-        else if (["school_admin", "principal", "head_teacher", "teacher"].includes(role))
+        const role = await getUserRole(data.user.id);
+        const userRole = role ?? "unassigned";
+        if (userRole === "student") navigate("/student", { replace: true });
+        else if (["school_admin", "principal", "head_teacher", "teacher"].includes(userRole))
           navigate("/school", { replace: true });
         else navigate("/superadmin", { replace: true });
       } else {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { insertSessionLog, getUserRole, checkUserRole, getUserProfile } from "@/supabase/schoolService";
 import { useToast } from "@/hooks/use-toast";
 
 export type AppRole = "super_admin" | "school_admin" | "authorised_staff" | "principal" | "head_teacher" | "teacher" | "student" | "unassigned";
@@ -26,7 +27,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function insertSessionLog(
+async function insertSessionLogAuth(
   action: "login" | "logout",
   profile: AuthProfile
 ): Promise<void> {
@@ -43,13 +44,11 @@ async function insertSessionLog(
       // Silently fail to get IP
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("session_logs").insert({
+    await insertSessionLog({
       user_id:   profile.userId,
       school_id: profile.schoolId ?? null,
       user_name: [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.email || profile.userId,
-      role:      profile.role,
-      action,
+      event_type: action,
       ip_address: ipAddress,
       device:    navigator.userAgent.slice(0, 200),
     });
@@ -58,13 +57,8 @@ async function insertSessionLog(
 
 async function fetchProfile(userId: string, email: string | null): Promise<AuthProfile> {
   // First try fetching from public.profiles (Phase 2 table)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profileRow } = await (supabase as any)
-    .from("profiles")
-    .select("role, school_id, first_name, last_name")
-    .eq("id", userId)
-    .maybeSingle();
-
+  const profileRow = await getUserProfile(userId);
+  
   if (profileRow) {
     return {
       userId,
@@ -77,10 +71,7 @@ async function fetchProfile(userId: string, email: string | null): Promise<AuthP
   }
 
   // Fallback: check user_roles table (super_admin bootstrap path)
-  const { data: isSuperAdmin } = await supabase.rpc("has_role", {
-    _user_id: userId,
-    _role: "super_admin",
-  });
+  const isSuperAdmin = await checkUserRole(userId, "super_admin");
   if (isSuperAdmin) {
     return { userId, email, role: "super_admin", schoolId: null, firstName: null, lastName: null };
   }
@@ -128,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (event === "SIGNED_IN" && loggedLoginRef.current !== s.access_token) {
             loggedLoginRef.current = s.access_token ?? null;
             sessionExpiredShownRef.current = false;
-            insertSessionLog("login", p);
+            insertSessionLogAuth("login", p);
           }
         });
       } else {
@@ -164,12 +155,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       listener.subscription.unsubscribe();
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, []);
+  }, [toast]);
 
   const signOut = async () => {
     sessionExpiredShownRef.current = true; // Prevent showing expired toast on manual logout
     if (profileRef.current) {
-      await insertSessionLog("logout", profileRef.current);
+      await insertSessionLogAuth("logout", profileRef.current);
     }
     await supabase.auth.signOut();
   };

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getSessionLogs } from "@/supabase/schoolService";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -43,17 +43,14 @@ export default function SessionLog({ superadmin = false }: Props) {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
-        .from("session_logs")
-        .select(superadmin ? "*, schools(name)" : "*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
-
-      const { data, error, count } = await q;
-      if (error) throw error;
-      setRows(data ?? []);
-      setTotal(count ?? 0);
+      const data = await getSessionLogs(superadmin, PAGE_SIZE * (page + 1));
+      // Get the page slice
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE;
+      const pageData = data.slice(from, to);
+      
+      setRows(pageData as SessionLogEntry[]);
+      setTotal(data.length);
     } catch (e) {
       console.error("SessionLog fetch error:", e);
     } finally {

@@ -6,7 +6,7 @@ import {
   getResults, saveResult, bulkSaveResults,
   getAttendance, saveAttendance,
   getFees, createFee, updateFee, deleteFee,
-  getPayments,
+  getPayments, getStudentsPaginated,
   Student, Class, Subject, Teacher, Result, AttendanceRecord, Fee, Payment,
 } from "@/supabase/schoolService";
 
@@ -81,30 +81,27 @@ async function getStudentsPaged(
   page: number,
   filters: StudentFilters
 ): Promise<{ students: Student[]; total: number }> {
-  const { supabase } = await import("@/integrations/supabase/client");
   if (!schoolId) return { students: [], total: 0 };
 
   const from = page * STUDENT_PAGE_SIZE;
   const to   = from + STUDENT_PAGE_SIZE - 1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q = (supabase as any)
-    .from("students")
-    .select("*", { count: "exact" })
-    .eq("school_id", schoolId)
-    .order("last_name")
-    .range(from, to);
-
-  if (filters.class_id) q = q.eq("class_id", filters.class_id);
-  if (filters.status)   q = q.eq("status", filters.status);
+  const { data, count } = await getStudentsPaginated(schoolId, from, to);
+  
+  // Apply filters client-side for now (can be moved to server-side later)
+  let filtered = data as Student[];
+  if (filters.class_id) filtered = filtered.filter(s => s.class_id === filters.class_id);
+  if (filters.status) filtered = filtered.filter(s => s.status === filters.status);
   if (filters.search) {
-    const s = filters.search.trim();
-    q = q.or(`first_name.ilike.%${s}%,last_name.ilike.%${s}%,admission_no.ilike.%${s}%`);
+    const s = filters.search.trim().toLowerCase();
+    filtered = filtered.filter(st => 
+      st.first_name?.toLowerCase().includes(s) ||
+      st.last_name?.toLowerCase().includes(s) ||
+      st.admission_no?.toLowerCase().includes(s)
+    );
   }
 
-  const { data, error, count } = await q;
-  if (error) throw new Error(error.message);
-  return { students: (data ?? []) as Student[], total: count ?? 0 };
+  return { students: filtered, total: count };
 }
 
 export function useCreateStudent() {

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { provisionSchool } from "@/supabase/schoolService";
 import { CheckCircle2, Circle, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -76,23 +76,17 @@ export default function ProvisionSchoolPage() {
     setErrorMsg(null);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).functions.invoke("provision-school", {
-        body: {
-          name: form.name,
-          code: form.code.toUpperCase(),
-          email: form.email || undefined,
-          phone: form.phone || undefined,
-          address: { street: form.street, city: form.city, state: form.state },
-          adminEmail: form.adminEmail || undefined,
-          adminName: form.adminName || undefined,
-          plan: form.plan,
-          tenantId: form.tenantId,
-        },
+      const data = await provisionSchool({
+        name: form.name,
+        code: form.code.toUpperCase(),
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        address: { street: form.street, city: form.city, state: form.state },
+        adminEmail: form.adminEmail || undefined,
+        adminName: form.adminName || undefined,
+        plan: form.plan,
+        tenantId: form.tenantId,
       });
-
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
 
       // Simulate visible progress steps since the EF does all 3 atomically
       setStep("pre_registration");

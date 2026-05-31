@@ -10,10 +10,13 @@
  *  - UI components import ONLY from this file, never call supabase directly.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = () => (supabase as any);
-
 import { supabase } from "@/integrations/supabase/client";
+import type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function from(table: string): PostgrestQueryBuilder<any, any, any, any> {
+  return supabase.from(table);
+}
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -202,8 +205,7 @@ function throwIfError(error: unknown, context: string): void {
 
 export async function getSchoolProfile(schoolId: string | null): Promise<School> {
   const sid = requireSchoolId(schoolId);
-  const { data, error } = await db()
-    .from("schools")
+  const { data, error } = await from("schools")
     .select("*")
     .eq("id", sid)
     .single();
@@ -216,8 +218,7 @@ export async function updateSchoolProfile(
   updates: Partial<School>
 ): Promise<School> {
   const sid = requireSchoolId(schoolId);
-  const { data, error } = await db()
-    .from("schools")
+  const { data, error } = await from("schools")
     .update(updates)
     .eq("id", sid)
     .select()
@@ -984,12 +985,507 @@ export async function getRecentActivity(
   limit = 10
 ): Promise<{ id: number; staff_id: string; action: string; details: string | null; timestamp: string }[]> {
   if (!tenantId) return [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("get_tenant_activity_logs", {
+  const { data, error } = await supabase.rpc("get_tenant_activity_logs", {
     _tenant_id: tenantId,
     _limit: limit,
   });
   throwIfError(error, "getRecentActivity");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []) as any as { id: number; staff_id: string; action: string; details: string | null; timestamp: string }[];
+}
+
+// ─── Tenant Management (SuperAdmin) ───────────────────────────────────
+
+export interface Tenant {
+  id: string;
+  tenant_code: string;
+  school_name: string;
+  contact_email: string | null;
+  contact_phone: string | null;
+  status: "trial" | "active" | "expired" | "suspended";
+  plan: "trial" | "termly" | "yearly";
+  trial_started_at: string | null;
+  subscription_starts_at: string | null;
+  subscription_ends_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export async function getAllTenants(): Promise<Tenant[]> {
+  const { data, error } = await from("tenants")
+    .select("*")
+    .order("created_at", { ascending: false });
+  throwIfError(error, "getAllTenants");
+  return (data ?? []) as Tenant[];
+}
+
+export async function updateTenantStatus(
+  tenantId: string,
+  status: Tenant["status"]
+): Promise<void> {
+  const { error } = await from("tenants")
+    .update({ status })
+    .eq("id", tenantId);
+  throwIfError(error, "updateTenantStatus");
+}
+
+export async function resetTenantAdminPin(tenantId: string): Promise<void> {
+  const { error } = await from("tenants")
+    .update({ admin_pin_hash: null })
+    .eq("id", tenantId);
+  throwIfError(error, "resetTenantAdminPin");
+}
+
+export async function resetSchoolPin(tenantId: string, newPin: string): Promise<void> {
+  const { error } = await supabase.rpc("reset_school_pin", {
+    _tenant_id: tenantId,
+    _new_pin: newPin,
+  });
+  throwIfError(error, "resetSchoolPin");
+}
+
+export async function createTenantV2(
+  params: {
+    schoolName: string;
+    schoolPin: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    notes?: string;
+    startTrial?: boolean;
+  }
+): Promise<void> {
+  const { error } = await supabase.rpc("create_tenant_v2", {
+    _school_name: params.schoolName,
+    _school_pin: params.schoolPin,
+    _contact_email: params.contactEmail || null,
+    _contact_phone: params.contactPhone || null,
+    _notes: params.notes || null,
+    _start_trial: params.startTrial ?? true,
+  });
+  throwIfError(error, "createTenantV2");
+}
+
+export async function checkUserRole(
+  userId: string,
+  role: string
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("has_role", {
+    _user_id: userId,
+    _role: role,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+export async function findDuplicateTenants(): Promise<unknown[]> {
+  const { data, error } = await supabase.rpc("find_duplicate_tenants");
+  throwIfError(error, "findDuplicateTenants");
+  return (data ?? []) as unknown[];
+}
+
+export async function suspendDuplicateTenant(
+  tenantId: string,
+  reason: string
+): Promise<void> {
+  const { error } = await supabase.rpc("suspend_duplicate_tenant" as never, {
+    _tenant_id: tenantId,
+    _reason: reason,
+  } as never);
+  throwIfError(error, "suspendDuplicateTenant");
+}
+
+export async function runSecurityRegressionCheck(): Promise<unknown> {
+  const { data, error } = await supabase.rpc("security_regression_check" as never);
+  throwIfError(error, "runSecurityRegressionCheck");
+  return data;
+}
+
+// ─── SuperAdmin Audit Tables ──────────────────────────────────────────
+
+export async function getTokenAuditEntries(
+  limit = 100
+): Promise<unknown[]> {
+  const { data, error } = await from("super_admin_token_audit")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  throwIfError(error, "getTokenAuditEntries");
+  return (data ?? []) as unknown[];
+}
+
+export async function getTenantAuthAuditEntries(
+  limit = 100
+): Promise<unknown[]> {
+  const { data, error } = await from("tenant_auth_audit")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  throwIfError(error, "getTenantAuthAuditEntries");
+  return (data ?? []) as unknown[];
+}
+
+// ─── Subscription Payments ────────────────────────────────────────────
+
+export interface SubscriptionPayment {
+  id: string;
+  tenant_id: string;
+  amount: number;
+  plan: "trial" | "termly" | "yearly";
+  period_start: string;
+  period_end: string;
+  reference: string | null;
+  notes: string | null;
+  recorded_by: string | null;
+  created_at: string;
+}
+
+export async function recordSubscriptionPayment(
+  payment: Omit<SubscriptionPayment, "id" | "created_at">
+): Promise<SubscriptionPayment> {
+  const { data, error } = await from("subscription_payments")
+    .insert(payment)
+    .select()
+    .single();
+  throwIfError(error, "recordSubscriptionPayment");
+  return data as SubscriptionPayment;
+}
+
+export async function updateTenantSubscription(
+  tenantId: string,
+  updates: {
+    status: "trial" | "active" | "expired" | "suspended";
+    plan: "trial" | "termly" | "yearly";
+    subscription_starts_at: string;
+    subscription_ends_at: string;
+  }
+): Promise<void> {
+  const { error } = await from("tenants")
+    .update(updates)
+    .eq("id", tenantId);
+  throwIfError(error, "updateTenantSubscription");
+}
+
+// ─── User Profile ────────────────────────────────────────────────────
+
+export async function getUserRole(userId: string): Promise<string | null> {
+  const { data, error } = await from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) return null;
+  return data?.role ?? null;
+}
+
+export async function getUserProfile(userId: string): Promise<{
+  role: string;
+  school_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+} | null> {
+  const { data, error } = await from("profiles")
+    .select("role, school_id, first_name, last_name")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) return null;
+  return data as {
+    role: string;
+    school_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
+}
+
+// ─── Billing ─────────────────────────────────────────────────────────
+
+export interface BillingRow {
+  id: string;
+  school_id: string;
+  plan: string;
+  status: string;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  created_at: string;
+  school_name?: string;
+}
+
+export async function getBillingRows(): Promise<BillingRow[]> {
+  const { data, error } = await from("billing")
+    .select("id,school_id,plan,status,trial_ends_at,current_period_end,created_at,schools(name)")
+    .order("created_at", { ascending: false });
+  throwIfError(error, "getBillingRows");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({ ...r, school_name: r.schools?.name })) as BillingRow[];
+}
+
+// ─── School Management (SuperAdmin) ───────────────────────────────────
+
+export interface SchoolSummary {
+  id: string;
+  name: string;
+  code: string;
+  email: string | null;
+  current_students: number;
+  max_students: number;
+  features: Record<string, boolean>;
+  academic_year: string;
+  current_term: string;
+  created_at: string;
+  status: string;
+}
+
+export async function getSchoolsList(): Promise<SchoolSummary[]> {
+  const { data, error } = await from("schools")
+    .select("id,name,code,email,current_students,max_students,features,academic_year,current_term,created_at,status")
+    .order("created_at", { ascending: false });
+  throwIfError(error, "getSchoolsList");
+  return (data ?? []) as SchoolSummary[];
+}
+
+export async function updateSchoolStatus(
+  schoolId: string,
+  status: "active" | "suspended"
+): Promise<void> {
+  const { error } = await from("schools")
+    .update({ status })
+    .eq("id", schoolId);
+  throwIfError(error, "updateSchoolStatus");
+}
+
+export async function getSchoolDetail(schoolId: string): Promise<unknown> {
+  const { data, error } = await from("schools")
+    .select("*")
+    .eq("id", schoolId)
+    .single();
+  throwIfError(error, "getSchoolDetail");
+  return data;
+}
+
+export async function getSchoolBilling(schoolId: string): Promise<unknown> {
+  const { data, error } = await from("billing")
+    .select("plan,status,trial_ends_at,current_period_start,current_period_end")
+    .eq("school_id", schoolId)
+    .maybeSingle();
+  throwIfError(error, "getSchoolBilling");
+  return data;
+}
+
+export async function updateSchoolFeatures(
+  schoolId: string,
+  features: Record<string, boolean>,
+  maxStudents: number
+): Promise<void> {
+  const { error } = await from("schools")
+    .update({ features, max_students })
+    .eq("id", schoolId);
+  throwIfError(error, "updateSchoolFeatures");
+}
+
+export async function updateBillingPlan(
+  schoolId: string,
+  plan: string
+): Promise<void> {
+  const { error } = await from("billing")
+    .update({ plan })
+    .eq("school_id", schoolId);
+  throwIfError(error, "updateBillingPlan");
+}
+
+export async function getActivityLogs(
+  schoolId?: string,
+  limit = 50
+): Promise<unknown[]> {
+  let query = from("activity_logs")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false });
+  
+  if (schoolId) {
+    query = query.eq("school_id", schoolId);
+  }
+  
+  const { data, error } = await query.limit(limit);
+  throwIfError(error, "getActivityLogs");
+  return (data ?? []) as unknown[];
+}
+
+export async function getSchoolsForFilter(): Promise<unknown[]> {
+  const { data, error } = await from("schools")
+    .select("id,name")
+    .order("name");
+  throwIfError(error, "getSchoolsForFilter");
+  return (data ?? []) as unknown[];
+}
+
+// ─── Edge Functions ───────────────────────────────────────────────────
+
+export async function provisionSchool(params: {
+  name: string;
+  code: string;
+  email?: string;
+  phone?: string;
+  address: { street: string; city: string; state: string };
+  adminEmail?: string;
+  adminName?: string;
+  plan: string;
+  tenantId: string;
+}): Promise<unknown> {
+  const { data, error } = await supabase.functions.invoke("provision-school", {
+    body: params,
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+// ─── Students ────────────────────────────────────────────────────────
+
+export async function getStudentsPaginated(
+  schoolId: string,
+  from: number,
+  to: number
+): Promise<{ data: unknown[]; count: number }> {
+  const query = from("students")
+    .select("*", { count: "exact" })
+    .eq("school_id", schoolId)
+    .order("name", { ascending: true })
+    .range(from, to);
+  
+  const { data, error, count } = await query;
+  throwIfError(error, "getStudentsPaginated");
+  return { data: (data ?? []) as unknown[], count: count ?? 0 };
+}
+
+// ─── Session Logs ────────────────────────────────────────────────────
+
+export async function getSessionLogs(
+  superadmin: boolean,
+  limit = 50
+): Promise<unknown[]> {
+  const { data, error } = await from("session_logs")
+    .select(superadmin ? "*, schools(name)" : "*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  throwIfError(error, "getSessionLogs");
+  return (data ?? []) as unknown[];
+}
+
+export async function insertSessionLog(log: {
+  user_id: string;
+  school_id: string | null;
+  user_name: string;
+  event_type: string;
+  details?: Record<string, unknown> | null;
+}): Promise<void> {
+  const { error } = await from("session_logs").insert(log);
+  throwIfError(error, "insertSessionLog");
+}
+
+// ─── Report Cards ───────────────────────────────────────────────────
+
+export async function getSchoolByTenantId(tenantId: string): Promise<unknown> {
+  const { data, error } = await from("schools")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  throwIfError(error, "getSchoolByTenantId");
+  return data;
+}
+
+export async function getStudentByEmail(
+  schoolId: string,
+  email: string
+): Promise<unknown> {
+  const { data, error } = await from("students")
+    .select("id, guardian_email")
+    .eq("school_id", schoolId)
+    .eq("guardian_email", email)
+    .maybeSingle();
+  throwIfError(error, "getStudentByEmail");
+  return data;
+}
+
+export async function updateStudentGuardianEmail(
+  studentId: string,
+  email: string
+): Promise<void> {
+  const { error } = await from("students")
+    .update({ guardian_email: email })
+    .eq("id", studentId);
+  throwIfError(error, "updateStudentGuardianEmail");
+}
+
+export async function insertStudent(student: {
+  school_id: string;
+  name: string;
+  guardian_email: string;
+}): Promise<unknown> {
+  const { data, error } = await from("students")
+    .insert(student)
+    .select("id")
+    .single();
+  throwIfError(error, "insertStudent");
+  return data;
+}
+
+export async function upsertReportCard(
+  payload: Record<string, unknown>,
+  conflictColumns: string[]
+): Promise<unknown> {
+  const { data, error } = await from("report_cards")
+    .upsert(payload, {
+      onConflict: conflictColumns.join(","),
+    });
+  throwIfError(error, "upsertReportCard");
+  return data;
+}
+
+export async function getReportCard(
+  schoolId: string,
+  studentId: string | null,
+  term: string,
+  academicYear: string
+): Promise<unknown> {
+  const { data, error } = await from("report_cards")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("student_id", studentId)
+    .eq("term", term)
+    .eq("academic_year", academicYear)
+    .maybeSingle();
+  throwIfError(error, "getReportCard");
+  return data;
+}
+
+export async function updateReportCard(
+  id: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { error } = await from("report_cards")
+    .update(payload)
+    .eq("id", id);
+  throwIfError(error, "updateReportCard");
+}
+
+export async function insertReportCard(
+  payload: Record<string, unknown>
+): Promise<unknown> {
+  const { data, error } = await from("report_cards")
+    .insert(payload)
+    .select("id")
+    .single();
+  throwIfError(error, "insertReportCard");
+  return data;
+}
+
+// ─── Payments Edge Function ───────────────────────────────────────────
+
+export async function initiatePayment(params: {
+  studentId: string;
+  feeId: string;
+  amount: number;
+}): Promise<unknown> {
+  const { data, error } = await supabase.functions.invoke("initiate-payment", {
+    body: params,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }

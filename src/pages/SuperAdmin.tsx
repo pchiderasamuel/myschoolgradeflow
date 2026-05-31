@@ -2,6 +2,22 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAuthEvent } from "@/lib/auth-logger";
+import {
+  getAllTenants,
+  updateTenantStatus,
+  resetTenantAdminPin,
+  resetSchoolPin,
+  createTenantV2,
+  checkUserRole,
+  findDuplicateTenants,
+  suspendDuplicateTenant,
+  runSecurityRegressionCheck,
+  getTokenAuditEntries,
+  getTenantAuthAuditEntries,
+  recordSubscriptionPayment,
+  updateTenantSubscription,
+  Tenant,
+} from "@/supabase/schoolService";
 import LoginActivityDashboard from "@/components/LoginActivityDashboard";
 import TenantActivityAudit from "@/components/TenantActivityAudit";
 import ProviderActivityDashboard from "@/components/ProviderActivityDashboard";
@@ -14,23 +30,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-// hashPin no longer needed — server-side bcrypt via create_tenant_v2 RPC
 import { Plus, LogOut, Copy, RefreshCw, ShieldCheck, ShieldOff, KeyRound, DollarSign, History, CheckCircle2, XCircle, AlertTriangle, RotateCcw, Eye, EyeOff, Ban, ShieldAlert, Activity } from "lucide-react";
 
-interface Tenant {
-  id: string;
-  tenant_code: string;
-  school_name: string;
-  contact_email: string | null;
-  contact_phone: string | null;
-  status: "trial" | "active" | "expired" | "suspended";
-  plan: "trial" | "termly" | "yearly";
-  trial_started_at: string | null;
-  subscription_starts_at: string | null;
-  subscription_ends_at: string | null;
-  notes: string | null;
-  created_at: string;
-}
+// Tenant interface imported from schoolService
 
 const PLAN_DAYS = { trial: 7, termly: 90, yearly: 365 } as const;
 
@@ -69,10 +71,13 @@ export default function SuperAdmin() {
       }
       setUserEmail(session.user.email ?? null);
       setUserId(session.user.id);
-      supabase
-        .rpc("has_role", { _user_id: session.user.id, _role: "super_admin" })
-        .then(({ data }) => {
-          setIsSuperAdmin(data === true);
+      checkUserRole(session.user.id, "super_admin")
+        .then((isAdmin) => {
+          setIsSuperAdmin(isAdmin);
+          setAuthChecked(true);
+        })
+        .catch(() => {
+          setIsSuperAdmin(false);
           setAuthChecked(true);
         });
     });
@@ -84,16 +89,14 @@ export default function SuperAdmin() {
 
   const loadTenants = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("tenants")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Load failed", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const data = await getAllTenants();
+      setTenants(data);
+    } catch (error) {
+      toast({ title: "Load failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setTenants(((data ?? []) as unknown as Tenant[]));
   }, []);
 
   useEffect(() => {
@@ -102,13 +105,17 @@ export default function SuperAdmin() {
 
   const signOut = async () => {
     setSigningOut(true);
-    supabase.auth.getSession().then(({ data }) => {
+    try {
+      const { data } = await supabase.auth.getSession();
       if (data.session?.user) {
-        logAuthEvent({ authType: "super_admin", eventType: "logout", userId: data.session.user.id }).catch(() => {});
+        await logAuthEvent({ authType: "super_admin", eventType: "logout", userId: data.session.user.id });
       }
-    });
-    await supabase.auth.signOut();
-    navigate("/auth", { replace: true });
+      await supabase.auth.signOut();
+      navigate("/auth", { replace: true });
+    } catch (error) {
+      toast({ title: "Logout failed", description: (error as Error).message, variant: "destructive" });
+      setSigningOut(false);
+    }
   };
 
   if (!authChecked) {
@@ -255,32 +262,40 @@ function TenantRow({ tenant, onChanged, onRecordPayment }: { tenant: Tenant; onC
     : "destructive";
 
   const setStatus = async (status: Tenant["status"]) => {
-    const { error } = await supabase.from("tenants").update({ status }).eq("id", tenant.id);
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else { toast({ title: `Status → ${status}` }); onChanged(); }
+    try {
+      await updateTenantStatus(tenant.id, status);
+      toast({ title: `Status → ${status}` });
+      onChanged();
+    } catch (error) {
+      toast({ title: "Failed", description: (error as Error).message, variant: "destructive" });
+    }
   };
 
   const resetAdminPin = async () => {
     if (!confirm(`Reset admin PIN for ${tenant.school_name}? They'll set a new one on next login.`)) return;
-    const { error } = await supabase.from("tenants").update({ admin_pin_hash: null }).eq("id", tenant.id);
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else { toast({ title: "Admin PIN reset" }); onChanged(); }
+    try {
+      await resetTenantAdminPin(tenant.id);
+      toast({ title: "Admin PIN reset" });
+      onChanged();
+    } catch (error) {
+      toast({ title: "Failed", description: (error as Error).message, variant: "destructive" });
+    }
   };
 
-  const resetSchoolPin = async () => {
+  const resetSchoolPinFn = async () => {
     if (!confirm(`Reset school PIN for ${tenant.school_name}? A new PIN will be issued and all current sessions will be revoked.`)) return;
     const newPin = generatePin();
-    const { error } = await supabase.rpc("reset_school_pin", { _tenant_id: tenant.id, _new_pin: newPin });
-    if (error) {
-      toast({ title: "Failed", description: error.message, variant: "destructive" });
-      return;
+    try {
+      await resetSchoolPin(tenant.id, newPin);
+      await navigator.clipboard.writeText(newPin).catch(() => {});
+      toast({
+        title: "School PIN reset",
+        description: `New PIN: ${newPin} (copied to clipboard)`,
+      });
+      onChanged();
+    } catch (error) {
+      toast({ title: "Failed", description: (error as Error).message, variant: "destructive" });
     }
-    await navigator.clipboard.writeText(newPin).catch(() => {});
-    toast({
-      title: "School PIN reset",
-      description: `New PIN: ${newPin} (copied to clipboard)`,
-    });
-    onChanged();
   };
 
   return (
@@ -311,7 +326,7 @@ function TenantRow({ tenant, onChanged, onRecordPayment }: { tenant: Tenant; onC
           <Button size="sm" variant="outline" onClick={onRecordPayment}>
             <DollarSign className="w-3 h-3 mr-1" /> Record payment
           </Button>
-          <Button size="sm" variant="ghost" onClick={resetSchoolPin} title="Reset school PIN (issues new PIN, revokes sessions)">
+          <Button size="sm" variant="ghost" onClick={resetSchoolPinFn} title="Reset school PIN (issues new PIN, revokes sessions)">
             <RotateCcw className="w-3 h-3" />
           </Button>
           <Button size="sm" variant="ghost" onClick={resetAdminPin} title="Reset admin PIN">
@@ -350,20 +365,21 @@ function CreateTenantDialog({ onCreated, newPin, onClose }: { onCreated: (pin: s
     e.preventDefault();
     setSaving(true);
     const pin = generatePin();
-    const { error } = await supabase.rpc("create_tenant_v2", {
-      _school_name: name,
-      _school_pin: pin,
-      _contact_email: email || null,
-      _contact_phone: phone || null,
-      _notes: notes || null,
-      _start_trial: startTrial,
-    });
-    setSaving(false);
-    if (error) {
-      toast({ title: "Failed", description: error.message, variant: "destructive" });
-      return;
+    try {
+      await createTenantV2({
+        schoolName: name,
+        schoolPin: pin,
+        contactEmail: email,
+        contactPhone: phone,
+        notes,
+        startTrial,
+      });
+      onCreated(pin);
+    } catch (error) {
+      toast({ title: "Failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    onCreated(pin);
   };
 
   if (newPin) {
@@ -417,37 +433,43 @@ function PaymentDialog({ tenant, onClose, onRecorded }: { tenant: Tenant; onClos
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const days = PLAN_DAYS[plan];
-    const now = new Date();
-    // Extend from current end if still active, else from now
-    const currentEnd = tenant.subscription_ends_at ? new Date(tenant.subscription_ends_at) : null;
-    const startFrom = currentEnd && currentEnd > now ? currentEnd : now;
-    const newEnd = new Date(startFrom.getTime() + days * 86400_000);
+    try {
+      const days = PLAN_DAYS[plan];
+      const now = new Date();
+      // Extend from current end if still active, else from now
+      const currentEnd = tenant.subscription_ends_at ? new Date(tenant.subscription_ends_at) : null;
+      const startFrom = currentEnd && currentEnd > now ? currentEnd : now;
+      const newEnd = new Date(startFrom.getTime() + days * 86400_000);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error: payErr } = await supabase.from("subscription_payments").insert({
-      tenant_id: tenant.id,
-      amount: Number(amount),
-      plan,
-      period_start: startFrom.toISOString(),
-      period_end: newEnd.toISOString(),
-      reference: reference || null,
-      notes: notes || null,
-      recorded_by: user?.id,
-    });
-    if (payErr) { toast({ title: "Payment failed", description: payErr.message, variant: "destructive" }); setSaving(false); return; }
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Record the payment
+      await recordSubscriptionPayment({
+        tenant_id: tenant.id,
+        amount: Number(amount),
+        plan,
+        period_start: startFrom.toISOString(),
+        period_end: newEnd.toISOString(),
+        reference: reference || null,
+        notes: notes || null,
+        recorded_by: user?.id || null,
+      });
 
-    const { error: tErr } = await supabase.from("tenants").update({
-      status: "active",
-      plan,
-      subscription_starts_at: tenant.subscription_starts_at ?? now.toISOString(),
-      subscription_ends_at: newEnd.toISOString(),
-    }).eq("id", tenant.id);
-    setSaving(false);
-    if (tErr) { toast({ title: "Update failed", description: tErr.message, variant: "destructive" }); return; }
+      // Update tenant subscription
+      await updateTenantSubscription(tenant.id, {
+        status: "active",
+        plan,
+        subscription_starts_at: tenant.subscription_starts_at ?? now.toISOString(),
+        subscription_ends_at: newEnd.toISOString(),
+      });
 
-    toast({ title: "Subscription extended", description: `Active until ${newEnd.toLocaleDateString()}` });
-    onRecorded();
+      toast({ title: "Subscription extended", description: `Active until ${newEnd.toLocaleDateString()}` });
+      onRecorded();
+    } catch (error) {
+      toast({ title: "Payment failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -506,17 +528,14 @@ function TokenAuditSection() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("super_admin_token_audit" as never)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    setLoading(false);
-    if (error) {
-      toast({ title: "Audit load failed", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const data = await getTokenAuditEntries(100);
+      setEntries((data as AuditEntry[]) ?? []);
+    } catch (error) {
+      toast({ title: "Audit load failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setEntries((data as unknown as AuditEntry[]) ?? []);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -612,13 +631,14 @@ function DuplicatesBanner({ refreshKey, onChanged }: { refreshKey: number; onCha
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("find_duplicate_tenants");
-    setLoading(false);
-    if (error) {
+    try {
+      const data = await findDuplicateTenants();
+      setDups((data as DuplicateRow[]) ?? []);
+    } catch {
       // silent — non-blocking informational scan
-      return;
+    } finally {
+      setLoading(false);
     }
-    setDups((data as unknown as DuplicateRow[]) ?? []);
   }, []);
 
   useEffect(() => { load(); }, [load, refreshKey]);
@@ -626,18 +646,16 @@ function DuplicatesBanner({ refreshKey, onChanged }: { refreshKey: number; onCha
   const suspendOne = async (tenantId: string, schoolName: string, matchType: string) => {
     if (!confirm(`Suspend "${schoolName}" as a duplicate? All active sessions will be revoked.`)) return;
     setBusy(tenantId);
-    const { error } = await supabase.rpc("suspend_duplicate_tenant" as never, {
-      _tenant_id: tenantId,
-      _reason: `duplicate ${matchType}`,
-    } as never);
-    setBusy(null);
-    if (error) {
-      toast({ title: "Suspend failed", description: error.message, variant: "destructive" });
-      return;
+    try {
+      await suspendDuplicateTenant(tenantId, `duplicate ${matchType}`);
+      toast({ title: "Tenant suspended", description: schoolName });
+      await load();
+      onChanged();
+    } catch (error) {
+      toast({ title: "Suspend failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setBusy(null);
     }
-    toast({ title: "Tenant suspended", description: schoolName });
-    await load();
-    onChanged();
   };
 
   if (loading || dups.length === 0) return null;
@@ -698,17 +716,14 @@ function TenantAuthAuditSection() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("tenant_auth_audit" as never)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    setLoading(false);
-    if (error) {
-      toast({ title: "Tenant audit load failed", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const data = await getTenantAuthAuditEntries(100);
+      setEntries((data as TenantAuditEntry[]) ?? []);
+    } catch (error) {
+      toast({ title: "Tenant audit load failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setEntries((data as unknown as TenantAuditEntry[]) ?? []);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -865,14 +880,15 @@ function SecurityChecksSection() {
 
   const run = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("security_regression_check" as never);
-    setLoading(false);
-    setRanAt(new Date());
-    if (error) {
-      toast({ title: "Security check failed", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const data = await runSecurityRegressionCheck();
+      setChecks((data as SecurityCheck[]) ?? []);
+      setRanAt(new Date());
+    } catch (error) {
+      toast({ title: "Security check failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setChecks((data as unknown as SecurityCheck[]) ?? []);
   }, []);
 
   const passed = checks.filter((c) => c.passed).length;

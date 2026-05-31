@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { getActivityLogs, getSchoolsForFilter } from "@/supabase/schoolService";
 import { RefreshCw, Loader2, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 interface ActivityLog {
@@ -49,43 +49,35 @@ export default function ActivityLogPage() {
 
   // Load distinct schools for filter dropdown
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from("schools")
-      .select("id,name")
-      .order("name")
-      .then(({ data }: { data: { id: string; name: string }[] | null }) => {
-        setSchools(data ?? []);
+    getSchoolsForFilter()
+      .then((data) => {
+        setSchools(data as { id: string; name: string }[]);
+      })
+      .catch(() => {
+        setSchools([]);
       });
   }, []);
 
   const load = useCallback(async (p = 0) => {
     setLoading(true);
-    const from = p * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase as any)
-      .from("activity_logs")
-      .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to);
-
-    if (filterAction !== "all") query = query.eq("action", filterAction);
-    if (filterSchoolId !== "all") query = query.eq("school_id", filterSchoolId);
-
-    const { data, error, count } = await query;
-    setLoading(false);
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" }); return;
+    try {
+      const schoolId = filterSchoolId === "all" ? undefined : filterSchoolId;
+      const data = await getActivityLogs(schoolId, PAGE_SIZE * (p + 1));
+      // Get the page slice
+      const from = p * PAGE_SIZE;
+      const to = from + PAGE_SIZE;
+      const pageData = data.slice(from, to);
+      
+      setLogs(pageData as ActivityLog[]);
+      setTotal(data.length);
+      setHasMore(data.length > to);
+      setPage(p);
+    } catch (error) {
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-
-    setLogs((data ?? []) as ActivityLog[]);
-    setTotal(count ?? 0);
-    setHasMore((count ?? 0) > to + 1);
-    setPage(p);
-  }, [filterAction, filterSchoolId, toast]);
+  }, [filterSchoolId, toast]);
 
   useEffect(() => { load(0); }, [load]);
 

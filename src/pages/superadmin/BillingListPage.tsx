@@ -1,21 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getBillingRows, BillingRow } from "@/supabase/schoolService";
 import { RefreshCw, Loader2, ChevronRight } from "lucide-react";
-
-interface BillingRow {
-  id: string;
-  school_id: string;
-  plan: string;
-  status: string;
-  trial_ends_at: string | null;
-  current_period_end: string | null;
-  created_at: string;
-  school_name?: string;
-}
 
 const STATUS_STYLE: Record<string, string> = {
   trial:      "bg-amber-100 text-amber-700",
@@ -40,15 +29,14 @@ export default function BillingListPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
-      .from("billing")
-      .select("id,school_id,plan,status,trial_ends_at,current_period_end,created_at,schools(name)")
-      .order("created_at", { ascending: false });
-    setLoading(false);
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setRows((data ?? []).map((r: any) => ({ ...r, school_name: r.schools?.name })));
+    try {
+      const data = await getBillingRows();
+      setRows(data);
+    } catch (error) {
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);

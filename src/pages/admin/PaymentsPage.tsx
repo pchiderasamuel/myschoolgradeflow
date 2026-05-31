@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/hooks/useSchool";
-import { getPayments, getFees, Payment, Fee } from "@/supabase/schoolService";
+import { getPayments, getFees, Payment, Fee, initiatePayment } from "@/supabase/schoolService";
 import { supabase } from "@/integrations/supabase/client";
 import FeatureGuard from "@/components/FeatureGuard";
 import { Button } from "@/components/ui/button";
@@ -65,8 +65,7 @@ function PaymentsPageContent() {
   useEffect(() => {
     if (!schoolId) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channel = (supabase as any)
+    const channel = supabase
       .channel(`payments:${schoolId}`)
       .on(
         "postgres_changes",
@@ -79,7 +78,7 @@ function PaymentsPageContent() {
       )
       .subscribe();
 
-    return () => { (supabase as any).removeChannel(channel); };
+    return () => { supabase.removeChannel(channel); };
   }, [schoolId]);
 
   const load = async () => {
@@ -114,12 +113,14 @@ function PaymentsPageContent() {
   const handleInitiatePayment = async (p: Payment) => {
     if (!p.student_id || !p.fee_id) return;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).functions.invoke("initiate-payment", {
-        body: { studentId: p.student_id, feeId: p.fee_id, amount: p.amount },
+      const data = await initiatePayment({
+        studentId: p.student_id,
+        feeId: p.fee_id,
+        amount: p.amount,
       });
-      if (error) throw new Error(error.message);
-      if (data?.paymentUrl) window.open(data.paymentUrl, "_blank");
+      if ((data as { paymentUrl?: string })?.paymentUrl) {
+        window.open((data as { paymentUrl: string }).paymentUrl, "_blank");
+      }
     } catch (e) {
       toast({ title: "Payment initiation failed", description: (e as Error).message, variant: "destructive" });
     }

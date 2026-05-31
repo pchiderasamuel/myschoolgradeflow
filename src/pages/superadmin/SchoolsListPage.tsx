@@ -1,26 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getSchoolsList, updateSchoolStatus, SchoolSummary } from "@/supabase/schoolService";
 import { RefreshCw, Loader2, Search, ChevronRight, ShieldOff, ShieldCheck } from "lucide-react";
-
-interface SchoolRow {
-  id: string;
-  name: string;
-  code: string;
-  email: string | null;
-  current_students: number;
-  max_students: number;
-  status: string;
-  features: Record<string, boolean>;
-  academic_year: string;
-  current_term: string;
-  created_at: string;
-}
 
 const STATUS_STYLE: Record<string, string> = {
   active:    "bg-emerald-100 text-emerald-700",
@@ -32,7 +18,7 @@ export default function SchoolsListPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [schools, setSchools] = useState<SchoolRow[]>([]);
+  const [schools, setSchools] = useState<SchoolSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -40,33 +26,29 @@ export default function SchoolsListPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
-      .from("schools")
-      .select("id,name,code,email,current_students,max_students,features,academic_year,current_term,created_at,status")
-      .order("created_at", { ascending: false });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Error loading schools", description: error.message, variant: "destructive" }); return;
+    try {
+      const data = await getSchoolsList();
+      setSchools(data);
+    } catch (error) {
+      toast({ title: "Error loading schools", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setSchools((data ?? []) as SchoolRow[]);
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
 
   const setStatus = async (schoolId: string, status: "active" | "suspended") => {
     setBusy(schoolId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
-      .from("schools")
-      .update({ status })
-      .eq("id", schoolId);
-    setBusy(null);
-    if (error) {
-      toast({ title: "Update failed", description: error.message, variant: "destructive" }); return;
+    try {
+      await updateSchoolStatus(schoolId, status);
+      toast({ title: `School ${status === "suspended" ? "suspended" : "reactivated"}` });
+      load();
+    } catch (error) {
+      toast({ title: "Update failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setBusy(null);
     }
-    toast({ title: `School ${status === "suspended" ? "suspended" : "reactivated"}` });
-    load();
   };
 
   const displayed = schools.filter((s) => {

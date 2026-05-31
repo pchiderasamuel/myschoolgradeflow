@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getSchoolDetail, getSchoolBilling, updateSchoolFeatures, updateBillingPlan, updateSchoolStatus } from "@/supabase/schoolService";
 import { ArrowLeft, Loader2, ShieldOff, ShieldCheck } from "lucide-react";
 
 interface SchoolDetail {
@@ -63,18 +63,19 @@ export default function SchoolDetailPage() {
   const load = async () => {
     if (!schoolId) return;
     setLoading(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [schoolRes, billingRes] = await Promise.all([
-      (supabase as any).from("schools").select("*").eq("id", schoolId).single(),
-      (supabase as any).from("billing").select("plan,status,trial_ends_at,current_period_start,current_period_end").eq("school_id", schoolId).maybeSingle(),
-    ]);
-    setLoading(false);
-    if (schoolRes.error) {
-      toast({ title: "Error", description: schoolRes.error.message, variant: "destructive" }); return;
+    try {
+      const [schoolData, billingData] = await Promise.all([
+        getSchoolDetail(schoolId),
+        getSchoolBilling(schoolId),
+      ]);
+      setSchool(schoolData as SchoolDetail);
+      setSelectedPlan((billingData as BillingDetail)?.plan ?? "starter");
+      setBilling(billingData as BillingDetail | null);
+    } catch (error) {
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setSchool(schoolRes.data as SchoolDetail);
-    setSelectedPlan(billingRes.data?.plan ?? "starter");
-    setBilling(billingRes.data as BillingDetail | null);
   };
 
   useEffect(() => { load(); }, [schoolId]); // eslint-disable-line
@@ -84,23 +85,10 @@ export default function SchoolDetailPage() {
     setSavingPlan(true);
     try {
       // Atomically update school features + max_students to match plan
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: schoolErr } = await (supabase as any)
-        .from("schools")
-        .update({
-          features: PLAN_FEATURES[selectedPlan],
-          max_students: PLAN_LIMITS[selectedPlan],
-        })
-        .eq("id", schoolId);
-      if (schoolErr) throw new Error(schoolErr.message);
-
+      await updateSchoolFeatures(schoolId, PLAN_FEATURES[selectedPlan], PLAN_LIMITS[selectedPlan]);
+      
       // Update billing plan
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: billingErr } = await (supabase as any)
-        .from("billing")
-        .update({ plan: selectedPlan })
-        .eq("school_id", schoolId);
-      if (billingErr) throw new Error(billingErr.message);
+      await updateBillingPlan(schoolId, selectedPlan);
 
       toast({ title: "Plan updated", description: `Switched to ${selectedPlan}` });
       load();
@@ -112,14 +100,15 @@ export default function SchoolDetailPage() {
   const setStatus = async (status: "active" | "suspended") => {
     if (!schoolId) return;
     setSavingStatus(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).from("schools").update({ status }).eq("id", schoolId);
-    setSavingStatus(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" }); return;
+    try {
+      await updateSchoolStatus(schoolId, status);
+      toast({ title: `School ${status === "suspended" ? "suspended" : "reactivated"}` });
+      load();
+    } catch (error) {
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSavingStatus(false);
     }
-    toast({ title: `School ${status === "suspended" ? "suspended" : "reactivated"}` });
-    load();
   };
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="animate-spin text-slate-400" /></div>;
