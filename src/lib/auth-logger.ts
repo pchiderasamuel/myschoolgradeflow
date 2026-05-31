@@ -9,6 +9,9 @@ interface LogAuthEventParams {
   ipAddress?: string;
   userAgent?: string;
   sessionToken?: string;
+  userName?: string;
+  schoolId?: string;
+  role?: string;
 }
 
 /**
@@ -23,6 +26,9 @@ export async function logAuthEvent({
   ipAddress,
   userAgent,
   sessionToken,
+  userName,
+  schoolId,
+  role,
 }: LogAuthEventParams) {
   try {
     // Get client IP address if not provided
@@ -42,21 +48,33 @@ export async function logAuthEvent({
     // Get user agent if not provided
     const ua = userAgent || navigator.userAgent;
 
-    // Call the database function
-    const { error } = await supabase.rpc("log_auth_event", {
-      _auth_type: authType,
-      _event_type: eventType,
-      _user_id: userId || null,
-      _tenant_id: tenantId || null,
-      _staff_id: staffId || null,
-      _ip_address: ip || null,
-      _user_agent: ua,
-      _session_token: sessionToken || null,
-    });
+    // Insert directly into session_logs table for school users
+    if (authType === "staff" && userId && schoolId && userName && role) {
+      const { error } = await (supabase.from("session_logs") as any).insert({
+        school_id: schoolId,
+        user_id: userId,
+        user_name: userName,
+        role: role,
+        action: eventType,
+        ip_address: ip,
+        device: ua,
+      });
 
-    if (error) {
-      console.warn("Failed to log auth event:", error);
-      // Don't throw - auth should succeed even if logging fails
+      if (error) {
+        console.warn("Failed to log auth event to session_logs:", error);
+      }
+    } else {
+      // For super_admin and tenant, we can't log to session_logs (no school_id)
+      // Log to console for debugging but don't fail
+      console.log("[Auth Event]", {
+        authType,
+        eventType,
+        userId,
+        tenantId,
+        staffId,
+        ip_address: ip,
+        user_agent: ua,
+      });
     }
   } catch (e) {
     console.warn("Error logging auth event:", e);
@@ -73,7 +91,7 @@ export async function getLoginHistory(
   limit: number = 50
 ) {
   try {
-    const { data, error } = await supabase.rpc("get_login_history", {
+    const { data, error } = await (supabase.rpc as any)("get_login_history", {
       _auth_type: authType,
       _identifier: identifier,
       _limit: limit,

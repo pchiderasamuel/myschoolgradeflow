@@ -497,17 +497,20 @@ export async function saveSubject(schoolId: string | null, subject: Omit<Subject
 
 export async function getTimeSlots(schoolId: string | null): Promise<TimeSlot[]> {
   const sid = requireSchoolId(schoolId);
+  console.log("[getTimeSlots] Fetching time slots for school:", sid);
   const { data, error } = await db()
     .from("time_slots")
     .select("*")
     .eq("school_id", sid)
     .order("sort_order", { ascending: true });
+  console.log("[getTimeSlots] Response:", { data, error });
   throwIfError(error, "getTimeSlots");
   return (data ?? []) as TimeSlot[];
 }
 
 export async function saveTimeSlot(schoolId: string | null, timeSlot: Omit<TimeSlot, "id" | "school_id" | "created_at" | "updated_at">): Promise<TimeSlot> {
   const sid = requireSchoolId(schoolId);
+  console.log("[saveTimeSlot] Saving time slot:", { schoolId: sid, timeSlot });
   const { data, error } = await db()
     .from("time_slots")
     .insert({
@@ -520,12 +523,14 @@ export async function saveTimeSlot(schoolId: string | null, timeSlot: Omit<TimeS
     })
     .select()
     .single();
+  console.log("[saveTimeSlot] Response:", { data, error });
   throwIfError(error, "saveTimeSlot");
   return data as TimeSlot;
 }
 
 export async function updateTimeSlot(schoolId: string | null, id: string, timeSlot: Partial<Omit<TimeSlot, "id" | "school_id" | "created_at" | "updated_at">>): Promise<TimeSlot> {
   const sid = requireSchoolId(schoolId);
+  console.log("[updateTimeSlot] Updating time slot:", { schoolId: sid, id, timeSlot });
   const { data, error } = await db()
     .from("time_slots")
     .update({
@@ -539,17 +544,20 @@ export async function updateTimeSlot(schoolId: string | null, id: string, timeSl
     .eq("school_id", sid)
     .select()
     .single();
+  console.log("[updateTimeSlot] Response:", { data, error });
   throwIfError(error, "updateTimeSlot");
   return data as TimeSlot;
 }
 
 export async function deleteTimeSlot(schoolId: string | null, id: string): Promise<void> {
   const sid = requireSchoolId(schoolId);
+  console.log("[deleteTimeSlot] Deleting time slot:", { schoolId: sid, id });
   const { error } = await db()
     .from("time_slots")
     .delete()
     .eq("id", id)
     .eq("school_id", sid);
+  console.log("[deleteTimeSlot] Response:", { error });
   throwIfError(error, "deleteTimeSlot");
 }
 
