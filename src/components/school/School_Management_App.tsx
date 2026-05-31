@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback, memo, useReducer, createContext, useContext, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { logAuthEvent } from "@/lib/auth-logger";
 import ReportCardSupabaseActions from "./ReportCardSupabaseActions";
 import { NAPPS_CURRICULUM } from "./data/nappsCurriculum";

@@ -61,8 +61,16 @@ export default function DashboardLayout({ schoolName, plan, features }: {
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate("/auth");
+    console.log("[DashboardLayout] Sign out clicked");
+    try {
+      await signOut();
+      console.log("[DashboardLayout] Sign out successful, navigating to /auth");
+      navigate("/auth");
+    } catch (error) {
+      console.error("[DashboardLayout] Sign out error:", error);
+      // Still navigate even if sign out fails
+      navigate("/auth");
+    }
   };
 
   const initials = [profile?.firstName, profile?.lastName]

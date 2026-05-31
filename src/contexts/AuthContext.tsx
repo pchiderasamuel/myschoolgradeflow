@@ -158,8 +158,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
 
   const signOut = async () => {
+    console.log("[AuthContext] signOut called");
     sessionExpiredShownRef.current = true; // Prevent showing expired toast on manual logout
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+      console.log("[AuthContext] Supabase signOut successful");
+    } catch (error) {
+      console.error("[AuthContext] Supabase signOut error:", error);
+      throw error;
+    }
   };
 
   return (

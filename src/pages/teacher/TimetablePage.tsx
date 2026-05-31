@@ -4,6 +4,7 @@ import { useSchool } from "@/hooks/useSchool";
 import {
   getClasses, getMyTeacherProfile,
   getTimetable, TimetableSlot, Class,
+  getTimeSlots, TimeSlot,
 } from "@/supabase/schoolService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -74,14 +75,20 @@ export default function TeacherTimetablePage() {
   const [selectedYear, setSelectedYear] = useState("");
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
   useEffect(() => {
     if (!schoolId || !user) return;
     setLoading(true);
-    Promise.all([getClasses(schoolId), getMyTeacherProfile(schoolId, user.id)])
-      .then(([cls, teacher]) => {
+    Promise.all([
+      getClasses(schoolId),
+      getMyTeacherProfile(schoolId, user.id),
+      getTimeSlots(schoolId),
+    ])
+      .then(([cls, teacher, ts]) => {
         setClasses(cls);
         setTeacherId(teacher?.id ?? null);
+        setTimeSlots(ts);
         if (cls.length) { setSelectedClassId(cls[0].id); setSelectedClass(cls[0]); }
       })
       .catch((e) => toast({ title: "Error", description: e.message, variant: "destructive" }))
@@ -115,8 +122,11 @@ export default function TeacherTimetablePage() {
   slots.forEach((s) => { slotMap[`${s.day}|${s.period_number}`] = s; });
 
   const periodNumbers = (() => {
+    const base = timeSlots.length > 0
+      ? timeSlots.map((ts) => ts.sort_order)
+      : DEFAULT_PERIOD_NUMBERS;
     const fromDb = slots.map((s) => s.period_number);
-    return [...new Set([...DEFAULT_PERIOD_NUMBERS, ...fromDb])].sort((a, b) => a - b);
+    return [...new Set([...base, ...fromDb])].sort((a, b) => a - b);
   })();
 
   const DEFAULT_META: Record<number, { period_type: string; start_time: string; end_time: string }> = {
@@ -135,9 +145,25 @@ export default function TeacherTimetablePage() {
     12: { period_type: "closing",     start_time: "15:00", end_time: "15:10" },
   };
 
-  const getPeriodMeta = (pn: number) => {
+  const getPeriodMeta = (pn: number): { period_type: string; start_time: string; end_time: string; label?: string } => {
     const existing = DAYS.map((d) => slotMap[`${d}|${pn}`]).find(Boolean);
-    if (existing) return { period_type: existing.period_type, start_time: existing.start_time, end_time: existing.end_time };
+    if (existing) return {
+      period_type: existing.period_type,
+      start_time: existing.start_time,
+      end_time: existing.end_time,
+      label: timeSlots.find((ts) => ts.sort_order === pn)?.label,
+    };
+
+    if (timeSlots.length > 0) {
+      const match = timeSlots.find((ts) => ts.sort_order === pn);
+      if (match) return {
+        period_type: (match.slot_type === "break" ? "short_break" : match.slot_type) as TimetableSlot["period_type"],
+        start_time: match.start_time,
+        end_time: match.end_time,
+        label: match.label,
+      };
+    }
+
     return DEFAULT_META[pn] ?? { period_type: "lesson", start_time: "", end_time: "" };
   };
 
@@ -147,7 +173,7 @@ export default function TeacherTimetablePage() {
       const existing = DAYS.map((d) => slotMap[`${d}|${pn}`]).find(Boolean);
       return (existing as { notes?: string | null } | undefined)?.notes || DEFAULT_BREAK_LABEL;
     }
-    return PERIOD_LABELS[meta.period_type] ?? meta.period_type;
+    return meta.label || PERIOD_LABELS[meta.period_type] || meta.period_type;
   };
 
   if (loading) {
@@ -241,7 +267,7 @@ export default function TeacherTimetablePage() {
                       <tr key={pn} className={cn("border-b border-slate-100", idx % 2 === 0 ? "bg-white" : "bg-slate-50/40")}>
                         <td className="px-3 py-2 align-middle whitespace-nowrap">
                           <p className="font-bold text-slate-700 text-[11px]">
-                            {pn === 0 ? "Asm" : isBreak ? "" : `P${pn}`}
+                            {meta.label || (pn === 0 ? "Asm" : isBreak ? "" : `P${pn}`)}
                           </p>
                           <p className="text-slate-400 text-[10px] mt-0.5">
                             {meta.start_time.slice(0, 5)} – {meta.end_time.slice(0, 5)}

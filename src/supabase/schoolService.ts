@@ -906,12 +906,17 @@ export async function saveTimetableSlot(
 ): Promise<TimetableSlot> {
   const sid = requireSchoolId(schoolId);
   const payload = { ...slot, school_id: sid };
+  console.log("[saveTimetableSlot] Inserting/upserting timetable slot:", { school_id: sid, payload });
   const { data, error } = await db()
     .from("timetable")
     .upsert(payload, { onConflict: "school_id,class_id,day,period_number,academic_year,term" })
     .select()
     .single();
+  if (error) {
+    console.error("[saveTimetableSlot] Error inserting timetable slot:", error);
+  }
   throwIfError(error, "saveTimetableSlot");
+  console.log("[saveTimetableSlot] Successfully saved timetable slot:", data);
   return data as TimetableSlot;
 }
 
@@ -921,11 +926,16 @@ export async function bulkSaveTimetable(
 ): Promise<TimetableSlot[]> {
   const sid = requireSchoolId(schoolId);
   const payloads = slots.map((s) => ({ ...s, school_id: sid }));
+  console.log("[bulkSaveTimetable] Bulk inserting timetable slots:", { school_id: sid, count: payloads.length });
   const { data, error } = await db()
     .from("timetable")
     .upsert(payloads, { onConflict: "school_id,class_id,day,period_number,academic_year,term" })
     .select();
+  if (error) {
+    console.error("[bulkSaveTimetable] Error bulk inserting timetable slots:", error);
+  }
   throwIfError(error, "bulkSaveTimetable");
+  console.log("[bulkSaveTimetable] Successfully bulk saved timetable slots:", { count: data?.length });
   return (data ?? []) as TimetableSlot[];
 }
 
