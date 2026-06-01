@@ -16,6 +16,8 @@ export interface TenantSession {
   trialStartedAt: string | null;
   isAdmin: boolean;
   hasAdminPin: boolean;
+  role: "admin" | "teacher" | "student";
+  expiresAt: string;
 }
 
 export function loadTenantSession(): TenantSession | null {
@@ -49,8 +51,10 @@ export async function verifySchoolPin(pin: string): Promise<Omit<TenantSession, 
     subscriptionEndsAt: row.subscription_ends_at,
     trialStartedAt: row.trial_started_at,
     hasAdminPin: row.has_admin_pin,
+    role: "student" as const, // Default to student, will be updated after admin PIN verification
+    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(), // 8-hour expiry
   };
-  
+
   return session;
 }
 
@@ -96,4 +100,33 @@ export function daysRemaining(session: TenantSession): number | null {
       : null;
   if (!end) return null;
   return Math.ceil((end.getTime() - Date.now()) / 86400_000);
+}
+
+/** Check if PIN session has expired (8-hour expiry). */
+export function isSessionExpired(session: TenantSession): boolean {
+  return new Date(session.expiresAt) < new Date();
+}
+
+/** Log PIN session event to session_logs table. */
+export async function logPinSessionEvent(
+  session: TenantSession,
+  eventType: "LOGIN" | "LOGOUT",
+  role: "admin" | "teacher" | "student"
+): Promise<void> {
+  try {
+    // Create a dummy user_id for PIN sessions (using tenant_id as reference)
+    // PIN sessions don't have a real user_id in profiles, so we use the tenant_id
+    const { error } = await supabase.from("session_logs").insert({
+      user_id: session.tenantId as any, // Using tenant_id as reference
+      event: eventType,
+      ip_address: null, // Could be filled from a backend call
+      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      provider: "pin",
+    });
+    if (error) {
+      console.warn("[logPinSessionEvent] Failed to log PIN session event:", error);
+    }
+  } catch (err) {
+    console.warn("[logPinSessionEvent] Error logging PIN session event:", err);
+  }
 }

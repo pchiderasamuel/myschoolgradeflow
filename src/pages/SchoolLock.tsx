@@ -9,10 +9,12 @@ import {
   saveTenantSession,
   loadTenantSession,
   daysRemaining,
+  type TenantSession,
 } from "@/lib/tenant-client";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, User, Users, GraduationCap as StudentIcon } from "lucide-react";
 
-type Step = "school" | "admin" | "set-admin";
+type Step = "school" | "role" | "admin" | "set-admin";
+type Role = "admin" | "teacher" | "student";
 
 function Spinner() {
   return (
@@ -27,6 +29,7 @@ function Spinner() {
 export default function SchoolLock() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("school");
+  const [selectedRole, setSelectedRole] = useState<Role>("student");
   const [schoolPin, setSchoolPin] = useState("");
   const [adminPin, setAdminPinInput] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -60,7 +63,20 @@ export default function SchoolLock() {
       return;
     }
     setPending(res);
-    setStep(res.hasAdminPin ? "admin" : "set-admin");
+    setStep("role"); // Go to role selection step
+  };
+
+  const handleRoleSelect = (role: Role) => {
+    setSelectedRole(role);
+    if (role === "admin") {
+      setStep(pending?.hasAdminPin ? "admin" : "set-admin");
+    } else {
+      // Teacher and student can proceed without admin PIN
+      const session = { ...pending!, role, isAdmin: false, hasAdminPin: pending?.hasAdminPin ?? false };
+      saveTenantSession(session);
+      logAuthEvent({ authType: "tenant", eventType: "login", tenantId: session.tenantId, sessionToken: session.sessionToken }).catch(() => {});
+      navigate("/app", { replace: true });
+    }
   };
 
   const handleAdmin = async (e: React.FormEvent) => {
@@ -73,7 +89,7 @@ export default function SchoolLock() {
       toast({ title: "Wrong admin PIN", variant: "destructive" });
       return;
     }
-    const confirmedSession = { ...pending, isAdmin: true, hasAdminPin: true };
+    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
     saveTenantSession(confirmedSession);
     logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
     navigate("/app", { replace: true });
@@ -97,7 +113,7 @@ export default function SchoolLock() {
       toast({ title: "Could not set PIN", description: "Already set — contact provider.", variant: "destructive" });
       return;
     }
-    const confirmedSession = { ...pending, isAdmin: true, hasAdminPin: true };
+    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
     saveTenantSession(confirmedSession);
     logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
     toast({ title: "Admin PIN created", description: "Welcome!" });
@@ -166,12 +182,14 @@ export default function SchoolLock() {
 
           <div className="auth-steps">
             <div className={`auth-step-dot ${step === "school" ? "on" : "on"}`} />
-            <div className={`auth-step-dot ${step !== "school" ? "on" : ""}`} />
+            <div className={`auth-step-dot ${step === "role" || step === "admin" || step === "set-admin" ? "on" : ""}`} />
+            <div className={`auth-step-dot ${step === "admin" || step === "set-admin" ? "on" : ""}`} />
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "0.25rem" }}>
             <h2 className="auth-title">
               {step === "school" && "School Login"}
+              {step === "role" && "Select Your Role"}
               {step === "admin" && "Admin PIN"}
               {step === "set-admin" && "Create PIN"}
             </h2>
@@ -185,6 +203,7 @@ export default function SchoolLock() {
 
           <p className="auth-subtitle">
             {step === "school" && "Enter your school's unique access PIN to continue."}
+            {step === "role" && <>Welcome to <strong>{pending?.schoolName}</strong>. Select your role to continue.</>}
             {step === "admin" && <>Verifying access for <strong>{pending?.schoolName}</strong></>}
             {step === "set-admin" && "First-time setup. Create a secure admin PIN for your school."}
           </p>
@@ -226,6 +245,81 @@ export default function SchoolLock() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {step === "role" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect("admin")}
+                  className="auth-btn"
+                  style={{ 
+                    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                    padding: "1.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    justifyContent: "flex-start"
+                  }}
+                >
+                  <div style={{ background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "0.5rem" }}>
+                    <User size={24} />
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>Admin</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>Full access to all features</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect("teacher")}
+                  className="auth-btn"
+                  style={{ 
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    padding: "1.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    justifyContent: "flex-start"
+                  }}
+                >
+                  <div style={{ background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "0.5rem" }}>
+                    <Users size={24} />
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>Teacher</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>Mark attendance, enter scores</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect("student")}
+                  className="auth-btn"
+                  style={{ 
+                    background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                    padding: "1.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    justifyContent: "flex-start"
+                  }}
+                >
+                  <div style={{ background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "0.5rem" }}>
+                    <StudentIcon size={24} />
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>Student</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>View timetable, results, attendance</div>
+                  </div>
+                </button>
+
+                <button type="button" className="auth-back-link" style={{ justifyContent: "center", marginTop: "0.5rem" }}
+                  onClick={() => { setStep("school"); setPending(null); setSchoolPin(""); }}>
+                  &larr; Use a different school PIN
+                </button>
+              </div>
             )}
 
             {step === "admin" && (

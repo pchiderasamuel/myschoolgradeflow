@@ -7,6 +7,8 @@ import {
   saveTenantData,
   clearTenantSession,
   daysRemaining,
+  isSessionExpired,
+  logPinSessionEvent,
   type TenantSession,
 } from "@/lib/tenant-client";
 import { logAuthEvent } from "@/lib/auth-logger";
@@ -60,6 +62,13 @@ export default function TenantApp() {
       return;
     }
 
+    // Check 8-hour session expiry
+    if (isSessionExpired(s)) {
+      clearTenantSession();
+      navigate("/", { replace: true });
+      return;
+    }
+
     if (s.status === "expired" || s.status === "suspended") {
       setSession(s);
       setPhase("expired");
@@ -72,6 +81,9 @@ export default function TenantApp() {
       setPhase("expired");
       return;
     }
+
+    // Log PIN login event
+    logPinSessionEvent(s, "LOGIN", s.role).catch(() => {});
 
     (async () => {
       try {
@@ -242,6 +254,8 @@ export default function TenantApp() {
     // (otherwise it would push an empty {} to remote and wipe the tenant's data).
     signedOut.current = true;
     if (session) {
+      // Log PIN logout event
+      logPinSessionEvent(session, "LOGOUT", session.role).catch(() => {});
       // Fire-and-forget so a slow audit log can't delay sign-out.
       logAuthEvent({
         authType: "tenant",
@@ -336,7 +350,7 @@ export default function TenantApp() {
         </div>
       )}
 
-      <App tenantSchoolName={session?.schoolName} tenantId={session?.tenantId} onTenantSignOut={signOut} />
+      <App tenantId={session?.tenantId} role={session?.role} onTenantSignOut={signOut} />
     </div>
   );
 }

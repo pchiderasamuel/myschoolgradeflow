@@ -4354,9 +4354,9 @@ function PendingDraftRow({ draft, onFinalize, onDelete }: {
 // ─────────────────────────────────────────────────────────────────────────────
 // Notification helpers
 // ─────────────────────────────────────────────────────────────────────────────
-function notificationVisible(n: AppNotification, isAdmin: boolean, actor: string): boolean {
-  if (n.toScope === "admin") return isAdmin;
-  if (n.toScope === "all-staff") return !isAdmin || isAdmin; // visible to everyone
+function notificationVisible(n: AppNotification, canEdit: boolean, actor: string): boolean {
+  if (n.toScope === "admin") return canEdit;
+  if (n.toScope === "all-staff") return true; // visible to everyone
   if (n.toScope.startsWith("staff:")) {
     const target = n.toScope.slice(6);
     return target === actor;
@@ -4409,10 +4409,10 @@ const TERM_LABEL_TO_SUPABASE: Record<string, string> = {
 };
 
 function TimetableView({
-  isAdmin, currentActor, staffList, classRolls, timetable, dispatch, showToast,
+  canEdit, currentActor, staffList, classRolls, timetable, dispatch, showToast,
   tenantId, schoolSettings,
 }: {
-  isAdmin: boolean;
+  canEdit: boolean;
   currentActor: string;
   staffList: StaffMember[];
   classRolls: Record<string, RollStudent[]>;
@@ -4511,11 +4511,11 @@ function TimetableView({
         <div>
           <h1 className="text-2xl font-black text-slate-900 uppercase">Timetable</h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Weekly class schedule {isAdmin ? "— tap a cell to edit" : "— read-only"}
+            Weekly class schedule {canEdit ? "— tap a cell to edit" : "— read-only"}
             {syncLoading && <span className="ml-2 inline-flex items-center gap-1 text-blue-500 text-[10px] font-bold animate-pulse">↻ syncing…</span>}
           </p>
         </div>
-        {!isAdmin && (
+        {!canEdit && (
           <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
             <input type="checkbox" checked={myOnly} onChange={e => setMyOnly(e.target.checked)} />
             My periods
@@ -4561,7 +4561,7 @@ function TimetableView({
         </div>
 
         {/* Auto-Set Button for Admins */}
-        {isAdmin && (
+        {canEdit && (
           <button
             onClick={() => setShowAutoSet(true)}
             className="w-full px-3 py-2 bg-emerald-50 border-2 border-emerald-200 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-all"
@@ -4635,12 +4635,12 @@ function TimetableView({
                   ) : timetable.days.map(d => {
                     const c = cellOf(d, p.id);
                     const mine = c?.teacherName && c.teacherName === currentActor;
-                    const dim = !isAdmin && myOnly && !mine;
+                    const dim = !canEdit && myOnly && !mine;
                     return (
                       <td key={d} className="align-top">
                         <button
-                          disabled={!isAdmin}
-                          onClick={() => isAdmin && setEditing({
+                          disabled={!canEdit}
+                          onClick={() => canEdit && setEditing({
                             key: `${activeClass}|${d}|${p.id}`,
                             subject: c?.subject || "",
                             teacherName: c?.teacherName || "",
@@ -4649,7 +4649,7 @@ function TimetableView({
                             dim ? "opacity-30" :
                             mine ? "bg-emerald-50 border-emerald-300" :
                             c ? "bg-blue-50 border-blue-100" : "bg-slate-50 border-dashed border-slate-200"
-                          } ${isAdmin ? "hover:border-blue-400 cursor-pointer" : "cursor-default"}`}
+                          } ${canEdit ? "hover:border-blue-400 cursor-pointer" : "cursor-default"}`}
                         >
                           {c ? (
                             <>
@@ -4657,7 +4657,7 @@ function TimetableView({
                               {c.teacherName && <p className="text-[9px] text-slate-500 mt-0.5 truncate">{c.teacherName}</p>}
                             </>
                           ) : (
-                            <p className="text-[9px] text-slate-400 italic">{isAdmin ? "Tap to set" : "—"}</p>
+                            <p className="text-[9px] text-slate-400 italic">{canEdit ? "Tap to set" : "—"}</p>
                           )}
                         </button>
                       </td>
@@ -4745,9 +4745,9 @@ function TimetableView({
 // Inbox / notifications view
 // ─────────────────────────────────────────────────────────────────────────────
 function InboxView({
-  isAdmin, currentActor, staffList, notifications, dispatch, showToast,
+  canEdit, currentActor, staffList, notifications, dispatch, showToast,
 }: {
-  isAdmin: boolean;
+  canEdit: boolean;
   currentActor: string;
   staffList: StaffMember[];
   notifications: AppNotification[];
@@ -4756,29 +4756,29 @@ function InboxView({
 }) {
   const [composing, setComposing] = useState(false);
   const [draft, setDraft] = useState({
-    toScope: isAdmin ? "all-staff" : "admin",
+    toScope: canEdit ? "all-staff" : "admin",
     title: "",
     body: "",
     priority: "normal" as "normal" | "high",
   });
 
   const visible = useMemo(
-    () => notifications.filter(n => notificationVisible(n, isAdmin, currentActor)),
-    [notifications, isAdmin, currentActor]
+    () => notifications.filter(n => notificationVisible(n, canEdit, currentActor)),
+    [notifications, canEdit, currentActor]
   );
 
   const send = () => {
     if (!draft.title.trim() || !draft.body.trim()) return showToast("Add a title and message.", "error");
     dispatch({ type: "ADD_NOTIFICATION", payload: makeNotification({
       fromActor: currentActor,
-      fromRole: isAdmin ? "admin" : "staff",
+      fromRole: canEdit ? "admin" : "staff",
       toScope: draft.toScope as any,
       title: draft.title.trim(),
       body: draft.body.trim(),
       priority: draft.priority,
     }) });
     showToast("Message sent");
-    setDraft({ toScope: isAdmin ? "all-staff" : "admin", title: "", body: "", priority: "normal" });
+    setDraft({ toScope: canEdit ? "all-staff" : "admin", title: "", body: "", priority: "normal" });
     setComposing(false);
   };
 
@@ -4793,7 +4793,7 @@ function InboxView({
       </div>
 
       {visible.length === 0
-        ? <EmptyState icon={Inbox} title="No messages" subtitle={isAdmin ? "Notify staff of updates and announcements." : "Messages from admin and the system appear here."} />
+        ? <EmptyState icon={Inbox} title="No messages" subtitle={canEdit ? "Notify staff of updates and announcements." : "Messages from admin and the system appear here."} />
         : (
           <div className="space-y-2">
             {visible.map(n => {
@@ -4820,7 +4820,7 @@ function InboxView({
                         <button onClick={() => dispatch({ type: "MARK_NOTIFICATION_READ", id: n.id, actor: currentActor })}
                           className="text-[10px] font-black uppercase text-blue-600 hover:underline">Mark read</button>
                       )}
-                      {(isAdmin || n.fromActor === currentActor) && (
+                      {(canEdit || n.fromActor === currentActor) && (
                         <button onClick={() => dispatch({ type: "DELETE_NOTIFICATION", id: n.id })}
                           className="text-[10px] font-black uppercase text-red-500 hover:underline">Delete</button>
                       )}
@@ -4834,13 +4834,13 @@ function InboxView({
 
       {composing && (
         <Modal onBgClick={() => setComposing(false)}>
-          <MHead icon={Send} title="New Message" subtitle={isAdmin ? "Notify staff" : "Message admin"} color="bg-blue-600" onClose={() => setComposing(false)} />
+          <MHead icon={Send} title="New Message" subtitle={canEdit ? "Notify staff" : "Message admin"} color="bg-blue-600" onClose={() => setComposing(false)} />
           <div className="p-6 space-y-4">
             <Field label="To">
               <select value={draft.toScope}
                 onChange={e => setDraft(d => ({ ...d, toScope: e.target.value }))}
                 className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-bold focus:border-blue-500 outline-none">
-                {isAdmin ? (
+                {canEdit ? (
                   <>
                     <option value="all-staff">All staff</option>
                     <option value="admin">Admin (yourself)</option>
@@ -4884,8 +4884,13 @@ function InboxView({
 // ─────────────────────────────────────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
-export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tenantSchoolName }: { onTenantSignOut?: () => void; tenantId?: string; tenantSchoolName?: string } = {}) {
+export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tenantSchoolName, role }: { onTenantSignOut?: () => void; tenantId?: string; tenantSchoolName?: string; role?: "admin" | "teacher" | "student" } = {}) {
   const [appState, dispatchRaw] = useReducer(appReducer, null, getInitialState);
+
+  // Helper to check if current role can edit
+  const canEdit = role === "admin";
+  const canMarkAttendance = role === "admin" || role === "teacher";
+  const canViewOnly = role === "student";
   const dispatch = useCallback((action: any) => {
     dispatchRaw(action);
     // Background sync to Supabase
@@ -4962,11 +4967,11 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
     const fromClass = cat ? cat.subjects : [];
     // Subject Teacher scoping: if staff has assignedSubjects, restrict to those that are valid for this class
     const restrict = auth.user?.assignedSubjects || [];
-    if (!isAdmin && restrict.length > 0) {
+    if (!canEdit && restrict.length > 0) {
       return fromClass.filter(s => restrict.includes(s));
     }
     return fromClass;
-  }, [scoreForm.studentClass, auth.user, isAdmin]);
+  }, [scoreForm.studentClass, auth.user, canEdit]);
 
   const allKnownStudents = useMemo(() => {
     const fromRolls = Object.entries(classRolls).flatMap(([cls, students]) =>
@@ -5039,17 +5044,17 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
 
   const TABS = useMemo(() => [
     { id:"dashboard",  label:"Dashboard",  icon:LayoutDashboard, show:true,                                   primary:true },
-    { id:"entry",      label:"Score Entry",icon:PlusCircle,       show:can("scoreEntry"),                     primary:true },
-    { id:"database",   label:"Records",    icon:Database,         show:isAdmin||can("manageRecords")||can("scoreEntry"), primary:true },
-    { id:"reports",    label:"Reports",    icon:FileText,         show:can("viewReports"),                    primary:true },
-    { id:"attendance", label:"Attendance", icon:CalendarDays,     show:can("scoreEntry")||isAdmin,            primary:false },
+    { id:"entry",      label:"Score Entry",icon:PlusCircle,       show:canEdit||canMarkAttendance,             primary:true },
+    { id:"database",   label:"Records",    icon:Database,         show:canEdit||canMarkAttendance,            primary:true },
+    { id:"reports",    label:"Reports",    icon:FileText,         show:true,                                  primary:true },
+    { id:"attendance", label:"Attendance", icon:CalendarDays,     show:canMarkAttendance,                     primary:false },
     { id:"timetable",  label:"Timetable",  icon:CalendarClock,    show:true,                                  primary:false },
-    { id:"inbox",      label:"Inbox",      icon:Inbox,            show:true,                                  primary:false },
-    { id:"fees",       label:"Fees",       icon:DollarSign,       show:isAdmin,                               primary:false },
-    { id:"staff",      label:"Staff",      icon:Users,            show:isAdmin,                               primary:false },
-    { id:"resources",  label:"Resources",  icon:BookOpen,         show:isAdmin,                               primary:false },
-    { id:"settings",   label:"Settings",   icon:Settings,         show:isAdmin,                               primary:false },
-  ].filter(t => t.show), [can, isAdmin]);
+    { id:"inbox",      label:"Inbox",      icon:Inbox,            show:canEdit,                               primary:false },
+    { id:"fees",       label:"Fees",       icon:DollarSign,       show:canEdit,                               primary:false },
+    { id:"staff",      label:"Staff",      icon:Users,            show:canEdit,                               primary:false },
+    { id:"resources",  label:"Resources",  icon:BookOpen,         show:canEdit,                               primary:false },
+    { id:"settings",   label:"Settings",   icon:Settings,         show:canEdit,                               primary:false },
+  ].filter(t => t.show), [canEdit, canMarkAttendance]);
 
   const primaryTabs = useMemo(() => TABS.filter(t => t.primary), [TABS]);
   const moreTabs    = useMemo(() => TABS.filter(t => !t.primary), [TABS]);
@@ -5238,8 +5243,8 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
 
   const currentActor = isAdmin ? "Admin" : (auth.user?.name || "Staff");
   const unreadInbox = useMemo(
-    () => appState.notifications.filter(n => notificationVisible(n, isAdmin, currentActor) && !n.readBy.includes(currentActor)).length,
-    [appState.notifications, isAdmin, currentActor]
+    () => appState.notifications.filter(n => notificationVisible(n, canEdit, currentActor) && !n.readBy.includes(currentActor)).length,
+    [appState.notifications, canEdit, currentActor]
   );
   const ctxValue = useMemo<AppCtxType>(() => ({ state: appState, dispatch, showToast, currentActor }), [appState, showToast, currentActor]);
 
@@ -5563,10 +5568,10 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                   </div>
 
                   {/* ── Fees Overview (admin-only) ─────────────────────────────── */}
-                  {isAdmin && <FeesOverviewCard schoolSettings={schoolSettings} classRolls={appState.classRolls} entries={entries} setActiveTab={setActiveTab} />}
+                  {canEdit && <FeesOverviewCard schoolSettings={schoolSettings} classRolls={appState.classRolls} entries={entries} setActiveTab={setActiveTab} />}
 
                   {/* ── Staff sign-in roll (admin-only daily presence log) ────── */}
-                  {isAdmin && (() => {
+                  {canEdit && (() => {
                     const today = new Date().toISOString().slice(0, 10);
                     const todays = appState.staffSignIns.filter(s => s.date === today);
                     const allStaffNames = staffList.filter(s => s.status !== "revoked").map(s => s.name);
@@ -5621,11 +5626,11 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                     <Card>
                       <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                         <Clock size={14} className="text-slate-400" />
-                        <p className="text-sm font-black uppercase text-slate-600">{isAdmin ? "Live Staff Activity" : "My Recent Activity"}</p>
-                        {isAdmin && <span className="ml-auto text-xs font-bold text-emerald-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Real-time</span>}
+                        <p className="text-sm font-black uppercase text-slate-600">{canEdit ? "Live Staff Activity" : "My Recent Activity"}</p>
+                        {canEdit && <span className="ml-auto text-xs font-bold text-emerald-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Real-time</span>}
                       </div>
                       <div className="divide-y divide-slate-50 max-h-[420px] overflow-y-auto">
-                        {visibleLogs.slice(0, isAdmin ? 30 : 15).map((log: any) => {
+                        {visibleLogs.slice(0, canEdit ? 30 : 15).map((log: any) => {
                           const { date, time } = fmtTs(log.ts);
                           const ac = log.action === "Deleted" ? "bg-red-100 text-red-600" : log.action === "Restored" ? "bg-emerald-100 text-emerald-700" : log.action.includes("Revok") ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
                           return (
@@ -5635,7 +5640,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                 <div className="min-w-0">
                                   <p className="text-xs font-black text-slate-900 truncate">
                                     {log.student}
-                                    {isAdmin && log.actor && (
+                                    {canEdit && log.actor && (
                                       <span className="ml-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">by {log.actor}</span>
                                     )}
                                   </p>
@@ -5833,7 +5838,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                       <h1 className="text-2xl font-black text-slate-900 uppercase">Records</h1>
                       <p className="text-sm text-slate-400">{termEntries.length} in {schoolSettings.term} · {bin.length} in bin</p>
                     </div>
-                    {(isAdmin || can("manageRecords")) && (
+                    {canEdit && (
                       <Btn variant={showBin ? "primary" : "outline"} onClick={() => setShowBin(b => !b)}>
                         <RotateCcw size={14} />{showBin ? "View Active" : `Bin${bin.length ? ` (${bin.length})` : ""}`}
                       </Btn>
@@ -5891,7 +5896,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                     {["Student","Class","Subject","CA","Exam","Total","Grade","Logged"].map((h, i) => (
                                       <th key={i} className={`px-4 py-3 text-xs font-black uppercase text-slate-400 ${[3,4,5,6].includes(i) ? "text-center" : ""}`}>{h}</th>
                                     ))}
-                                    {(isAdmin || can("manageRecords")) && <th className="px-4 py-3" />}
+                                    {canEdit && <th className="px-4 py-3" />}
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -5913,7 +5918,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                           <p className="text-xs font-bold text-slate-600">{time}</p>
                                           <p className="text-xs text-slate-400">{date}</p>
                                         </td>
-                                        {(isAdmin || can("manageRecords")) && (
+                                        {canEdit && (
                                           <td className="px-4 py-3 text-center">
                                             <button onClick={() => setDlg({ type:"delete", data:e })}
                                               className="p-1.5 rounded-lg text-red-400 hover:text-white hover:bg-red-500 transition-all">
@@ -6213,12 +6218,12 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
               )}
 
               {/* ATTENDANCE */}
-              {activeTab === "attendance" && (can("scoreEntry") || isAdmin) && <AttendanceTab />}
+              {activeTab === "attendance" && canMarkAttendance && <AttendanceTab />}
 
               {/* TIMETABLE */}
               {activeTab === "timetable" && (
                 <TimetableView
-                  isAdmin={isAdmin}
+                  canEdit={canEdit}
                   currentActor={currentActor}
                   staffList={staffList}
                   classRolls={classRolls}
@@ -6233,7 +6238,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
               {/* INBOX */}
               {activeTab === "inbox" && (
                 <InboxView
-                  isAdmin={isAdmin}
+                  canEdit={canEdit}
                   currentActor={currentActor}
                   staffList={staffList}
                   notifications={appState.notifications}
@@ -6243,17 +6248,17 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
               )}
 
               {/* FEES */}
-              {activeTab === "fees" && isAdmin && (
+              {activeTab === "fees" && canEdit && (
                 <FeesTab showToast={showToast} />
               )}
 
               {/* RESOURCES */}
-              {activeTab === "resources" && isAdmin && (
+              {activeTab === "resources" && canEdit && (
                 <ResourcesTab showToast={showToast} />
               )}
 
               {/* STAFF */}
-              {activeTab === "staff" && isAdmin && (() => {
+              {activeTab === "staff" && canEdit && (() => {
                 const detailStaff = staffDetailId ? staffList.find(s => s.id === staffDetailId) : null;
 
                 // ── Staff Detail View ──────────────────────────────────────
@@ -6358,7 +6363,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
               })()}
 
               {/* SETTINGS */}
-              {activeTab === "settings" && isAdmin && (
+              {activeTab === "settings" && canEdit && (
                 <SettingsTab
                   logoUrl={schoolLogo}
                   setSchoolLogo={setSchoolLogo}

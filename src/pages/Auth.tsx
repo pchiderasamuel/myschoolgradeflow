@@ -23,22 +23,9 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
+  // Redirect to /app for unified PIN-based login
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) return;
-      const userId = data.session.user.id;
-      try {
-        const role = await getUserRole(userId);
-        const userRole = role ?? "unassigned";
-        if (userRole === "super_admin") navigate("/superadmin", { replace: true });
-        else if (userRole === "student") navigate("/student", { replace: true });
-        else if (["school_admin", "principal", "head_teacher", "teacher"].includes(userRole))
-          navigate("/school", { replace: true });
-        else navigate("/superadmin", { replace: true });
-      } catch {
-        navigate("/superadmin", { replace: true });
-      }
-    });
+    navigate("/app", { replace: true });
   }, [navigate]);
 
   const handle = async (e: React.FormEvent) => {
