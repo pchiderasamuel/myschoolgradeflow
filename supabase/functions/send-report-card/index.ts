@@ -18,36 +18,41 @@ Deno.serve(async (req) => {
     const anonKey         = Deno.env.get("SUPABASE_ANON_KEY")!;
     const resendApiKey    = Deno.env.get("RESEND_API_KEY")!;
 
-    // ── 1. Auth: verify caller has allowed role ──────────────────────────────
+    // ── 1. Auth: require a valid Supabase JWT and allowed school role ────────
     const authHeader = req.headers.get("Authorization");
-
-    // Support both Supabase auth and tenant session token
-    const isTenantCall = !authHeader?.startsWith("Bearer eyJ");
-    let callerUserId: string | null = null;
-
-    if (authHeader && !isTenantCall) {
-      const callerClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user }, error: userError } = await callerClient.auth.getUser();
-      if (!userError && user) {
-        callerUserId = user.id;
-        // Check profile role
-        const adminClient = createClient(supabaseUrl, serviceRoleKey);
-        const { data: profile } = await adminClient
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-          return Response.json(
-            { error: "Insufficient permissions" },
-            { status: 403, headers: corsHeaders }
-          );
-        }
-      }
+    if (!authHeader?.startsWith("Bearer ")) {
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
+      );
     }
-    // Tenant session calls (PIN-based app) — allowed without Supabase auth
+
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userError } = await callerClient.auth.getUser();
+    if (userError || !userData?.user) {
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+    const callerUserId = userData.user.id;
+
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role, school_id")
+      .eq("id", callerUserId)
+      .maybeSingle();
+
+    if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+      return Response.json(
+        { error: "Insufficient permissions" },
+        { status: 403, headers: corsHeaders }
+      );
+    }
 
     // ── 2. Parse request body ─────────────────────────────────────────────────
     const { reportCardId, schoolId } = await req.json();
@@ -58,13 +63,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+    // Caller must belong to the same school they are emailing for.
+    if (!profile.school_id || profile.school_id !== schoolId) {
+      return Response.json(
+        { error: "Forbidden: school mismatch" },
+        { status: 403, headers: corsHeaders }
+      );
+    }
 
-    // ── 3. Fetch report card ──────────────────────────────────────────────────
+    // ── 3. Fetch report card (scoped to that school) ─────────────────────────
     const { data: rc, error: rcErr } = await admin
       .from("report_cards")
       .select("*")
       .eq("id", reportCardId)
+      .eq("school_id", schoolId)
       .single();
     if (rcErr || !rc) {
       return Response.json({ error: "Report card not found" }, { status: 404, headers: corsHeaders });
