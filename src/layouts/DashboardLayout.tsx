@@ -62,14 +62,14 @@ export default function DashboardLayout({ schoolName, plan, features }: {
 
   const handleSignOut = async () => {
     console.log("[DashboardLayout] Sign out clicked");
+    const slug = localStorage.getItem("schoolapp_school_slug");
     try {
       await signOut();
-      console.log("[DashboardLayout] Sign out successful, navigating to /auth");
-      navigate("/auth");
+      console.log("[DashboardLayout] Sign out successful, navigating to staff login");
+      navigate(slug ? `/app/${slug}/login` : "/", { replace: true });
     } catch (error) {
       console.error("[DashboardLayout] Sign out error:", error);
-      // Still navigate even if sign out fails
-      navigate("/auth");
+      navigate(slug ? `/app/${slug}/login` : "/", { replace: true });
     }
   };
 

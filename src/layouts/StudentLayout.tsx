@@ -19,7 +19,11 @@ export default function StudentLayout({ schoolName }: { schoolName?: string }) {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const handleSignOut = async () => { await signOut(); navigate("/auth"); };
+  const handleSignOut = async () => {
+    const slug = localStorage.getItem("schoolapp_school_slug");
+    await signOut();
+    navigate(slug ? `/app/${slug}/login` : "/", { replace: true });
+  };
 
   const initials = [profile?.firstName, profile?.lastName]
     .filter(Boolean).map((s) => s![0].toUpperCase()).join("")

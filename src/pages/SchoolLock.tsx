@@ -181,7 +181,7 @@ export default function SchoolLock() {
           </div>
 
           <div className="auth-steps">
-            <div className={`auth-step-dot ${step === "school" ? "on" : "on"}`} />
+            <div className="auth-step-dot on" />
             <div className={`auth-step-dot ${step === "role" || step === "admin" || step === "set-admin" ? "on" : ""}`} />
             <div className={`auth-step-dot ${step === "admin" || step === "set-admin" ? "on" : ""}`} />
           </div>

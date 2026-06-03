@@ -9,6 +9,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import SchoolLock from "./pages/SchoolLock";
 import TenantApp from "./pages/TenantApp";
 import Auth from "./pages/Auth";
+import StaffLogin from "./pages/StaffLogin";
 import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound.tsx";
 import SchoolDashboard from "./pages/admin/SchoolDashboard";
@@ -26,6 +27,8 @@ import ResultsPage from "./pages/teacher/ResultsPage";
 import TimetablePage from "./pages/admin/TimetablePage";
 import TeacherTimetablePage from "./pages/teacher/TimetablePage";
 import TeacherProfilePage from "./pages/teacher/ProfilePage";
+import ResourcesPage from "./pages/teacher/ResourcesPage";
+import TeacherSettingsPage from "./pages/teacher/SettingsPage";
 import StudentPortal from "./pages/student/StudentPortal";
 import StudentProfilePage from "./pages/student/ProfilePage";
 import StudentTimetablePage from "./pages/student/TimetablePage";
@@ -62,6 +65,7 @@ const App = () => (
             <Routes>
             <Route path="/" element={<SchoolLock />} />
             <Route path="/app" element={<TenantApp />} />
+            <Route path="/app/:schoolSlug/login" element={<StaffLogin />} />
             <Route path="/auth" element={<Auth />} />
             <Route
               path="/admin"
@@ -104,7 +108,9 @@ const App = () => (
               <Route path="attendance" element={<AttendancePage />} />
               <Route path="results"    element={<ResultsPage />} />
               <Route path="timetable"  element={<TeacherTimetablePage />} />
+              <Route path="resources"  element={<ResourcesPage />} />
               <Route path="profile"    element={<TeacherProfilePage />} />
+              <Route path="settings"   element={<TeacherSettingsPage />} />
             </Route>
             {/* Student portal */}
             <Route

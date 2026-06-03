@@ -2,14 +2,38 @@ import { useState, useMemo } from "react";
 import { useApp } from "@/lib/school-store";
 import { getGrade } from "@/lib/school-helpers";
 import { ALL_CLASSES, getSubjectsForClass } from "@/lib/school-constants";
-import { FileText, Search, Printer } from "lucide-react";
+import { FileText, Search, Printer, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
 
 export default function ReportsTab() {
   const { state } = useApp();
   const { entries, schoolSettings, staffList } = state;
+  const { user, schoolId, profile } = useAuth();
 
   const [selectedClass, setSelectedClass] = useState("");
   const [search, setSearch] = useState("");
+  
+  const [dbSignature, setDbSignature] = useState<string | null>(null);
+  const [dbSignatureType, setDbSignatureType] = useState<"typed" | "drawn" | null>(null);
+
+  useEffect(() => {
+    if (!user || !schoolId) return;
+    const fetchSig = async () => {
+      const { data } = await supabase
+        .from("staff_settings")
+        .select("signature, signature_type")
+        .eq("user_id", user.id)
+        .eq("school_id", schoolId)
+        .single();
+      if (data) {
+        setDbSignature(data.signature);
+        setDbSignatureType(data.signature_type as "typed" | "drawn");
+      }
+    };
+    fetchSig();
+  }, [user, schoolId]);
 
   const students = useMemo(() => {
     if (!selectedClass) return [];
@@ -108,21 +132,37 @@ export default function ReportsTab() {
               {/* Staff Signature Section */}
               {(() => {
                 const staffMember = studentDetail.entries[0]?.enteredBy ? staffList.find((s) => s.name === studentDetail.entries[0].enteredBy) : null;
-                return staffMember?.signature ? (
+                const signatureToUse = dbSignature || staffMember?.signature;
+                const staffName = profile?.firstName ? `${profile.firstName} ${profile.lastName || ""}` : (staffMember?.name || "Staff Member");
+                const staffRole = profile?.role || staffMember?.role || "Teacher";
+                
+                return signatureToUse ? (
                   <div className="mt-6 pt-6 border-t border-border">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Staff Authorization</p>
                     <div className="flex items-end justify-between">
                       <div>
-                        <img src={staffMember.signature} alt="Signature" className="h-16 object-contain" />
+                        {dbSignatureType === "typed" ? (
+                           <span className="font-caveat text-4xl text-slate-800">{signatureToUse}</span>
+                        ) : (
+                           <img src={signatureToUse} alt="Signature" className="h-16 object-contain" />
+                        )}
                         <div className="mt-2">
-                          <p className="text-xs font-semibold">{staffMember.name}</p>
-                          <p className="text-xs text-muted-foreground">{staffMember.role}</p>
+                          <p className="text-xs font-semibold">{staffName}</p>
+                          <p className="text-xs text-muted-foreground">{staffRole}</p>
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString()}</p>
                     </div>
                   </div>
-                ) : null;
+                ) : (
+                  <div className="mt-6 pt-6 border-t border-border flex flex-col items-center justify-center p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <AlertCircle className="text-amber-500 w-8 h-8 mb-2" />
+                    <p className="text-sm font-semibold text-amber-800">Set your default signature in Settings</p>
+                    <Link to="/teacher/settings" className="text-xs text-indigo-600 font-bold hover:underline mt-1">
+                      Go to Settings →
+                    </Link>
+                  </div>
+                );
               })()}
             </div>
 

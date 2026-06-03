@@ -5,7 +5,8 @@ import { getTeachers, getClasses, getRecentActivity, updateSchoolProfile, getStu
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, GraduationCap, BookOpen, CalendarDays, Loader2 } from "lucide-react";
+import { Users, GraduationCap, BookOpen, CalendarDays, Loader2, Share2, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import AttendanceWidget from "@/components/dashboard/AttendanceWidget";
 import SessionLog from "@/components/SessionLog";
@@ -23,6 +24,7 @@ export default function OverviewPage() {
   const [classCount, setClassCount] = useState<number | null>(null);
   const [activity, setActivity] = useState<{ id: number; action: string; details: string | null; timestamp: string }[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -71,6 +73,25 @@ export default function OverviewPage() {
           <p className="text-sm text-slate-500">{school?.academic_year} Academic Year</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-xs"
+            onClick={async () => {
+              const slug = localStorage.getItem("schoolapp_school_slug");
+              if (slug) {
+                const url = `${window.location.origin}/app/${slug}/login`;
+                await navigator.clipboard.writeText(url);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2500);
+              } else {
+                toast({ title: "No link available", description: "School slug not found. Try logging in via the school PIN first.", variant: "destructive" });
+              }
+            }}
+          >
+            {linkCopied ? <><Check size={14} className="text-emerald-600" /> Copied!</> : <><Share2 size={14} /> Share Staff Login Link</>}
+          </Button>
+          <div className="flex items-center gap-2">
           <span className="text-sm text-slate-500">Current Term:</span>
           <Select value={school?.current_term ?? "first"} onValueChange={handleTermChange}>
             <SelectTrigger className="w-36 h-8 text-sm">
@@ -82,6 +103,7 @@ export default function OverviewPage() {
               <SelectItem value="third">3rd Term</SelectItem>
             </SelectContent>
           </Select>
+          </div>
         </div>
       </div>
 

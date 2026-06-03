@@ -25,7 +25,7 @@ export default function SuperadminLayout() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const handleSignOut = async () => { await signOut(); navigate("/auth"); };
+  const handleSignOut = async () => { await signOut(); navigate("/", { replace: true }); };
 
   const initials = [profile?.firstName, profile?.lastName]
     .filter(Boolean).map((s) => s![0].toUpperCase()).join("")

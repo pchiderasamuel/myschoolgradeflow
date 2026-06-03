@@ -5,10 +5,13 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "schoolapp_tenant_session_v2";
+const SLUG_KEY = "schoolapp_school_slug";
+const SCHOOL_ID_KEY = "schoolapp_school_id";
 
 export interface TenantSession {
   tenantId: string;
   schoolName: string;
+  slug: string;
   sessionToken: string;
   status: "trial" | "active" | "expired" | "suspended";
   plan: "trial" | "termly" | "yearly";
@@ -31,10 +34,31 @@ export function loadTenantSession(): TenantSession | null {
 
 export function saveTenantSession(s: TenantSession) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+  // Persist slug + schoolId to localStorage so sign-out can redirect back
+  if (s.slug) {
+    localStorage.setItem(SLUG_KEY, s.slug);
+    localStorage.setItem("school_slug", s.slug);
+  }
+  if (s.tenantId) localStorage.setItem(SCHOOL_ID_KEY, s.tenantId);
 }
 
 export function clearTenantSession() {
   sessionStorage.removeItem(SESSION_KEY);
+  // NOTE: We intentionally do NOT clear SLUG_KEY or SCHOOL_ID_KEY from localStorage
+  // so sign-out can redirect back to the school-branded login screen.
+}
+
+/** Get the persisted school slug (survives sign-out). */
+export function getSchoolSlug(): string | null {
+  return localStorage.getItem(SLUG_KEY) || localStorage.getItem("school_slug");
+}
+
+/** Fully clear all school identity (used when switching schools). */
+export function clearSchoolIdentity() {
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SLUG_KEY);
+  localStorage.removeItem("school_slug");
+  localStorage.removeItem(SCHOOL_ID_KEY);
 }
 
 /** Verify school PIN. Returns session info (without admin flag) or null. */
@@ -42,9 +66,16 @@ export async function verifySchoolPin(pin: string): Promise<Omit<TenantSession, 
   const { data, error } = await supabase.rpc("verify_school_pin_v2", { _pin: pin });
   if (error || !data || data.length === 0) return null;
   const row = data[0];
+  
+  // Save the slug to localStorage under the key 'school_slug' as requested
+  if (row.slug) {
+    localStorage.setItem("school_slug", row.slug);
+  }
+
   const session = {
     tenantId: row.tenant_id,
     schoolName: row.school_name,
+    slug: row.slug ?? "",
     sessionToken: row.session_token,
     status: row.status,
     plan: row.plan,
@@ -115,13 +146,14 @@ export async function logPinSessionEvent(
 ): Promise<void> {
   try {
     // Create a dummy user_id for PIN sessions (using tenant_id as reference)
-    // PIN sessions don't have a real user_id in profiles, so we use the tenant_id
+    // PIN sessions don't have a real user_id in auth.users, so we set user_id to null 
+    // to avoid a foreign key violation, and encode the tenantId in the provider field.
     const { error } = await supabase.from("session_logs").insert({
-      user_id: session.tenantId as any, // Using tenant_id as reference
+      user_id: null,
       event: eventType,
-      ip_address: null, // Could be filled from a backend call
+      ip_address: null,
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      provider: "pin",
+      provider: `pin_${role}_${session.tenantId}`,
     });
     if (error) {
       console.warn("[logPinSessionEvent] Failed to log PIN session event:", error);

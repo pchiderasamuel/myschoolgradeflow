@@ -1508,6 +1508,7 @@ export type Database = {
           plan: Database["public"]["Enums"]["tenant_plan"]
           school_name: string
           session_token: string
+          slug: string
           status: Database["public"]["Enums"]["tenant_status"]
           subscription_ends_at: string
           tenant_id: string

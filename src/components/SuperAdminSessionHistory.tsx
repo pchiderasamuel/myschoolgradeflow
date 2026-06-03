@@ -51,7 +51,7 @@ export default function SuperAdminSessionHistory() {
     try {
       // Use RPC to bypass RLS for super admin
       const { data, error: queryError } = await supabase.rpc("get_all_session_logs", {
-        limit: 100,
+        _limit: 100,
       });
 
       if (queryError) throw queryError;

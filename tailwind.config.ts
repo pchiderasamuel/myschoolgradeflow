@@ -15,6 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["DM Sans", "system-ui", "sans-serif"],
+        caveat: ["Caveat", "cursive"],
       },
       colors: {
         border: "hsl(var(--border))",

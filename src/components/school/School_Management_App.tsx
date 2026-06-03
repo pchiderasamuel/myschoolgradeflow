@@ -4957,6 +4957,36 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
   const isAdmin = !auth.user;
   const can = useCallback((p: string) => isAdmin || (auth.user?.permissions?.[p] ?? false), [isAdmin, auth.user]);
 
+  // Auto-login when role is passed from TenantApp (PIN auth already completed)
+  useEffect(() => {
+    if (role && !auth.loggedIn) {
+      if (role === "admin") {
+        setAuth({ loggedIn: true, user: null });
+      } else {
+        // Create a synthetic staff member for teacher/student display
+        setAuth({
+          loggedIn: true,
+          user: {
+            id: `tenant_${role}`,
+            name: role === "teacher" ? "Teacher" : "Student",
+            role: role === "teacher" ? "Teacher" : "Student",
+            pin: "",
+            status: "active",
+            assignedClasses: [],
+            permissions: {
+              scoreEntry: role === "teacher",
+              viewReports: true,
+              printReports: role !== "student",
+              manageRecords: false,
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } as StaffMember,
+        });
+      }
+    }
+  }, [role, auth.loggedIn]);
+
   // Refresh score entry form whenever the active actor changes (login/logout/switch)
   useEffect(() => {
     setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });

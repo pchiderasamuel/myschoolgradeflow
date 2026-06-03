@@ -6,7 +6,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BookOpen, ClipboardCheck, BarChart2, UserCircle, CalendarClock, Menu, X, LogOut } from "lucide-react";
+import { BookOpen, ClipboardCheck, BarChart2, UserCircle, CalendarClock, Menu, X, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -14,7 +14,9 @@ const NAV = [
   { to: "/teacher/attendance", label: "Attendance",  icon: ClipboardCheck },
   { to: "/teacher/results",    label: "Results",     icon: BarChart2 },
   { to: "/teacher/timetable",  label: "Timetable",   icon: CalendarClock },
+  { to: "/teacher/resources",  label: "Resources",   icon: BookOpen },
   { to: "/teacher/profile",    label: "Profile",     icon: UserCircle },
+  { to: "/teacher/settings",   label: "Settings",    icon: Settings },
 ];
 
 export default function TeacherLayout({ schoolName }: { schoolName?: string }) {
@@ -22,7 +24,11 @@ export default function TeacherLayout({ schoolName }: { schoolName?: string }) {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const handleSignOut = async () => { await signOut(); navigate("/auth"); };
+  const handleSignOut = async () => {
+    const slug = localStorage.getItem("schoolapp_school_slug");
+    await signOut();
+    navigate(slug ? `/app/${slug}/login` : "/", { replace: true });
+  };
 
   const initials = [profile?.firstName, profile?.lastName]
     .filter(Boolean).map((s) => s![0].toUpperCase()).join("")
