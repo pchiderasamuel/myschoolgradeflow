@@ -139,6 +139,23 @@ Deno.serve(async (req) => {
     const schoolLogo  = school?.logo  ?? null;
 
     // ── 7. Build email HTML ───────────────────────────────────────────────────
+    // HTML-escape every string sourced from the database to prevent HTML/script
+    // injection into emails sent to parents.
+    const escHtml = (s: unknown): string =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    // Only allow http(s) URLs inside <img src>; everything else becomes empty.
+    const safeUrl = (s: unknown): string => {
+      const str = String(s ?? "").trim();
+      if (!/^https?:\/\//i.test(str)) return "";
+      return escHtml(str);
+    };
+
     const avgTotal = results && results.length > 0
       ? (results.reduce((s: number, r: any) => s + (r.total_score ?? 0), 0) / results.length).toFixed(1)
       : "—";
@@ -151,34 +168,40 @@ Deno.serve(async (req) => {
       return "F";
     };
 
-    const daysOpen    = rc.days_open    ?? "—";
     const daysPresent = rc.days_present ?? "—";
     const daysAbsent  = rc.days_absent  ?? "—";
     const attRate     = rc.days_open && rc.days_present
       ? Math.round((rc.days_present / rc.days_open) * 100) + "%"
       : "—";
 
-    const termLabel = rc.term.charAt(0).toUpperCase() + rc.term.slice(1) + " Term";
+    const termRaw = String(rc.term ?? "");
+    const termLabel = termRaw
+      ? termRaw.charAt(0).toUpperCase() + termRaw.slice(1) + " Term"
+      : "—";
 
     const resultsRows = (results ?? []).map((r: any) => `
       <tr>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${r.subject_name ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.ca1 ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.ca2 ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.exam_score ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;">${r.total_score ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.grade ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${r.remark ?? "—"}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${escHtml(r.subject_name ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${escHtml(r.ca1 ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${escHtml(r.ca2 ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${escHtml(r.exam_score ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;">${escHtml(r.total_score ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${escHtml(r.grade ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${escHtml(r.remark ?? "—")}</td>
       </tr>`).join("");
 
-    const signatureBlock = rc.signature
+    const safeSignature = safeUrl(rc.signature);
+    const signatureBlock = safeSignature
       ? `<p style="margin:0 0 4px 0;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">Authorised Signature</p>
-         <img src="${rc.signature}" width="200" style="max-height:80px;object-fit:contain;" alt="Signature" />`
+         <img src="${safeSignature}" width="200" style="max-height:80px;object-fit:contain;" alt="Signature" />`
       : "";
+
+    const safeSchoolLogo = safeUrl(schoolLogo);
+    const safeSchoolName = escHtml(schoolName);
 
     const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>${schoolName} — Report Card</title></head>
+<head><meta charset="UTF-8"><title>${safeSchoolName} — Report Card</title></head>
 <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
     <!-- Header -->
@@ -187,8 +210,8 @@ Deno.serve(async (req) => {
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td>
-              ${schoolLogo ? `<img src="${schoolLogo}" width="60" style="border-radius:8px;margin-bottom:10px;" alt="Logo" />` : ""}
-              <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">${schoolName}</h1>
+              ${safeSchoolLogo ? `<img src="${safeSchoolLogo}" width="60" style="border-radius:8px;margin-bottom:10px;" alt="Logo" />` : ""}
+              <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">${safeSchoolName}</h1>
               <p style="margin:6px 0 0;color:#94a3b8;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:2px;">Academic Report Card</p>
             </td>
           </tr>
@@ -202,21 +225,21 @@ Deno.serve(async (req) => {
           <tr>
             <td style="width:50%;padding:4px 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Student Name</span><br/>
-              <span style="font-size:16px;font-weight:900;color:#1e293b;">${rc.student_name}</span>
+              <span style="font-size:16px;font-weight:900;color:#1e293b;">${escHtml(rc.student_name)}</span>
             </td>
             <td style="width:50%;padding:4px 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Class</span><br/>
-              <span style="font-size:15px;font-weight:700;color:#1e293b;">${rc.student_class}</span>
+              <span style="font-size:15px;font-weight:700;color:#1e293b;">${escHtml(rc.student_class)}</span>
             </td>
           </tr>
           <tr>
             <td style="padding:8px 0 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Term</span><br/>
-              <span style="font-size:14px;font-weight:700;color:#1e293b;">${termLabel}</span>
+              <span style="font-size:14px;font-weight:700;color:#1e293b;">${escHtml(termLabel)}</span>
             </td>
             <td style="padding:8px 0 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Academic Year</span><br/>
-              <span style="font-size:14px;font-weight:700;color:#1e293b;">${rc.academic_year}</span>
+              <span style="font-size:14px;font-weight:700;color:#1e293b;">${escHtml(rc.academic_year)}</span>
             </td>
           </tr>
         </table>
@@ -243,8 +266,8 @@ Deno.serve(async (req) => {
           <tfoot>
             <tr style="background:#f1f5f9;">
               <td colspan="4" style="padding:8px 10px;font-weight:700;font-size:12px;">Overall Average</td>
-              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${avgTotal}</td>
-              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${grade(avgTotal)}</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${escHtml(avgTotal)}</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${escHtml(grade(avgTotal))}</td>
               <td></td>
             </tr>
           </tfoot>
@@ -260,8 +283,8 @@ Deno.serve(async (req) => {
             ${[["Present", daysPresent, "#dcfce7", "#166534"],["Absent", daysAbsent, "#fee2e2", "#991b1b"],["Rate", attRate, "#dbeafe", "#1e3a5f"]].map(([l, v, bg, fg]) =>
               `<td style="padding-right:12px;">
                 <div style="background:${bg};border-radius:8px;padding:12px 16px;text-align:center;min-width:72px;">
-                  <div style="font-size:18px;font-weight:900;color:${fg};">${v}</div>
-                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:${fg};opacity:0.7;margin-top:2px;">${l}</div>
+                  <div style="font-size:18px;font-weight:900;color:${fg};">${escHtml(v)}</div>
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:${fg};opacity:0.7;margin-top:2px;">${escHtml(l)}</div>
                 </div>
               </td>`).join("")}
           </tr>
@@ -273,14 +296,14 @@ Deno.serve(async (req) => {
     <tr>
       <td style="padding:0 32px 20px;">
         <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Class Teacher's Remark</p>
-        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${rc.teacher_remark}"</p>
+        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${escHtml(rc.teacher_remark)}"</p>
       </td>
     </tr>` : ""}
     ${rc.principal_remark ? `
     <tr>
       <td style="padding:0 32px 20px;">
         <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Principal's Remark</p>
-        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${rc.principal_remark}"</p>
+        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${escHtml(rc.principal_remark)}"</p>
       </td>
     </tr>` : ""}
     <!-- Signature -->
@@ -294,7 +317,7 @@ Deno.serve(async (req) => {
         <p style="margin:0;font-size:12px;color:#64748b;text-align:center;">
           Log in to the parent portal to view the full interactive report card.
         </p>
-        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center;">${schoolName}</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center;">${safeSchoolName}</p>
       </td>
     </tr>
   </table>
