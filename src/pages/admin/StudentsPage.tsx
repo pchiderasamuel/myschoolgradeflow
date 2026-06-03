@@ -89,7 +89,14 @@ export default function StudentsPage() {
     }
     try {
       const className = classes.find((c) => c.id === form.class_id)?.name ?? form.class_name;
-      const payload = { ...form, class_name: className, status: "active" as const, gender: (form.gender || null) as "male" | "female" | null };
+      const payload = {
+        ...form,
+        class_name: className,
+        status: "active" as const,
+        gender: (form.gender || null) as "male" | "female" | null,
+        photo: null,
+        enrolled_at: new Date().toISOString(),
+      };
       if (drawer === "add") {
         await createStudent.mutateAsync(payload);
         toast({ title: "Student added" });
@@ -163,7 +170,7 @@ export default function StudentsPage() {
     setCsvProgress(100);
     setCsvErrors((prev) => [...prev, ...chunkErrors]);
     toast({ title: `Import complete`, description: `${inserted} students imported. ${errs.length + chunkErrors.length} errors.` });
-    load();
+    // React Query will automatically refetch students on mutation invalidation.
     if (fileRef.current) fileRef.current.value = "";
   };
 

@@ -135,6 +135,9 @@ interface SchoolSettings {
   term: string;
   resumptionDate: string;
   reportTemplate?: ReportTemplateConfig;
+  curriculumLevels?: string[];
+  defaultTeacherSignature?: string;
+  defaultPrincipalSignature?: string;
 }
 interface TimetableCell { subject: string; teacherName: string }
 interface TimetableState {
@@ -2573,7 +2576,7 @@ const ResourcesTab = memo(({ showToast }: { showToast: (msg: string, type?: stri
                     <GraduationCap size={18} className="text-blue-600" />
                     <h4 className="font-black text-slate-900">{level}</h4>
                   </div>
-                  <p className="text-xs text-slate-500">{CURRICULUM[level]?.length || 0} classes configured</p>
+                  <p className="text-xs text-slate-500">{CURRICULUM[level]?.classes?.length || 0} classes configured</p>
                 </div>
               ))}
             </div>
@@ -4881,7 +4884,7 @@ function InboxView({
 // ─────────────────────────────────────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
-export default function App({ onTenantSignOut, tenantId }: { onTenantSignOut?: () => void; tenantId?: string } = {}) {
+export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tenantSchoolName }: { onTenantSignOut?: () => void; tenantId?: string; tenantSchoolName?: string } = {}) {
   const [appState, dispatchRaw] = useReducer(appReducer, null, getInitialState);
   const dispatch = useCallback((action: any) => {
     dispatchRaw(action);
@@ -6014,7 +6017,7 @@ export default function App({ onTenantSignOut, tenantId }: { onTenantSignOut?: (
                           {filteredStudents.map(s => {
                             const sc = appState.comments[s.id] || {};
                             const checks = [
-                              (s.records?.length || 0) > 0,
+                              ((s as { records?: unknown[] }).records?.length || 0) > 0,
                               !!(sc.daysOpen && sc.daysPresent),
                               !!sc.teacher,
                               !!sc.principal,
