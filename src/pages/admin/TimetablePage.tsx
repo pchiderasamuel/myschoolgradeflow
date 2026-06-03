@@ -679,7 +679,7 @@ export default function TimetablePage() {
     const meta = getPeriodMeta(period_number);
     setEditPeriodCell({ day, period_number });
     setEditPeriodDraft({
-      period_type: slot?.period_type ?? meta.period_type,
+      period_type: (slot?.period_type ?? meta.period_type) as TimetableSlot["period_type"],
       start_time: slot ? normTime(slot.start_time) : meta.start_time,
       end_time: slot ? normTime(slot.end_time) : meta.end_time,
     });

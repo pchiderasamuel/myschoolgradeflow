@@ -18,6 +18,11 @@ function from(table: string): PostgrestQueryBuilder<any, any, any, any> {
   return supabase.from(table);
 }
 
+// Alias used by legacy call sites — `db().from(...)` / `db().rpc(...)`
+function db() {
+  return supabase;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────
 
 export interface School {
@@ -796,7 +801,7 @@ export async function getTeacherClasses(
   const allIds = Array.from(new Set([...classTeacherIds, ...assignedIds]));
 
   // Also pull by class_teacher_id column
-  const queries: Promise<Class[]>[] = [];
+  const queries: PromiseLike<Class[]>[] = [];
 
   // by class_teacher_id column
   queries.push(
@@ -1285,7 +1290,7 @@ export async function updateSchoolFeatures(
   maxStudents: number
 ): Promise<void> {
   const { error } = await from("schools")
-    .update({ features, max_students })
+    .update({ features, max_students: maxStudents })
     .eq("id", schoolId);
   throwIfError(error, "updateSchoolFeatures");
 }
@@ -1350,14 +1355,14 @@ export async function provisionSchool(params: {
 
 export async function getStudentsPaginated(
   schoolId: string,
-  from: number,
-  to: number
+  fromIdx: number,
+  toIdx: number
 ): Promise<{ data: unknown[]; count: number }> {
   const query = from("students")
     .select("*", { count: "exact" })
     .eq("school_id", schoolId)
     .order("name", { ascending: true })
-    .range(from, to);
+    .range(fromIdx, toIdx);
   
   const { data, error, count } = await query;
   throwIfError(error, "getStudentsPaginated");

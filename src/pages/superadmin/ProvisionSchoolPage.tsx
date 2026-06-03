@@ -94,7 +94,7 @@ export default function ProvisionSchoolPage() {
       setStep("email");
       await new Promise((r) => setTimeout(r, 600));
       setStep("done");
-      setResultSchoolId(data.schoolId);
+      setResultSchoolId((data as { schoolId?: string })?.schoolId ?? null);
       toast({ title: "School provisioned", description: `${form.name} is now live.` });
     } catch (e) {
       setStep("error");
