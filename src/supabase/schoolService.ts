@@ -18,6 +18,11 @@ function from(table: string): PostgrestQueryBuilder<any, any, any, any> {
   return supabase.from(table);
 }
 
+// Alias used by legacy call sites — `db().from(...)` / `db().rpc(...)`
+function db() {
+  return supabase;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────
 
 export interface School {
