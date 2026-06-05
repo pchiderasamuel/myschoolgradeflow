@@ -336,6 +336,72 @@ export type Database = {
           },
         ]
       }
+      pin_bridge_tokens: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          subject_id: string | null
+          subject_kind: string
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          subject_id?: string | null
+          subject_kind: string
+          tenant_id: string
+          token: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          subject_id?: string | null
+          subject_kind?: string
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      pin_sessions: {
+        Row: {
+          auth_user_id: string
+          created_at: string
+          expires_at: string
+          revoked_at: string | null
+          school_id: string | null
+          subject_id: string | null
+          subject_kind: string
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          auth_user_id: string
+          created_at?: string
+          expires_at?: string
+          revoked_at?: string | null
+          school_id?: string | null
+          subject_id?: string | null
+          subject_kind: string
+          tenant_id: string
+          token: string
+        }
+        Update: {
+          auth_user_id?: string
+          created_at?: string
+          expires_at?: string
+          revoked_at?: string | null
+          school_id?: string | null
+          subject_id?: string | null
+          subject_kind?: string
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -618,6 +684,7 @@ export type Database = {
           name: string
           phone: string | null
           status: string
+          tenant_id: string | null
           timezone: string | null
           updated_at: string | null
         }
@@ -639,6 +706,7 @@ export type Database = {
           name: string
           phone?: string | null
           status?: string
+          tenant_id?: string | null
           timezone?: string | null
           updated_at?: string | null
         }
@@ -660,6 +728,7 @@ export type Database = {
           name?: string
           phone?: string | null
           status?: string
+          tenant_id?: string | null
           timezone?: string | null
           updated_at?: string | null
         }
@@ -763,6 +832,7 @@ export type Database = {
           last_name: string
           other_names: string | null
           photo: string | null
+          pin_hash: string | null
           school_id: string
           status: string
           updated_at: string | null
@@ -785,6 +855,7 @@ export type Database = {
           last_name: string
           other_names?: string | null
           photo?: string | null
+          pin_hash?: string | null
           school_id: string
           status?: string
           updated_at?: string | null
@@ -807,6 +878,7 @@ export type Database = {
           last_name?: string
           other_names?: string | null
           photo?: string | null
+          pin_hash?: string | null
           school_id?: string
           status?: string
           updated_at?: string | null
@@ -985,6 +1057,7 @@ export type Database = {
           is_class_teacher: boolean
           last_name: string
           phone: string | null
+          pin_hash: string | null
           role: string
           school_id: string
           status: string
@@ -1003,6 +1076,7 @@ export type Database = {
           is_class_teacher?: boolean
           last_name: string
           phone?: string | null
+          pin_hash?: string | null
           role?: string
           school_id: string
           status?: string
@@ -1021,6 +1095,7 @@ export type Database = {
           is_class_teacher?: boolean
           last_name?: string
           phone?: string | null
+          pin_hash?: string | null
           role?: string
           school_id?: string
           status?: string
@@ -1375,10 +1450,34 @@ export type Database = {
     }
     Functions: {
       _is_bcrypt: { Args: { _hash: string }; Returns: boolean }
+      _mint_bridge_token: {
+        Args: { _subject_id: string; _subject_kind: string; _tenant_id: string }
+        Returns: string
+      }
       _session_ref: { Args: { _token: string }; Returns: string }
       _verify_pin_any: {
         Args: { _pin: string; _stored_hash: string }
         Returns: boolean
+      }
+      bridge_admin_pin: {
+        Args: { _admin_pin: string; _school_pin: string }
+        Returns: string
+      }
+      bridge_student_pin: {
+        Args: {
+          _admission_no: string
+          _school_pin: string
+          _student_pin: string
+        }
+        Returns: string
+      }
+      bridge_teacher_pin: {
+        Args: {
+          _employee_id: string
+          _school_pin: string
+          _teacher_pin: string
+        }
+        Returns: string
       }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       create_tenant_v2: {
@@ -1494,6 +1593,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      pin_logout: { Args: { _session_token: string }; Returns: boolean }
       redeem_super_admin_token: { Args: { _token: string }; Returns: boolean }
       reset_school_pin: {
         Args: { _new_pin: string; _tenant_id: string }
@@ -1521,6 +1621,14 @@ export type Database = {
       }
       set_admin_pin_v2: {
         Args: { _pin: string; _session_token: string }
+        Returns: boolean
+      }
+      set_student_pin: {
+        Args: { _new_pin: string; _student_id: string }
+        Returns: boolean
+      }
+      set_teacher_pin: {
+        Args: { _new_pin: string; _teacher_id: string }
         Returns: boolean
       }
       suspend_duplicate_tenant: {
