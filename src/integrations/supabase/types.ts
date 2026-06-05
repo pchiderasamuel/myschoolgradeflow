@@ -709,6 +709,41 @@ export type Database = {
           },
         ]
       }
+      staff_settings: {
+        Row: {
+          created_at: string | null
+          school_id: string
+          signature: string | null
+          signature_type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          school_id: string
+          signature?: string | null
+          signature_type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          school_id?: string
+          signature?: string | null
+          signature_type?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           admission_no: string
@@ -1128,6 +1163,7 @@ export type Database = {
           plan: Database["public"]["Enums"]["tenant_plan"]
           school_name: string
           school_pin_hash: string
+          slug: string
           status: Database["public"]["Enums"]["tenant_status"]
           subscription_ends_at: string | null
           subscription_starts_at: string | null
@@ -1145,6 +1181,7 @@ export type Database = {
           plan?: Database["public"]["Enums"]["tenant_plan"]
           school_name: string
           school_pin_hash: string
+          slug: string
           status?: Database["public"]["Enums"]["tenant_status"]
           subscription_ends_at?: string | null
           subscription_starts_at?: string | null
@@ -1162,6 +1199,7 @@ export type Database = {
           plan?: Database["public"]["Enums"]["tenant_plan"]
           school_name?: string
           school_pin_hash?: string
+          slug?: string
           status?: Database["public"]["Enums"]["tenant_status"]
           subscription_ends_at?: string | null
           subscription_starts_at?: string | null
@@ -1400,6 +1438,14 @@ export type Database = {
           timestamp: string
         }[]
       }
+      get_tenant_by_slug: {
+        Args: { _slug: string }
+        Returns: {
+          school_name: string
+          status: Database["public"]["Enums"]["tenant_status"]
+          tenant_id: string
+        }[]
+      }
       get_tenant_data: {
         Args: { _school_pin_hash: string; _tenant_id: string }
         Returns: Json
@@ -1480,6 +1526,14 @@ export type Database = {
       suspend_duplicate_tenant: {
         Args: { _reason?: string; _tenant_id: string }
         Returns: boolean
+      }
+      upsert_staff_signature: {
+        Args: {
+          p_school_id: string
+          p_signature: string
+          p_signature_type: string
+        }
+        Returns: undefined
       }
       verify_admin_pin: {
         Args: { _pin_hash: string; _tenant_id: string }
