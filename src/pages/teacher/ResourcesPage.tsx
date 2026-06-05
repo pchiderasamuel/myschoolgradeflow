@@ -93,7 +93,7 @@ export default function ResourcesPage() {
                         <p className="text-xs text-slate-500 font-medium">{src.type}</p>
                       </div>
                     </div>
-                    {src.isNERDCAligned && (
+                    {(src as { isNERDCAligned?: boolean }).isNERDCAligned && (
                       <span title="NERDC Aligned" className="flex items-center justify-center bg-emerald-50 text-emerald-600 w-6 h-6 rounded-full border border-emerald-100">
                         <CheckCircle size={12} />
                       </span>
