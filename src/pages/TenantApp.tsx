@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import App from "@/components/school/School_Management_App";
 import {
   loadTenantSession,
@@ -12,6 +12,8 @@ import {
   type TenantSession,
 } from "@/lib/tenant-client";
 import { logAuthEvent } from "@/lib/auth-logger";
+import { useAuth } from "@/contexts/AuthContext";
+import { loadBridgeSession, routeForRole } from "@/lib/pin-bridge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LogOut, CloudOff, Loader2, Cloud, CloudUpload } from "lucide-react";
