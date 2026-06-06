@@ -99,7 +99,7 @@ const App = () => (
             <Route
               path="/teacher"
               element={
-                <ProtectedRoute allowedRoles={[...SCHOOL_ROLES]}>
+                <ProtectedRoute allowedRoles={[...TEACHER_ROLES]}>
                   <TeacherPortal />
                 </ProtectedRoute>
               }
