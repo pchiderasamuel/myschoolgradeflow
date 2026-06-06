@@ -1009,6 +1009,24 @@ export async function getRecentActivity(
   return (data ?? []) as any as { id: number; staff_id: string; action: string; details: string | null; timestamp: string }[];
 }
 
+export async function getAllTenantActivityLogs(
+  limit = 50,
+  offset = 0,
+  schoolId?: string | null
+): Promise<{ data: { id: number; tenant_id: string; school_name: string; staff_id: string; action: string; details: string | null; timestamp: string }[]; total_count: number }> {
+  const { data, error } = await supabase.rpc("superadmin_get_all_tenant_activity", {
+    _limit: limit,
+    _offset: offset,
+    _school_id: schoolId === "all" ? null : schoolId,
+  });
+  throwIfError(error, "getAllTenantActivityLogs");
+  const rows = (data ?? []) as any[];
+  return {
+    data: rows,
+    total_count: rows.length > 0 ? Number(rows[0].total_count) : 0
+  };
+}
+
 // ─── Tenant Management (SuperAdmin) ───────────────────────────────────
 
 export interface Tenant {

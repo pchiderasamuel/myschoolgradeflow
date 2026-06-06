@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { getSchoolDetail, getSchoolBilling, updateSchoolFeatures, updateBillingPlan, updateSchoolStatus } from "@/supabase/schoolService";
+import { getSchoolDetail, getSchoolBilling, updateSchoolFeatures, updateBillingPlan, updateSchoolStatus, getAllTenantActivityLogs } from "@/supabase/schoolService";
 import { ArrowLeft, Loader2, ShieldOff, ShieldCheck } from "lucide-react";
 
 interface SchoolDetail {
@@ -55,6 +55,7 @@ export default function SchoolDetailPage() {
 
   const [school, setSchool] = useState<SchoolDetail | null>(null);
   const [billing, setBilling] = useState<BillingDetail | null>(null);
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingPlan, setSavingPlan] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
@@ -64,13 +65,15 @@ export default function SchoolDetailPage() {
     if (!schoolId) return;
     setLoading(true);
     try {
-      const [schoolData, billingData] = await Promise.all([
+      const [schoolData, billingData, logsData] = await Promise.all([
         getSchoolDetail(schoolId),
         getSchoolBilling(schoolId),
+        getAllTenantActivityLogs(10, 0, schoolId),
       ]);
       setSchool(schoolData as SchoolDetail);
       setSelectedPlan((billingData as BillingDetail)?.plan ?? "starter");
       setBilling(billingData as BillingDetail | null);
+      setRecentLogs(logsData.data);
     } catch (error) {
       toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     } finally {
@@ -143,82 +146,113 @@ export default function SchoolDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Students + status */}
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Capacity & Status</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <p className="text-xs text-slate-500">Students</p>
-              <p className="text-2xl font-bold text-slate-800">{school.current_students} <span className="text-sm font-normal text-slate-400">/ {school.max_students}</span></p>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
-                <div
-                  className="bg-indigo-500 h-1.5 rounded-full"
-                  style={{ width: `${Math.min((school.current_students / school.max_students) * 100, 100)}%` }}
-                />
+        <div className="space-y-4">
+          {/* Students + status */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Capacity & Status</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-xs text-slate-500">Students</p>
+                <p className="text-2xl font-bold text-slate-800">{school.current_students} <span className="text-sm font-normal text-slate-400">/ {school.max_students}</span></p>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
+                  <div
+                    className="bg-indigo-500 h-1.5 rounded-full"
+                    style={{ width: `${Math.min((school.current_students / school.max_students) * 100, 100)}%` }}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Enabled Features</p>
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(school.features ?? {}).map(([k, v]) => (
-                  <Badge key={k} variant={v ? "default" : "outline"} className="text-xs">
-                    {v ? "✓" : "✗"} {k}
-                  </Badge>
-                ))}
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Enabled Features</p>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(school.features ?? {}).map(([k, v]) => (
+                    <Badge key={k} variant={v ? "default" : "outline"} className="text-xs">
+                      {v ? "✓" : "✗"} {k}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="pt-2 flex gap-2">
-              {school.status !== "suspended" ? (
-                <Button size="sm" variant="outline" className="text-red-500 border-red-200 hover:bg-red-50" disabled={savingStatus} onClick={() => setStatus("suspended")}>
-                  {savingStatus ? <Loader2 size={12} className="animate-spin mr-1" /> : <ShieldOff size={12} className="mr-1" />} Suspend
-                </Button>
+              <div className="pt-2 flex gap-2">
+                {school.status !== "suspended" ? (
+                  <Button size="sm" variant="outline" className="text-red-500 border-red-200 hover:bg-red-50" disabled={savingStatus} onClick={() => setStatus("suspended")}>
+                    {savingStatus ? <Loader2 size={12} className="animate-spin mr-1" /> : <ShieldOff size={12} className="mr-1" />} Suspend
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" disabled={savingStatus} onClick={() => setStatus("active")}>
+                    {savingStatus ? <Loader2 size={12} className="animate-spin mr-1" /> : <ShieldCheck size={12} className="mr-1" />} Reactivate
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Billing */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Billing & Plan</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {billing ? (
+                <>
+                  <Row label="Plan" value={billing.plan} />
+                  <Row label="Status" value={billing.status} />
+                  <Row label="Trial Ends" value={billing.trial_ends_at ? new Date(billing.trial_ends_at).toLocaleDateString() : "—"} />
+                  <Row label="Period Start" value={billing.current_period_start ? new Date(billing.current_period_start).toLocaleDateString() : "—"} />
+                  <Row label="Period End" value={billing.current_period_end ? new Date(billing.current_period_end).toLocaleDateString() : "—"} />
+                </>
               ) : (
-                <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" disabled={savingStatus} onClick={() => setStatus("active")}>
-                  {savingStatus ? <Loader2 size={12} className="animate-spin mr-1" /> : <ShieldCheck size={12} className="mr-1" />} Reactivate
-                </Button>
+                <p className="text-slate-400 text-xs">No billing record found</p>
               )}
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Billing */}
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Billing & Plan</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {billing ? (
-              <>
-                <Row label="Plan" value={billing.plan} />
-                <Row label="Status" value={billing.status} />
-                <Row label="Trial Ends" value={billing.trial_ends_at ? new Date(billing.trial_ends_at).toLocaleDateString() : "—"} />
-                <Row label="Period Start" value={billing.current_period_start ? new Date(billing.current_period_start).toLocaleDateString() : "—"} />
-                <Row label="Period End" value={billing.current_period_end ? new Date(billing.current_period_end).toLocaleDateString() : "—"} />
-              </>
-            ) : (
-              <p className="text-slate-400 text-xs">No billing record found</p>
-            )}
-
-            <div className="pt-2 space-y-2">
-              <p className="text-xs font-medium text-slate-500">Change Plan</p>
-              <div className="flex gap-2">
-                <Select value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <SelectTrigger className="h-8 flex-1 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="starter">Starter (500 students)</SelectItem>
-                    <SelectItem value="pro">Pro (2,000 students)</SelectItem>
-                    <SelectItem value="enterprise">Enterprise (10,000 students)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button size="sm" onClick={handlePlanChange} disabled={savingPlan}>
-                  {savingPlan ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
-                </Button>
+              <div className="pt-2 space-y-2">
+                <p className="text-xs font-medium text-slate-500">Change Plan</p>
+                <div className="flex gap-2">
+                  <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                    <SelectTrigger className="h-8 flex-1 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="starter">Starter (500 students)</SelectItem>
+                      <SelectItem value="pro">Pro (2,000 students)</SelectItem>
+                      <SelectItem value="enterprise">Enterprise (10,000 students)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" onClick={handlePlanChange} disabled={savingPlan}>
+                    {savingPlan ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-400">Updates features JSONB + max_students atomically</p>
               </div>
-              <p className="text-xs text-slate-400">Updates features JSONB + max_students atomically</p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Recent Tenant Activity */}
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Recent Tenant Activity</CardTitle>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => navigate(`/superadmin/activity?school=${schoolId}`)}>
+            View All
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {recentLogs.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-6">No recent granular activity recorded for this school.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentLogs.map((log) => (
+                <div key={log.id} className="flex justify-between items-start border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{log.action}</p>
+                    <p className="text-xs text-slate-500">by <span className="font-mono">{log.staff_id}</span></p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400">{new Date(log.timestamp).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
