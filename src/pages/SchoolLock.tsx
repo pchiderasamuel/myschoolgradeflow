@@ -4,16 +4,19 @@ import { logAuthEvent } from "@/lib/auth-logger";
 import { toast } from "@/hooks/use-toast";
 import {
   verifySchoolPin,
-  verifyAdminPin,
   setAdminPin,
-  saveTenantSession,
   loadTenantSession,
   daysRemaining,
-  type TenantSession,
 } from "@/lib/tenant-client";
+import {
+  bridgeAdminPin,
+  bridgeTeacherPin,
+  bridgeStudentPin,
+  routeForRole,
+} from "@/lib/pin-bridge";
 import { GraduationCap, User, Users, GraduationCap as StudentIcon } from "lucide-react";
 
-type Step = "school" | "role" | "admin" | "set-admin";
+type Step = "school" | "role" | "admin" | "set-admin" | "personal";
 type Role = "admin" | "teacher" | "student";
 
 function Spinner() {
@@ -33,6 +36,8 @@ export default function SchoolLock() {
   const [schoolPin, setSchoolPin] = useState("");
   const [adminPin, setAdminPinInput] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [personalId, setPersonalId] = useState(""); // employee_id or admission_no
+  const [personalPin, setPersonalPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState<Awaited<ReturnType<typeof verifySchoolPin>>>(null);
   const [showPin, setShowPin] = useState(false);
@@ -63,7 +68,7 @@ export default function SchoolLock() {
       return;
     }
     setPending(res);
-    setStep("role"); // Go to role selection step
+    setStep("role");
   };
 
   const handleRoleSelect = (role: Role) => {
@@ -71,11 +76,7 @@ export default function SchoolLock() {
     if (role === "admin") {
       setStep(pending?.hasAdminPin ? "admin" : "set-admin");
     } else {
-      // Teacher and student can proceed without admin PIN
-      const session = { ...pending!, role, isAdmin: false, hasAdminPin: pending?.hasAdminPin ?? false };
-      saveTenantSession(session);
-      logAuthEvent({ authType: "tenant", eventType: "login", tenantId: session.tenantId, sessionToken: session.sessionToken }).catch(() => {});
-      navigate("/app", { replace: true });
+      setStep("personal");
     }
   };
 
@@ -83,16 +84,20 @@ export default function SchoolLock() {
     e.preventDefault();
     if (!pending) return;
     setLoading(true);
-    const ok = await verifyAdminPin({ ...pending, isAdmin: false }, adminPin.trim());
-    setLoading(false);
-    if (!ok) {
-      toast({ title: "Wrong admin PIN", variant: "destructive" });
-      return;
+    try {
+      const res = await bridgeAdminPin(schoolPin.trim(), adminPin.trim());
+      logAuthEvent({
+        authType: "tenant",
+        eventType: "login",
+        tenantId: pending.tenantId,
+        sessionToken: pending.sessionToken,
+      }).catch(() => {});
+      navigate(routeForRole(res.role), { replace: true });
+    } catch (err) {
+      toast({ title: "Wrong admin PIN", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
-    saveTenantSession(confirmedSession);
-    logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
-    navigate("/app", { replace: true });
   };
 
   const handleSetAdmin = async (e: React.FormEvent) => {
@@ -108,17 +113,37 @@ export default function SchoolLock() {
     }
     setLoading(true);
     const ok = await setAdminPin({ ...pending, isAdmin: false }, adminPin.trim());
-    setLoading(false);
     if (!ok) {
+      setLoading(false);
       toast({ title: "Could not set PIN", description: "Already set — contact provider.", variant: "destructive" });
       return;
     }
-    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
-    saveTenantSession(confirmedSession);
-    logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
-    toast({ title: "Admin PIN created", description: "Welcome!" });
-    navigate("/app", { replace: true });
+    try {
+      const res = await bridgeAdminPin(schoolPin.trim(), adminPin.trim());
+      toast({ title: "Admin PIN created", description: "Welcome!" });
+      navigate(routeForRole(res.role), { replace: true });
+    } catch (err) {
+      toast({ title: "Bridge failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handlePersonal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = selectedRole === "teacher"
+        ? await bridgeTeacherPin(schoolPin.trim(), personalId.trim(), personalPin.trim())
+        : await bridgeStudentPin(schoolPin.trim(), personalId.trim(), personalPin.trim());
+      navigate(routeForRole(res.role), { replace: true });
+    } catch (err) {
+      toast({ title: "Sign-in failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const banner = pending ? (() => {
     const d = daysRemaining({ ...pending, isAdmin: false });
@@ -381,7 +406,49 @@ export default function SchoolLock() {
                 </button>
               </form>
             )}
+
+            {step === "personal" && (
+              <form onSubmit={handlePersonal} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div>
+                  <label className="auth-label" htmlFor="personalId">
+                    {selectedRole === "teacher" ? "Employee ID" : "Admission Number"}
+                  </label>
+                  <input
+                    id="personalId" className="auth-input" type="text"
+                    value={personalId} onChange={(e) => setPersonalId(e.target.value)}
+                    required autoFocus placeholder={selectedRole === "teacher" ? "e.g. EMP-001" : "e.g. ADM-2024-001"}
+                  />
+                </div>
+                <div>
+                  <label className="auth-label" htmlFor="personalPin">Personal PIN</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      id="personalPin" className="auth-input"
+                      type={showPin ? "text" : "password"}
+                      value={personalPin} onChange={(e) => setPersonalPin(e.target.value)}
+                      required placeholder="Your personal PIN"
+                    />
+                    <button type="button" onClick={() => setShowPin(p => !p)}
+                      style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0 }}>
+                      {showPin ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <p style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "#64748b" }}>
+                    Ask your school admin if you don't have a PIN yet.
+                  </p>
+                </div>
+                <button type="submit" className="auth-btn" disabled={loading}>
+                  {loading ? <><Spinner /> Signing in…</> : <>Sign In</>}
+                </button>
+                <button type="button" className="auth-back-link" style={{ justifyContent: "center", marginBottom: 0 }}
+                  onClick={() => { setStep("role"); setPersonalId(""); setPersonalPin(""); }}>
+                  &larr; Choose a different role
+                </button>
+              </form>
+            )}
           </div>
+
+
 
           <div style={{ marginTop: "1.75rem", textAlign: "center" }}>
             <p style={{ fontSize: "0.75rem", color: "#94a3b8" }}>

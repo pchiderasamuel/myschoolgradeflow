@@ -161,10 +161,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("[AuthContext] signOut called");
     sessionExpiredShownRef.current = true; // Prevent showing expired toast on manual logout
     try {
-      await supabase.auth.signOut();
-      console.log("[AuthContext] Supabase signOut successful");
+      // Best-effort: revoke PIN bridge session if present
+      try {
+        const { pinLogout } = await import("@/lib/pin-bridge");
+        await pinLogout();
+      } catch {
+        await supabase.auth.signOut();
+      }
+      console.log("[AuthContext] signOut successful");
     } catch (error) {
-      console.error("[AuthContext] Supabase signOut error:", error);
+      console.error("[AuthContext] signOut error:", error);
       throw error;
     }
   };

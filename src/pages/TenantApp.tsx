@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import App from "@/components/school/School_Management_App";
 import {
   loadTenantSession,
@@ -12,6 +12,8 @@ import {
   type TenantSession,
 } from "@/lib/tenant-client";
 import { logAuthEvent } from "@/lib/auth-logger";
+import { useAuth } from "@/contexts/AuthContext";
+import { loadBridgeSession, routeForRole } from "@/lib/pin-bridge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LogOut, CloudOff, Loader2, Cloud, CloudUpload } from "lucide-react";
@@ -33,7 +35,24 @@ function bumpRev(obj: Record<string, unknown>): Record<string, unknown> {
 
 export default function TenantApp() {
   const navigate = useNavigate();
-  
+  const { session: authSession, profile, loading: authLoading } = useAuth();
+
+  // If a PIN→Supabase bridge session is active, mount the appropriate
+  // production page tree (/school, /teacher, /student) instead of the
+  // legacy localStorage SchoolApp.
+  const bridge = loadBridgeSession();
+  const bridgedRole =
+    profile?.role === "school_admin" ||
+    profile?.role === "principal" ||
+    profile?.role === "head_teacher" ||
+    profile?.role === "teacher" ||
+    profile?.role === "student"
+      ? profile.role
+      : null;
+  if (!authLoading && authSession && bridge && bridgedRole) {
+    return <Navigate to={routeForRole(bridge.role)} replace />;
+  }
+
   const [session, setSession] = useState<TenantSession | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "expired" | "error">("loading");
   const [syncPhase, setSyncPhase] = useState<SyncPhase>("idle");
