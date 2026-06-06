@@ -4,16 +4,19 @@ import { logAuthEvent } from "@/lib/auth-logger";
 import { toast } from "@/hooks/use-toast";
 import {
   verifySchoolPin,
-  verifyAdminPin,
   setAdminPin,
-  saveTenantSession,
   loadTenantSession,
   daysRemaining,
-  type TenantSession,
 } from "@/lib/tenant-client";
+import {
+  bridgeAdminPin,
+  bridgeTeacherPin,
+  bridgeStudentPin,
+  routeForRole,
+} from "@/lib/pin-bridge";
 import { GraduationCap, User, Users, GraduationCap as StudentIcon } from "lucide-react";
 
-type Step = "school" | "role" | "admin" | "set-admin";
+type Step = "school" | "role" | "admin" | "set-admin" | "personal";
 type Role = "admin" | "teacher" | "student";
 
 function Spinner() {
