@@ -406,7 +406,49 @@ export default function SchoolLock() {
                 </button>
               </form>
             )}
+
+            {step === "personal" && (
+              <form onSubmit={handlePersonal} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div>
+                  <label className="auth-label" htmlFor="personalId">
+                    {selectedRole === "teacher" ? "Employee ID" : "Admission Number"}
+                  </label>
+                  <input
+                    id="personalId" className="auth-input" type="text"
+                    value={personalId} onChange={(e) => setPersonalId(e.target.value)}
+                    required autoFocus placeholder={selectedRole === "teacher" ? "e.g. EMP-001" : "e.g. ADM-2024-001"}
+                  />
+                </div>
+                <div>
+                  <label className="auth-label" htmlFor="personalPin">Personal PIN</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      id="personalPin" className="auth-input"
+                      type={showPin ? "text" : "password"}
+                      value={personalPin} onChange={(e) => setPersonalPin(e.target.value)}
+                      required placeholder="Your personal PIN"
+                    />
+                    <button type="button" onClick={() => setShowPin(p => !p)}
+                      style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0 }}>
+                      {showPin ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <p style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "#64748b" }}>
+                    Ask your school admin if you don't have a PIN yet.
+                  </p>
+                </div>
+                <button type="submit" className="auth-btn" disabled={loading}>
+                  {loading ? <><Spinner /> Signing in…</> : <>Sign In</>}
+                </button>
+                <button type="button" className="auth-back-link" style={{ justifyContent: "center", marginBottom: 0 }}
+                  onClick={() => { setStep("role"); setPersonalId(""); setPersonalPin(""); }}>
+                  &larr; Choose a different role
+                </button>
+              </form>
+            )}
           </div>
+
+
 
           <div style={{ marginTop: "1.75rem", textAlign: "center" }}>
             <p style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
