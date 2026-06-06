@@ -36,6 +36,8 @@ export default function SchoolLock() {
   const [schoolPin, setSchoolPin] = useState("");
   const [adminPin, setAdminPinInput] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [personalId, setPersonalId] = useState(""); // employee_id or admission_no
+  const [personalPin, setPersonalPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState<Awaited<ReturnType<typeof verifySchoolPin>>>(null);
   const [showPin, setShowPin] = useState(false);
@@ -66,7 +68,7 @@ export default function SchoolLock() {
       return;
     }
     setPending(res);
-    setStep("role"); // Go to role selection step
+    setStep("role");
   };
 
   const handleRoleSelect = (role: Role) => {
@@ -74,11 +76,7 @@ export default function SchoolLock() {
     if (role === "admin") {
       setStep(pending?.hasAdminPin ? "admin" : "set-admin");
     } else {
-      // Teacher and student can proceed without admin PIN
-      const session = { ...pending!, role, isAdmin: false, hasAdminPin: pending?.hasAdminPin ?? false };
-      saveTenantSession(session);
-      logAuthEvent({ authType: "tenant", eventType: "login", tenantId: session.tenantId, sessionToken: session.sessionToken }).catch(() => {});
-      navigate("/app", { replace: true });
+      setStep("personal");
     }
   };
 
@@ -86,16 +84,20 @@ export default function SchoolLock() {
     e.preventDefault();
     if (!pending) return;
     setLoading(true);
-    const ok = await verifyAdminPin({ ...pending, isAdmin: false }, adminPin.trim());
-    setLoading(false);
-    if (!ok) {
-      toast({ title: "Wrong admin PIN", variant: "destructive" });
-      return;
+    try {
+      const res = await bridgeAdminPin(schoolPin.trim(), adminPin.trim());
+      logAuthEvent({
+        authType: "tenant",
+        eventType: "login",
+        tenantId: pending.tenantId,
+        sessionToken: pending.sessionToken,
+      }).catch(() => {});
+      navigate(routeForRole(res.role), { replace: true });
+    } catch (err) {
+      toast({ title: "Wrong admin PIN", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
-    saveTenantSession(confirmedSession);
-    logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
-    navigate("/app", { replace: true });
   };
 
   const handleSetAdmin = async (e: React.FormEvent) => {
@@ -111,17 +113,37 @@ export default function SchoolLock() {
     }
     setLoading(true);
     const ok = await setAdminPin({ ...pending, isAdmin: false }, adminPin.trim());
-    setLoading(false);
     if (!ok) {
+      setLoading(false);
       toast({ title: "Could not set PIN", description: "Already set — contact provider.", variant: "destructive" });
       return;
     }
-    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
-    saveTenantSession(confirmedSession);
-    logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
-    toast({ title: "Admin PIN created", description: "Welcome!" });
-    navigate("/app", { replace: true });
+    try {
+      const res = await bridgeAdminPin(schoolPin.trim(), adminPin.trim());
+      toast({ title: "Admin PIN created", description: "Welcome!" });
+      navigate(routeForRole(res.role), { replace: true });
+    } catch (err) {
+      toast({ title: "Bridge failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handlePersonal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = selectedRole === "teacher"
+        ? await bridgeTeacherPin(schoolPin.trim(), personalId.trim(), personalPin.trim())
+        : await bridgeStudentPin(schoolPin.trim(), personalId.trim(), personalPin.trim());
+      navigate(routeForRole(res.role), { replace: true });
+    } catch (err) {
+      toast({ title: "Sign-in failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const banner = pending ? (() => {
     const d = daysRemaining({ ...pending, isAdmin: false });
