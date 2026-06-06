@@ -87,12 +87,12 @@ export default function StaffLogin() {
       if (error) throw error;
 
       if (data.user) {
+        const role = await getUserRole(data.user.id);
         await logAuthEvent({
-          authType: "super_admin",
+          authType: "staff",
           eventType: "login",
           userId: data.user.id,
         });
-        const role = await getUserRole(data.user.id);
         redirectByRole(role ?? "unassigned");
       }
     } catch (err) {
