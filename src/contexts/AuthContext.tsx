@@ -33,7 +33,7 @@ async function logSessionEvent(
 ): Promise<void> {
   try {
     const { error } = await supabase.functions.invoke("log-session", {
-      body: { user, event_type: eventType },
+      body: { user, event_type: eventType.toUpperCase() },
     });
     if (error) {
       console.warn(`Failed to log ${eventType} event via edge function:`, error);
