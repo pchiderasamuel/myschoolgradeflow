@@ -27,19 +27,50 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Log session events (LOGIN/LOGOUT) to both edge function and database
+ * This is called from onAuthStateChange to capture authentication events
+ */
 async function logSessionEvent(
   user: User | { id: string; app_metadata?: any; identities?: any },
-  eventType: "LOGIN" | "LOGOUT"
+  eventType: "LOGIN" | "LOGOUT",
+  profile?: AuthProfile | null
 ): Promise<void> {
   try {
-    const { error } = await supabase.functions.invoke("log-session", {
+    // First, log via edge function to capture IP and other metadata
+    const { error: edgeFuncError } = await supabase.functions.invoke("log-session", {
       body: { user, event_type: eventType.toUpperCase() },
+      contentType: "application/json",
     });
-    if (error) {
-      console.warn(`Failed to log ${eventType} event via edge function:`, error);
+    
+    if (edgeFuncError) {
+      console.warn(`Failed to invoke log-session edge function for ${eventType}:`, edgeFuncError);
+    }
+
+    // Second, insert directly into session_logs table with profile information
+    // This ensures the event is captured even if the edge function fails
+    const userEmail = (user as User)?.email || (user as any)?.identities?.[0]?.identity || "unknown";
+    const userName = profile?.firstName && profile?.lastName 
+      ? `${profile.firstName} ${profile.lastName}` 
+      : userEmail;
+    
+    const { error: dbError } = await supabase.from("session_logs").insert({
+      user_id: user.id,
+      user_name: userName,
+      role: profile?.role || "unassigned",
+      action: eventType.toLowerCase(),
+      school_id: profile?.schoolId || null,
+      // tenant_id would be extracted from profile if available
+      device: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      // IP address will be added by the edge function, or can be set to null here
+    });
+
+    if (dbError) {
+      console.warn(`Failed to insert ${eventType} event into session_logs:`, dbError);
     }
   } catch (err) {
-    console.warn(`Error invoking log-session edge function:`, err);
+    console.warn(`Error logging session event (${eventType}):`, err);
+    // Don't block auth flow if logging fails
   }
 }
 
@@ -74,10 +105,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const profileRef = useRef<AuthProfile | null>(null);
   const currentUserRef = useRef<User | null>(null);
-  // Track whether we already logged a login for this session to avoid duplicates
-  const loggedLoginRef = useRef<string | null>(null);
+  // Track last login event time per user to avoid duplicates from token refresh
+  const lastLoginTimeRef = useRef<Record<string, number>>({});
   const { toast } = useToast();
   const sessionExpiredShownRef = useRef(false);
+  // Track listener references for proper cleanup and memory leak prevention
+  const storageListenerRef = useRef<((e: StorageEvent) => void) | null>(null);
+  const authUnsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -102,17 +136,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (s?.user) {
         currentUserRef.current = s.user;
         setLoading(true);
-        fetchProfile(s.user.id, s.user.email ?? null).then((p) => {
-          setProfile(p);
-          profileRef.current = p;
-          setLoading(false);
-          // Log login once per session id
-          if (event === "SIGNED_IN" && loggedLoginRef.current !== s.access_token) {
-            loggedLoginRef.current = s.access_token ?? null;
-            sessionExpiredShownRef.current = false;
-            logSessionEvent(s.user, "LOGIN");
-          }
-        });
+        fetchProfile(s.user.id, s.user.email ?? null)
+          .then((p) => {
+            setProfile(p);
+            profileRef.current = p;
+            setLoading(false);
+            // Log login once per user within a 5-minute window to prevent duplicates from token refresh
+            if (event === "SIGNED_IN") {
+              const userId = s.user.id;
+              const now = Date.now();
+              const lastLoginTime = lastLoginTimeRef.current[userId] ?? 0;
+              const fiveMinutes = 5 * 60 * 1000;
+              
+              if (now - lastLoginTime > fiveMinutes) {
+                lastLoginTimeRef.current[userId] = now;
+                sessionExpiredShownRef.current = false;
+                logSessionEvent(s.user, "LOGIN", p);
+              }
+            }
+          })
+          .catch((err) => {
+            console.error("[AuthContext] Failed to fetch profile:", err);
+            // Fallback to unassigned role to keep app functional
+            const fallbackProfile: AuthProfile = {
+              userId: s.user.id,
+              email: s.user.email ?? null,
+              role: "unassigned",
+              schoolId: null,
+              firstName: null,
+              lastName: null,
+            };
+            setProfile(fallbackProfile);
+            profileRef.current = fallbackProfile;
+            setLoading(false);
+            toast({
+              title: "Warning",
+              description: "Could not load your profile. Some features may be unavailable.",
+              variant: "destructive",
+            });
+          });
       } else {
         setProfile(null);
         profileRef.current = null;
@@ -121,7 +183,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Log logout event on SIGNED_OUT using the cached user object
         if (event === "SIGNED_OUT") {
           if (currentUserRef.current) {
-            logSessionEvent(currentUserRef.current, "LOGOUT");
+            // Use the cached profile information for logout logging
+            logSessionEvent(currentUserRef.current, "LOGOUT", profileRef.current || undefined);
             currentUserRef.current = null;
           }
           
@@ -137,23 +200,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Cross-tab session invalidation
-    const handleStorageChange = (e: StorageEvent) => {
+    // Cross-tab session invalidation with proper scope and cleanup
+    const handleStorageChange = (e: StorageEvent): void => {
       if (e.key === "supabase-auth-token" && e.newValue === null) {
         // Another tab logged out - clear local state
         setSession(null);
         setUser(null);
         setProfile(null);
         profileRef.current = null;
-        loggedLoginRef.current = null;
+        lastLoginTimeRef.current = {};
         currentUserRef.current = null;
       }
     };
+    
+    // Store listener reference to ensure proper cleanup
+    storageListenerRef.current = handleStorageChange;
     window.addEventListener("storage", handleStorageChange);
+    
+    // Store auth unsubscribe function
+    const unsubscribeAuth = (() => {
+      const sub = listener.subscription.unsubscribe;
+      authUnsubscribeRef.current = sub;
+      return sub;
+    })();
 
     return () => {
-      listener.subscription.unsubscribe();
-      window.removeEventListener("storage", handleStorageChange);
+      // Clean up auth state listener
+      unsubscribeAuth();
+      
+      // Clean up storage listener with stored reference
+      if (storageListenerRef.current) {
+        window.removeEventListener("storage", storageListenerRef.current);
+        storageListenerRef.current = null;
+      }
+      
+      // Clear all refs to prevent memory leaks
+      authUnsubscribeRef.current = null;
     };
   }, [toast]);
 

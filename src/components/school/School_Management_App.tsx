@@ -325,28 +325,71 @@ function loadDB(): Partial<AppState> {
   try {
     const raw = localStorage.getItem(DB_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as Partial<AppState> & { _timetableVersion?: string };
+    
+    let parsed: Partial<AppState> & { _timetableVersion?: string };
+    try {
+      parsed = JSON.parse(raw) as Partial<AppState> & { _timetableVersion?: string };
+    } catch (parseErr) {
+      console.error("[loadDB] JSON parse failed, data corrupted:", parseErr);
+      // Data is corrupted - clear it and return empty state
+      localStorage.removeItem(DB_KEY);
+      return {};
+    }
+    
+    // Validate parsed data is an object
+    if (!parsed || typeof parsed !== "object") {
+      console.error("[loadDB] Invalid data structure, expected object");
+      localStorage.removeItem(DB_KEY);
+      return {};
+    }
+    
     // Drop the stored timetable if its schema version is missing/outdated
-    // so the new _defaultTimetable takes over on next load.
     if (parsed._timetableVersion !== TIMETABLE_SCHEMA_VERSION) {
       delete parsed.timetable;
     }
+    
     return parsed;
-  } catch { return {}; }
+  } catch (err) {
+    console.error("[loadDB] Unexpected error:", err);
+    return {};
+  }
 }
 
 function saveDB(state: AppState) {
   try {
+    let existing: any = {};
     const raw = localStorage.getItem(DB_KEY);
-    const existing = raw ? JSON.parse(raw) : {};
-    localStorage.setItem(DB_KEY, JSON.stringify({
+    if (raw) {
+      try {
+        existing = JSON.parse(raw);
+      } catch (parseErr) {
+        console.error("[saveDB] Failed to parse existing data:", parseErr);
+        existing = {};
+      }
+    }
+    
+    // Validate state before saving
+    if (!state || typeof state !== "object") {
+      console.error("[saveDB] Invalid state, cannot save");
+      return;
+    }
+    
+    const dataToSave = {
       ...state,
-      _rev: existing._rev,
-      _updatedAt: existing._updatedAt,
-      _deviceId: existing._deviceId,
+      _rev: typeof existing._rev === "number" ? existing._rev : 0,
+      _updatedAt: typeof existing._updatedAt === "string" ? existing._updatedAt : new Date().toISOString(),
+      _deviceId: typeof existing._deviceId === "string" ? existing._deviceId : undefined,
       _timetableVersion: TIMETABLE_SCHEMA_VERSION,
-    }));
-  } catch { /* storage full */ }
+    };
+    
+    localStorage.setItem(DB_KEY, JSON.stringify(dataToSave));
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("QuotaExceededError")) {
+      console.error("[saveDB] Storage quota exceeded");
+    } else {
+      console.error("[saveDB] Failed to save:", err);
+    }
+  }
 }
 
 
@@ -366,9 +409,17 @@ async function loadJsPDF(): Promise<boolean> {
   if (typeof jspdf !== "undefined") return true;
   try {
     await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    // Verify jspdf loaded
+    if (typeof jspdf === "undefined") {
+      console.error("[loadJsPDF] jspdf not available after load");
+      return false;
+    }
     await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
     return true;
-  } catch { return false; }
+  } catch (err) {
+    console.error("[loadJsPDF] Failed to load:", err);
+    return false;
+  }
 }
 
 async function exportReportToPDF(report: any, curC: any, attRate: number | null, schoolSettings: any, logoDataUrl: string | null): Promise<void> {
@@ -525,8 +576,16 @@ async function loadSheetJS(): Promise<boolean> {
   if (typeof XLSX !== "undefined") return true;
   try {
     await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+    // Verify XLSX loaded
+    if (typeof XLSX === "undefined") {
+      console.error("[loadSheetJS] XLSX not available after load");
+      return false;
+    }
     return true;
-  } catch { return false; }
+  } catch (err) {
+    console.error("[loadSheetJS] Failed to load:", err);
+    return false;
+  }
 }
 
 async function exportClassToExcel(
@@ -1262,10 +1321,11 @@ const SignaturePad = memo(({ value, onChange, onClear }: { value: string; onChan
   );
 });
 
-const DefaultSignaturesPanel = memo(({ initialTeacher, initialPrincipal, onSave }: {
+const DefaultSignaturesPanel = memo(({ initialTeacher, initialPrincipal, onSave, isAdmin = true }: {
   initialTeacher: string;
   initialPrincipal: string;
   onSave: (teacher: string, principal: string) => void;
+  isAdmin?: boolean;
 }) => {
   const [teacherSig, setTeacherSig] = useState(initialTeacher);
   const [principalSig, setPrincipalSig] = useState(initialPrincipal);
@@ -1273,22 +1333,24 @@ const DefaultSignaturesPanel = memo(({ initialTeacher, initialPrincipal, onSave 
   return (
     <Card className="p-6 space-y-5">
       <div>
-        <p className="text-sm font-black uppercase text-slate-700">Default Signatures</p>
-        <p className="text-xs text-slate-400 mt-0.5">Set default signatures for teacher and principal on reports</p>
+        <p className="text-sm font-black uppercase text-slate-700">{isAdmin ? "Default Signatures" : "My Default Signature"}</p>
+        <p className="text-xs text-slate-400 mt-0.5">{isAdmin ? "Set default signatures for teacher and principal on reports" : "Set your default signature to auto-fill on student reports"}</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-2' : ''} gap-5`}>
         <div className="space-y-2">
           <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">Default Teacher Signature</label>
           <SignaturePad value={teacherSig} onChange={setTeacherSig} onClear={() => setTeacherSig("")} />
         </div>
-        <div className="space-y-2">
-          <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">Default Principal Signature</label>
-          <SignaturePad value={principalSig} onChange={setPrincipalSig} onClear={() => setPrincipalSig("")} />
-        </div>
+        {isAdmin && (
+          <div className="space-y-2">
+            <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">Default Principal Signature</label>
+            <SignaturePad value={principalSig} onChange={setPrincipalSig} onClear={() => setPrincipalSig("")} />
+          </div>
+        )}
       </div>
       <div className="pt-2 border-t border-slate-100">
         <Btn variant="primary" size="lg" className="w-full" onClick={() => onSave(teacherSig, principalSig)}>
-          {saved ? <><Check size={15} />Saved!</> : <><Save size={15} />Save Signatures</>}
+          {saved ? <><Check size={15} />Saved!</> : <><Save size={15} />{isAdmin ? "Save Signatures" : "Save Signature"}</>}
         </Btn>
       </div>
     </Card>
@@ -1836,10 +1898,27 @@ const PrintDialog = memo(({ student, schoolName, schoolLogo, curC, attRate, scho
         return;
       }
       if (sel === "email") {
-        if (!email.includes("@")) throw new Error("bad-email");
+        // Enhanced email validation: RFC 5322 simplified pattern
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const trimmedEmail = email.trim();
+        
+        if (!emailRegex.test(trimmedEmail)) {
+          throw new Error("bad-email");
+        }
+        
+        // Additional checks: valid length and no suspicious patterns
+        if (trimmedEmail.length < 5 || trimmedEmail.length > 254) {
+          throw new Error("bad-email");
+        }
+        
+        // Check for consecutive dots or invalid characters
+        if (trimmedEmail.includes("..") || /[<>()[\]\\,;:\s@"]/g.test(trimmedEmail)) {
+          throw new Error("bad-email");
+        }
+        
         const s = encodeURIComponent(`${student.name} Report — ${schoolName}`);
         const b = encodeURIComponent(`Please find the academic report for ${student.name}.\n\nSession: ${schoolSettings.session}\nTerm: ${schoolSettings.term}\n\n— ${schoolName}`);
-        window.location.href = `mailto:${email}?subject=${s}&body=${b}`;
+        window.location.href = `mailto:${encodeURIComponent(trimmedEmail)}?subject=${s}&body=${b}`;
         setStatus("done");
         return;
       }
@@ -5055,11 +5134,19 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
     );
   }, [termEntries, entries, dbSearch, dbClass, dbDate, dbTerm, schoolSettings.term, schoolSettings.session]);
 
-  const curC = useMemo(() =>
-    activeReport
-      ? (appState.comments[activeReport.id] || { teacher:"", principal:"", teacherSig:"", principalSig:"", daysOpen:"", daysPresent:"", daysAbsent:"" })
-      : { teacher:"", principal:"", teacherSig:"", principalSig:"", daysOpen:"", daysPresent:"", daysAbsent:"" },
-  [activeReport, appState.comments]);
+  const curC = useMemo(() => {
+    if (!activeReport) return { teacher:"", principal:"", teacherSig:"", principalSig:"", daysOpen:"", daysPresent:"", daysAbsent:"" };
+    const saved = appState.comments[activeReport.id] || {};
+    return {
+      teacher: saved.teacher || "",
+      principal: saved.principal || "",
+      teacherSig: saved.teacherSig || appState.schoolSettings.defaultTeacherSignature || "",
+      principalSig: saved.principalSig || appState.schoolSettings.defaultPrincipalSignature || "",
+      daysOpen: saved.daysOpen || "",
+      daysPresent: saved.daysPresent || "",
+      daysAbsent: saved.daysAbsent || "",
+    };
+  }, [activeReport, appState.comments, appState.schoolSettings.defaultTeacherSignature, appState.schoolSettings.defaultPrincipalSignature]);
 
   const attRate = useMemo(() => {
     const o = parseInt(curC.daysOpen) || 0, p = parseInt(curC.daysPresent) || 0;
@@ -5082,7 +5169,8 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
     { id:"inbox",      label:"Inbox",      icon:Inbox,            show:canEdit,                               primary:false },
     { id:"fees",       label:"Fees",       icon:DollarSign,       show:canEdit,                               primary:false },
     { id:"staff",      label:"Staff",      icon:Users,            show:canEdit,                               primary:false },
-    { id:"resources",  label:"Resources",  icon:BookOpen,         show:canEdit,                               primary:false },
+    { id:"resources",  label:"Resources",  icon:BookOpen,         show:canEdit||canMarkAttendance,            primary:false },
+    { id:"signatures", label:"Signatures", icon:PenTool,          show:canEdit||canMarkAttendance,            primary:false },
     { id:"settings",   label:"Settings",   icon:Settings,         show:canEdit,                               primary:false },
   ].filter(t => t.show), [canEdit, canMarkAttendance]);
 
@@ -6181,9 +6269,17 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                             {([
                               ["teacher",   "Class Teacher's Remark", "teacherSig",   "Teacher Signature"],
                               ["principal", "Principal's Remark",     "principalSig", "Principal's Signature"],
-                            ] as const).map(([f, l, sf, sl]) => (
-                              <div key={f} className="space-y-3 p-4 bg-white rounded-xl border border-slate-200">
-                                <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{l}</label>
+                            ] as const).map(([f, l, sf, sl]) => {
+                              const isPrincipalField = f === "principal";
+                              const disabled = isPrincipalField && !canEdit;
+                              return (
+                                <div key={f} className={`space-y-3 p-4 bg-white rounded-xl border border-slate-200 ${disabled ? 'opacity-50 pointer-events-none relative' : ''}`}>
+                                  {disabled && (
+                                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50/80 rounded-xl" title="Only the assigned principal can sign here">
+                                      <Lock className="text-slate-400 w-8 h-8" />
+                                    </div>
+                                  )}
+                                  <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{l}</label>
                                 <div className="flex gap-2">
                                   <Sel
                                     value={Object.keys(BUILTIN_REMARKS).find(key => BUILTIN_REMARKS[key as keyof typeof BUILTIN_REMARKS] === curC[f]) || "custom"}
@@ -6211,34 +6307,44 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                   rows={3} placeholder="Enter remark…"
                                   className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-medium focus:border-blue-500 outline-none transition-all resize-none"
                                 />
-                                <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{sl}</label>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{sl}</label>
+                                  {sf === "teacherSig" && schoolSettings.defaultTeacherSignature && !curC[sf] && (
+                                    <button onClick={() => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:schoolSettings.defaultTeacherSignature })}
+                                      className="text-[10px] text-blue-600 font-bold uppercase hover:underline">
+                                      Use Default
+                                    </button>
+                                  )}
+                                  {sf === "principalSig" && schoolSettings.defaultPrincipalSignature && !curC[sf] && (
+                                    <button onClick={() => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:schoolSettings.defaultPrincipalSignature })}
+                                      className="text-[10px] text-blue-600 font-bold uppercase hover:underline">
+                                      Use Default
+                                    </button>
+                                  )}
+                                </div>
                                 <SignaturePad
                                   value={curC[sf] || ""}
                                   onChange={(val) => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:val })}
                                   onClear={() => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:"" })}
                                 />
                               </div>
-                            ))}
+                            )})}
                           </div>
                         </Card>
-                        {can("printReports") && (
-                          <div className="grid grid-cols-2 gap-3 no-print">
-                            <Btn variant="primary" size="lg" onClick={() => setShowPrint(true)}>
-                              <Printer size={16} />Print / Export PDF
-                            </Btn>
-                            <Btn variant="outline" size="lg" onClick={async () => {
-                              await exportSingleStudentExcel(activeReport, curC, attRate, schoolSettings);
-                              showToast("Excel exported");
-                            }}>
-                              📊 Export Excel
-                            </Btn>
-                          </div>
-                        )}
                         <ReportCardSupabaseActions
                           activeReport={activeReport}
                           curC={curC}
                           schoolSettings={schoolSettings}
                           tenantId={tenantId}
+                          canPrint={can("printReports")}
+                          onExportPDF={async () => {
+                            await exportReportToPDF(activeReport, curC, attRate, schoolSettings, schoolLogo);
+                            showToast("PDF exported successfully", "success");
+                          }}
+                          onExportExcel={async () => {
+                            await exportSingleStudentExcel(activeReport, curC, attRate, schoolSettings);
+                            showToast("Excel exported successfully", "success");
+                          }}
                         />
                       </div>
                     </Card>
@@ -6283,7 +6389,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
               )}
 
               {/* RESOURCES */}
-              {activeTab === "resources" && canEdit && (
+              {activeTab === "resources" && (canEdit || canMarkAttendance) && (
                 <ResourcesTab showToast={showToast} />
               )}
 
@@ -6391,6 +6497,25 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                   </>
                 );
               })()}
+
+              {/* SIGNATURES */}
+              {activeTab === "signatures" && (canEdit || canMarkAttendance) && (
+                <div className="max-w-3xl mx-auto space-y-6">
+                  <div className="mb-6">
+                    <h1 className="text-2xl font-black text-slate-900 uppercase">My Signatures</h1>
+                    <p className="text-sm text-slate-400 mt-0.5">Set default signatures to auto-fill on student reports</p>
+                  </div>
+                  <DefaultSignaturesPanel
+                    initialTeacher={schoolSettings.defaultTeacherSignature || ""}
+                    initialPrincipal={schoolSettings.defaultPrincipalSignature || ""}
+                    isAdmin={canEdit}
+                    onSave={(t, p) => {
+                      dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { defaultTeacherSignature: t, defaultPrincipalSignature: p } });
+                      showToast(canEdit ? "Default signatures saved" : "Default signature saved", "success");
+                    }}
+                  />
+                </div>
+              )}
 
               {/* SETTINGS */}
               {activeTab === "settings" && canEdit && (

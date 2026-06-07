@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mail, Shield, School } from "lucide-react";
+import StaffSessionHistory from "@/components/StaffSessionHistory";
 
 const ROLE_LABELS: Record<string, string> = {
   school_admin:  "School Admin",
@@ -58,6 +59,8 @@ export default function TeacherProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      <StaffSessionHistory />
 
       <p className="text-xs text-slate-400 text-center">
         Contact your school admin to update your profile details.

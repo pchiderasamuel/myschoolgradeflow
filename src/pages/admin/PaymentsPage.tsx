@@ -118,8 +118,27 @@ function PaymentsPageContent() {
         feeId: p.fee_id,
         amount: p.amount,
       });
-      if ((data as { paymentUrl?: string })?.paymentUrl) {
-        window.open((data as { paymentUrl: string }).paymentUrl, "_blank");
+      
+      const paymentUrl = (data as { paymentUrl?: unknown })?.paymentUrl;
+      
+      // Validate URL is a string and starts with https:// to prevent security issues
+      if (typeof paymentUrl === "string" && paymentUrl.startsWith("https://")) {
+        try {
+          new URL(paymentUrl); // Validate it's a proper URL
+          window.open(paymentUrl, "_blank");
+        } catch {
+          toast({ 
+            title: "Invalid payment URL", 
+            description: "The payment URL format is invalid", 
+            variant: "destructive" 
+          });
+        }
+      } else {
+        toast({ 
+          title: "Payment URL not available", 
+          description: "Could not generate payment link", 
+          variant: "destructive" 
+        });
       }
     } catch (e) {
       toast({ title: "Payment initiation failed", description: (e as Error).message, variant: "destructive" });

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookOpen, ClipboardCheck, BarChart2, UserCircle, CalendarClock, Menu, X, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logAuthEvent } from "@/lib/auth-logger";
 
 const NAV = [
   { to: "/teacher/classes",    label: "My Classes",  icon: BookOpen },
@@ -26,6 +27,16 @@ export default function TeacherLayout({ schoolName }: { schoolName?: string }) {
 
   const handleSignOut = async () => {
     const slug = localStorage.getItem("schoolapp_school_slug");
+    if (profile) {
+      await logAuthEvent({
+        authType: "staff",
+        eventType: "logout",
+        userId: profile.userId,
+        userName: `${profile.firstName || ""} ${profile.lastName || ""}`.trim() || profile.email || "Teacher",
+        role: profile.role,
+        schoolId: profile.schoolId || undefined,
+      });
+    }
     await signOut();
     navigate(slug ? `/app/${slug}/login` : "/", { replace: true });
   };

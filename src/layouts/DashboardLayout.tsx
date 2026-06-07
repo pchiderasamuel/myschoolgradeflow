@@ -26,6 +26,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logAuthEvent } from "@/lib/auth-logger";
 
 interface NavItem {
   to: string;
@@ -64,6 +65,16 @@ export default function DashboardLayout({ schoolName, plan, features }: {
     console.log("[DashboardLayout] Sign out clicked");
     const slug = localStorage.getItem("schoolapp_school_slug");
     try {
+      if (profile) {
+        await logAuthEvent({
+          authType: "staff",
+          eventType: "logout",
+          userId: profile.userId,
+          userName: `${profile.firstName || ""} ${profile.lastName || ""}`.trim() || profile.email || "Admin",
+          role: profile.role,
+          schoolId: profile.schoolId || undefined,
+        });
+      }
       await signOut();
       console.log("[DashboardLayout] Sign out successful, navigating to staff login");
       navigate(slug ? `/app/${slug}/login` : "/", { replace: true });
@@ -172,20 +183,21 @@ export default function DashboardLayout({ schoolName, plan, features }: {
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
+      <div className="flex-1 flex flex-col overflow-hidden w-full">
+        {/* Top bar - Mobile optimized */}
+        <header className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between shrink-0 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <button
-              className="lg:hidden text-slate-500 hover:text-slate-800"
+              className="lg:hidden text-slate-500 hover:text-slate-800 flex-shrink-0 p-1 -ml-1"
               onClick={() => setSidebarOpen(true)}
+              title="Open menu"
             >
               <Menu size={20} />
             </button>
-            <div className="hidden sm:flex items-center text-sm text-slate-500">
-              <span className="font-medium text-slate-800">{schoolName ?? ""}</span>
-              <ChevronRight size={14} className="mx-1" />
-              <span>Dashboard</span>
+            <div className="hidden xs:flex items-center text-xs sm:text-sm text-slate-500 gap-1 min-w-0">
+              <span className="font-medium text-slate-800 truncate">{schoolName ?? ""}</span>
+              <ChevronRight size={14} className="flex-shrink-0" />
+              <span className="hidden sm:inline">Dashboard</span>
             </div>
           </div>
 

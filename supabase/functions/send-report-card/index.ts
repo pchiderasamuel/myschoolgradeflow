@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -26,7 +27,7 @@ function safeImageSrc(value: unknown): string | null {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -35,7 +36,15 @@ Deno.serve(async (req) => {
     const anonKey         = Deno.env.get("SUPABASE_ANON_KEY")!;
     const resendApiKey    = Deno.env.get("RESEND_API_KEY")!;
 
-    const body = await req.json().catch(() => ({} as any));
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { error: "Invalid JSON payload." },
+        { status: 400, headers: corsHeaders }
+      );
+    }
     const { reportCardId, schoolId, sessionToken } = body ?? {};
     if (!reportCardId || !schoolId) {
       return Response.json(

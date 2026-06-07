@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Save, Upload, Loader2 } from "lucide-react";
 import SessionHistory from "@/components/SessionHistory";
+import SchoolAdminSessionActivity from "@/components/SchoolAdminSessionActivity";
 
 export default function SettingsPage() {
   const { schoolId } = useAuth();
@@ -196,6 +197,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Security & Activity */}
+      <SchoolAdminSessionActivity />
       <SessionHistory />
 
       <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">

@@ -1,14 +1,14 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -23,9 +23,9 @@ serve(async (req) => {
     // Require a valid JWT and use its `sub` as the source of truth for user_id.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -35,23 +35,33 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
     if (claimsError || !claimsData?.claims?.sub) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
       );
     }
     const authUserId = claimsData.claims.sub as string;
 
-    const body = await req.json().catch(() => ({}));
-    const raw = String(body?.event_type ?? "").toLowerCase();
-    if (raw !== "login" && raw !== "logout") {
-      return new Response(
-        JSON.stringify({ error: "event_type must be 'login' or 'logout'" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    let body: any;
+    try {
+      body = await req.json();
+    } catch (error) {
+      return Response.json(
+        { error: "Invalid JSON payload." },
+        { status: 400, headers: corsHeaders }
       );
     }
-    const event_type = raw; // lowercase to match session_logs.action CHECK constraint
 
+    const raw = String(body?.event_type ?? "").toLowerCase();
+    if (raw !== "login" && raw !== "logout") {
+      return Response.json(
+        { error: "event_type must be 'login' or 'logout'" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+    const event_type = raw;
+
+    const { user } = body ?? {};
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
@@ -82,15 +92,15 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return Response.json(
+      { success: true },
+      { status: 200, headers: corsHeaders }
+    );
   } catch (err: any) {
     console.error("Error in log-session function:", err?.message ?? err);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    return Response.json(
+      { error: err?.message ?? "Internal server error" },
+      { status: 500, headers: corsHeaders }
     );
   }
 });

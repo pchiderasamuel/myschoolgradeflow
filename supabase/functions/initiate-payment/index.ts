@@ -2,12 +2,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -30,7 +31,17 @@ Deno.serve(async (req) => {
     }
 
     // ── 2. Parse body ──────────────────────────────────────────────────
-    const { studentId, feeId, amount } = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { error: "Invalid JSON payload. Expected a JSON body with studentId, feeId, and amount." },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const { studentId, feeId, amount } = body ?? {};
     if (!studentId || !feeId || !amount) {
       return Response.json({ error: "studentId, feeId, and amount are required" }, { status: 400, headers: corsHeaders });
     }

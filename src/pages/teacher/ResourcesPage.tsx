@@ -2,10 +2,10 @@ import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RESOURCE_SOURCES } from "@/components/school/data/resourceSources";
-import { BookOpen, Search, ExternalLink, Bookmark, CheckCircle } from "lucide-react";
+import { BookOpen, Search, ExternalLink, Bookmark, CheckCircle, FileText, Download, MonitorPlay } from "lucide-react";
 
 export default function ResourcesPage() {
-  const [activeTab, setActiveTab] = useState<"sources" | "notes">("sources");
+  const [activeTab, setActiveTab] = useState<"sources" | "notes" | "aids">("sources");
   const [searchQuery, setSearchQuery] = useState("");
   const [coverageFilter, setCoverageFilter] = useState("All");
 
@@ -23,13 +23,13 @@ export default function ResourcesPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-black text-slate-900 uppercase">Curriculum Resources</h1>
-        <p className="text-sm text-slate-500 mt-1">Access external resources and educational notes aligned with NAPPS/NERDC</p>
+        <p className="text-sm text-slate-500 mt-1">Access external resources, lesson note templates, and teaching aids</p>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-200 pb-2">
+      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto hide-scrollbar">
         <button
           onClick={() => setActiveTab("sources")}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+          className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
             activeTab === "sources" ? "bg-indigo-600 text-white" : "bg-white text-slate-600 hover:bg-slate-100"
           }`}
         >
@@ -37,11 +37,19 @@ export default function ResourcesPage() {
         </button>
         <button
           onClick={() => setActiveTab("notes")}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+          className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
             activeTab === "notes" ? "bg-indigo-600 text-white" : "bg-white text-slate-600 hover:bg-slate-100"
           }`}
         >
-          E-Notes (Coming Soon)
+          Lesson Note Templates
+        </button>
+        <button
+          onClick={() => setActiveTab("aids")}
+          className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
+            activeTab === "aids" ? "bg-indigo-600 text-white" : "bg-white text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Teaching Aids
         </button>
       </div>
 
@@ -127,12 +135,122 @@ export default function ResourcesPage() {
       )}
 
       {activeTab === "notes" && (
-        <Card className="p-12 text-center border-2 border-slate-100 border-dashed">
-          <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-800 mb-2">E-Notes Library</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            The comprehensive E-Notes library with downloadable PDFs for all classes and subjects is currently being integrated into the new staff portal. Please check back soon.
-          </p>
+        <Card className="p-6 border-2 border-slate-100">
+          <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
+            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center shrink-0 border border-emerald-100">
+              <FileText className="w-8 h-8 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Lesson Note Templates</h2>
+              <p className="text-slate-600 mt-1">Download standard lesson note structures aligned with NERDC format. Print these templates or fill them digitally to standardize your teaching plans.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors group">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                Nursery / Early Years Format
+              </h3>
+              <p className="text-sm text-slate-500 mt-1 mb-4">Includes sections for play-based objectives, physical development goals, and interactive materials.</p>
+              <button className="text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full justify-center">
+                <Download size={16} /> Download Template (PDF)
+              </button>
+            </div>
+
+            <div className="p-4 border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors group">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                Primary Basic Format
+              </h3>
+              <p className="text-sm text-slate-500 mt-1 mb-4">Standard structure with behavioral objectives, instructional materials, presentation steps, and evaluation.</p>
+              <button className="text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full justify-center">
+                <Download size={16} /> Download Template (PDF)
+              </button>
+            </div>
+
+            <div className="p-4 border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors group">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                Junior Secondary (JSS) Format
+              </h3>
+              <p className="text-sm text-slate-500 mt-1 mb-4">Advanced structure including previous knowledge link, thematic evaluation, and practical assignment criteria.</p>
+              <button className="text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full justify-center">
+                <Download size={16} /> Download Template (PDF)
+              </button>
+            </div>
+
+            <div className="p-4 border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors group">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                Senior Secondary (SSS) Format
+              </h3>
+              <p className="text-sm text-slate-500 mt-1 mb-4">Comprehensive format required for WAEC/NECO preparation, with specific terminal objectives and deep evaluations.</p>
+              <button className="text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full justify-center">
+                <Download size={16} /> Download Template (PDF)
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "aids" && (
+        <Card className="p-6 border-2 border-slate-100">
+          <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center shrink-0 border border-blue-100">
+              <MonitorPlay className="w-8 h-8 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Digital Teaching Aids</h2>
+              <p className="text-slate-600 mt-1">Recommended tools and platforms to make your classes more interactive and engaging for students.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 border border-slate-200 rounded-xl flex flex-col h-full">
+              <h3 className="font-bold text-slate-800 text-base">Kahoot!</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4 flex-1">Game-based learning platform to create interactive quizzes and educational games.</p>
+              <a href="https://kahoot.com" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                Visit Platform <ExternalLink size={14} />
+              </a>
+            </div>
+
+            <div className="p-4 border border-slate-200 rounded-xl flex flex-col h-full">
+              <h3 className="font-bold text-slate-800 text-base">PhET Simulations</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4 flex-1">Interactive math and science simulations from the University of Colorado Boulder.</p>
+              <a href="https://phet.colorado.edu" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                Visit Platform <ExternalLink size={14} />
+              </a>
+            </div>
+
+            <div className="p-4 border border-slate-200 rounded-xl flex flex-col h-full">
+              <h3 className="font-bold text-slate-800 text-base">Canva for Education</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4 flex-1">Create engaging visual materials, presentations, and infographics for your classes.</p>
+              <a href="https://www.canva.com/education" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                Visit Platform <ExternalLink size={14} />
+              </a>
+            </div>
+
+            <div className="p-4 border border-slate-200 rounded-xl flex flex-col h-full">
+              <h3 className="font-bold text-slate-800 text-base">Quizlet</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4 flex-1">Simple learning tools and flashcards to help students study and practice.</p>
+              <a href="https://quizlet.com" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                Visit Platform <ExternalLink size={14} />
+              </a>
+            </div>
+
+            <div className="p-4 border border-slate-200 rounded-xl flex flex-col h-full">
+              <h3 className="font-bold text-slate-800 text-base">GeoGebra</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4 flex-1">Dynamic mathematics software for all levels of education that brings together geometry, algebra, spreadsheets, and graphing.</p>
+              <a href="https://www.geogebra.org" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                Visit Platform <ExternalLink size={14} />
+              </a>
+            </div>
+            
+            <div className="p-4 border border-slate-200 rounded-xl flex flex-col h-full">
+              <h3 className="font-bold text-slate-800 text-base">Google Classroom</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4 flex-1">A blended learning platform for educational institutions to simplify creating, distributing, and grading assignments.</p>
+              <a href="https://classroom.google.com" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                Visit Platform <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
         </Card>
       )}
     </div>

@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -16,7 +17,7 @@ function escapeHtml(v: unknown): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -50,14 +51,47 @@ Deno.serve(async (req) => {
     }
 
     // ── 2. Parse + validate body ───────────────────────────────────────
-    const body = await req.json();
-    const { name, code, email, phone, address, plan, adminEmail, adminName, tenantId } = body;
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { error: "Invalid JSON payload. Expected a JSON body with name, code, and tenantId." },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const { name, code, email, phone, address, plan, adminEmail, adminName, tenantId } = body ?? {};
 
     if (!name || !code || !tenantId) {
       return Response.json({ error: "name, code, and tenantId are required" }, { status: 400, headers: corsHeaders });
     }
 
-    // ── 3. Check code uniqueness ──────────────────────────────────────
+    // ── 3. Validate tenant ID ──────────────────────────────────────────
+    // UUID v4 format validation: 8-4-4-4-12 hex digits
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(tenantId)) {
+      return Response.json(
+        { error: "Invalid tenant ID format. Expected a valid UUID v4." },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Verify tenant exists
+    const { data: tenantExists } = await serviceClient
+      .from("tenants")
+      .select("id")
+      .eq("id", tenantId)
+      .maybeSingle();
+
+    if (!tenantExists) {
+      return Response.json(
+        { error: "Tenant not found. Cannot provision school for non-existent tenant." },
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // ── 4. Check code uniqueness ──────────────────────────────────────
     const { data: existing } = await serviceClient
       .from("schools")
       .select("id")
@@ -122,25 +156,34 @@ Deno.serve(async (req) => {
     // ── 7. Send welcome email via Resend ─────────────────────────────
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (resendKey && adminEmail) {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: "noreply@titbeattechsolutions.com",
-          to: adminEmail,
-          subject: `Welcome to SchoolGradeFlow — ${escapeHtml(name)}`,
-          html: `
-            <h2>Welcome, ${escapeHtml(adminName ?? "School Admin")}!</h2>
-            <p>Your school <strong>${escapeHtml(name)}</strong> has been provisioned on SchoolGradeFlow.</p>
-            <p>Sign up with this email address to get started. Your account will automatically be assigned the <strong>School Admin</strong> role.</p>
-            <p>School Code: <strong>${escapeHtml(String(code).toUpperCase())}</strong></p>
-            <p>Trial ends: <strong>${escapeHtml(new Date(trialEndsAt).toDateString())}</strong></p>
-          `,
-        }),
-      });
+      try {
+        const emailRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "noreply@titbeattechsolutions.com",
+            to: adminEmail,
+            subject: `Welcome to SchoolGradeFlow — ${escapeHtml(name)}`,
+            html: `
+              <h2>Welcome, ${escapeHtml(adminName ?? "School Admin")}!</h2>
+              <p>Your school <strong>${escapeHtml(name)}</strong> has been provisioned on SchoolGradeFlow.</p>
+              <p>Sign up with this email address to get started. Your account will automatically be assigned the <strong>School Admin</strong> role.</p>
+              <p>School Code: <strong>${escapeHtml(String(code).toUpperCase())}</strong></p>
+              <p>Trial ends: <strong>${escapeHtml(new Date(trialEndsAt).toDateString())}</strong></p>
+            `,
+          }),
+        });
+        
+        if (!emailRes.ok) {
+          const emailErr = await emailRes.json().catch(() => ({ error: "Unknown error" }));
+          console.error("Resend API error:", emailErr);
+        }
+      } catch (emailErr) {
+        console.error("Failed to send welcome email:", emailErr);
+      }
     }
 
     return Response.json(

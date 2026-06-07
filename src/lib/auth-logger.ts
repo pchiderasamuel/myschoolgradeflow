@@ -31,30 +31,52 @@ export async function logAuthEvent({
   role,
 }: LogAuthEventParams) {
   try {
-    // Get client IP address if not provided
+    // Get client IP address if not provided (with geolocation fallback)
     let ip = ipAddress;
-    if (!ip) {
+    if (!ip && typeof window !== "undefined") {
+      // Try primary geolocation service (ipify)
       try {
-        const response = await fetch("https://api.ipify.org?format=json").catch(() => null);
+        const response = await Promise.race([
+          fetch("https://api.ipify.org?format=json"),
+          new Promise<Response>((_, reject) => 
+            setTimeout(() => reject(new Error("IP lookup timeout")), 3000)
+          ),
+        ]);
+        
         if (response?.ok) {
           const data = await response.json();
           ip = data.ip;
         }
       } catch (e) {
-        // Silently fail to get IP, continue with logging anyway
+        // Primary service failed, try fallback services
+        try {
+          const fallbackResponse = await Promise.race([
+            fetch("https://api.my-ip.io/ip"),
+            new Promise<Response>((_, reject) => 
+              setTimeout(() => reject(new Error("Fallback IP lookup timeout")), 2000)
+            ),
+          ]);
+          
+          if (fallbackResponse?.ok) {
+            ip = await fallbackResponse.text();
+          }
+        } catch (fallbackErr) {
+          // Both services failed, log at trace level and continue
+          console.debug("[auth-logger] IP geolocation unavailable, logging without IP", fallbackErr);
+        }
       }
     }
 
     // Get user agent if not provided
     const ua = userAgent || navigator.userAgent;
 
-    // Insert directly into session_logs table for school users
-    if (authType === "staff" && userId && schoolId && userName && role) {
+    // Insert directly into session_logs table for school users and super admins
+    if ((authType === "staff" && userId && schoolId && userName && role) || (authType === "super_admin" && userId)) {
       const { error } = await (supabase.from("session_logs") as any).insert({
-        school_id: schoolId,
+        school_id: authType === "staff" ? schoolId : null,
         user_id: userId,
-        user_name: userName,
-        role: role,
+        user_name: authType === "super_admin" ? (userName || "Super Admin") : userName,
+        role: authType === "super_admin" ? "super_admin" : role,
         action: eventType,
         ip_address: ip,
         device: ua,
@@ -64,7 +86,7 @@ export async function logAuthEvent({
         console.warn("Failed to log auth event to session_logs:", error);
       }
     } else {
-      // For super_admin and tenant, we can't log to session_logs (no school_id)
+      // For tenant, we can't log to session_logs (no school_id)
       // Log to console for debugging but don't fail
       console.log("[Auth Event]", {
         authType,

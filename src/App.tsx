@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SchoolProvider } from "@/hooks/useSchool";
+import { Component, ReactNode } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import SchoolLock from "./pages/SchoolLock";
 import TenantApp from "./pages/TenantApp";
@@ -55,15 +56,89 @@ function Unauthorized() {
   );
 }
 
+// Error Boundary to catch component crashes
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: { componentStack: string }) {
+    console.error("[ErrorBoundary] Component crash detected:", error, errorInfo.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          flexDirection: "column",
+          gap: "1.5rem",
+          padding: "2rem",
+          backgroundColor: "#f8fafc",
+        }}>
+          <div style={{ maxWidth: "500px", textAlign: "center" }}>
+            <h1 style={{ fontSize: "1.875rem", fontWeight: 700, color: "#dc2626", marginBottom: "0.5rem" }}>
+              Something went wrong
+            </h1>
+            <p style={{ color: "#64748b", marginBottom: "1rem", fontSize: "0.95rem" }}>
+              An unexpected error occurred. Please try refreshing the page.
+            </p>
+            <pre style={{
+              textAlign: "left",
+              padding: "1rem",
+              backgroundColor: "#f1f5f9",
+              borderRadius: "0.5rem",
+              fontSize: "0.75rem",
+              color: "#475569",
+              overflow: "auto",
+              maxHeight: "150px",
+              border: "1px solid #cbd5e1",
+            }}>
+              {this.state.error?.message}
+            </pre>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                marginTop: "1.5rem",
+                padding: "0.75rem 1.5rem",
+                backgroundColor: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                fontWeight: "600",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+              }}
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AuthProvider>
-          <SchoolProvider>
-            <Routes>
+      <ErrorBoundary>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <AuthProvider>
+            <SchoolProvider>
+              <Routes>
             <Route path="/" element={<SchoolLock />} />
             <Route path="/app" element={<TenantApp />} />
             <Route path="/app/:schoolSlug/login" element={<StaffLogin />} />
@@ -145,10 +220,11 @@ const App = () => (
             </Route>
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </SchoolProvider>
-      </AuthProvider>
-      </BrowserRouter>
+            </Routes>
+            </SchoolProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
 );

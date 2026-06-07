@@ -66,17 +66,17 @@ export default function OverviewPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Overview</h1>
-          <p className="text-sm text-slate-500">{school?.academic_year} Academic Year</p>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-800">Overview</h1>
+          <p className="text-xs sm:text-sm text-slate-500">{school?.academic_year} Academic Year</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 text-xs"
+            className="gap-2 text-xs w-full sm:w-auto justify-center sm:justify-start"
             onClick={async () => {
               const slug = localStorage.getItem("schoolapp_school_slug");
               if (slug) {
@@ -91,13 +91,13 @@ export default function OverviewPage() {
           >
             {linkCopied ? <><Check size={14} className="text-emerald-600" /> Copied!</> : <><Share2 size={14} /> Share Staff Login Link</>}
           </Button>
-          <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-500">Current Term:</span>
-          <Select value={school?.current_term ?? "first"} onValueChange={handleTermChange}>
-            <SelectTrigger className="w-36 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs sm:text-sm text-slate-500 whitespace-nowrap">Current Term:</span>
+            <Select value={school?.current_term ?? "first"} onValueChange={handleTermChange}>
+              <SelectTrigger className="h-8 flex-1 sm:flex-none sm:w-36 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
               <SelectItem value="first">1st Term</SelectItem>
               <SelectItem value="second">2nd Term</SelectItem>
               <SelectItem value="third">3rd Term</SelectItem>

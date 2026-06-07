@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, PenTool, Type, Save, Trash2, CheckCircle } from "lucide-react";
+import { Loader2, PenTool, Type, Save, Trash2, CheckCircle, Info } from "lucide-react";
 import SignaturePad from "@/components/school/utils/SignaturePad";
 
 export default function SettingsPage() {
@@ -141,6 +141,13 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex gap-3 text-sm text-blue-800">
+            <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Auto-applied to Reports</p>
+              <p className="opacity-90">Once set, this signature will be automatically appended to all student report cards you generate across all your assigned classes.</p>
+            </div>
+          </div>
           
           {savedSignature && (
             <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50 flex items-center justify-between gap-4">

@@ -180,26 +180,26 @@ export default function StudentsPage() {
     "bg-slate-100 text-slate-500";
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-slate-800">Students</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-lg sm:text-xl font-bold text-slate-800">Students</h1>
+        <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+          <Button variant="outline" size="sm" className="text-xs flex-1 sm:flex-none" onClick={() => fileRef.current?.click()}>
             <Upload size={14} className="mr-1" /> Import CSV
           </Button>
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
-          <Button size="sm" onClick={openAdd}>
+          <Button size="sm" className="text-xs flex-1 sm:flex-none" onClick={openAdd}>
             <UserPlus size={14} className="mr-1" /> Add Student
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap items-center">
-        <div className="relative">
+      {/* Filters - Mobile optimized */}
+      <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 items-stretch xs:items-center flex-wrap">
+        <div className="relative flex-1 xs:flex-none">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <Input
-            className="pl-8 h-8 w-48 text-sm"
+            className="pl-8 h-8 w-full xs:w-48 text-xs"
             placeholder="Search name / ID…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -207,7 +207,7 @@ export default function StudentsPage() {
           />
         </div>
         <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(0); }}>
-          <SelectTrigger className="w-36 h-8 text-sm"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="h-8 text-xs flex-1 xs:flex-none xs:w-36"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
@@ -216,14 +216,14 @@ export default function StudentsPage() {
           </SelectContent>
         </Select>
         <Select value={filterClass} onValueChange={(v) => { setFilterClass(v); setPage(0); }}>
-          <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="Class" /></SelectTrigger>
+          <SelectTrigger className="h-8 text-xs flex-1 xs:flex-none xs:w-40"><SelectValue placeholder="Class" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Classes</SelectItem>
             {classes.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
         {total > 0 && (
-          <span className="text-xs text-slate-400 ml-auto">{total} student{total !== 1 ? "s" : ""}</span>
+          <span className="text-xs text-slate-400 ml-auto xs:ml-0 py-2 xs:py-0">{total} student{total !== 1 ? "s" : ""}</span>
         )}
       </div>
 
@@ -245,37 +245,37 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Table - Mobile optimized */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
         {isFetching && students.length === 0 ? (
           <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-400" /></div>
         ) : isError ? (
-          <p className="text-center text-red-400 py-12 text-sm">Failed to load students</p>
+          <p className="text-center text-red-400 py-12 text-xs sm:text-sm">Failed to load students</p>
         ) : students.length === 0 ? (
-          <p className="text-center text-slate-400 py-12 text-sm">No students found</p>
+          <p className="text-center text-slate-400 py-12 text-xs sm:text-sm">No students found</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                {["Admission No", "Name", "Class", "Status", "Guardian Phone", "Actions"].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                {["Admission No", "Name", "Class", "Status", "Guardian", "Actions"].map((h) => (
+                  <th key={h} className="text-left px-2 sm:px-4 py-2 sm:py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {students.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-600">{s.admission_no}</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">{s.last_name}, {s.first_name}</td>
-                  <td className="px-4 py-3 text-slate-600">{s.class_name ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor(s.status)}`}>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 font-mono text-xs text-slate-600">{s.admission_no}</td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-slate-800 truncate">{s.last_name}, {s.first_name}</td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-slate-600 text-xs sm:text-sm">{s.class_name ?? "—"}</td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium inline-block ${statusColor(s.status)}`}>
                       {s.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{s.guardian_phone ?? "—"}</td>
-                  <td className="px-4 py-3 flex gap-2">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(s)}>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-slate-600 text-xs sm:text-sm truncate">{s.guardian_phone ?? "—"}</td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" onClick={() => openEdit(s)}>
                       <Pencil size={13} />
                     </Button>
                     {s.status === "active" && (
@@ -291,18 +291,18 @@ export default function StudentsPage() {
         )}
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - Mobile optimized */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-400">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <p className="text-xs text-slate-400 py-2">
             Showing {page * STUDENT_PAGE_SIZE + 1}–{Math.min((page + 1) * STUDENT_PAGE_SIZE, total)} of {total}
           </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0 || isFetching} onClick={() => setPage((p) => p - 1)}>
-              <ChevronLeft size={14} className="mr-1" /> Previous
+          <div className="flex gap-2 flex-shrink-0">
+            <Button variant="outline" size="sm" className="text-xs flex-1 sm:flex-none" disabled={page === 0 || isFetching} onClick={() => setPage((p) => p - 1)}>
+              <ChevronLeft size={14} className="mr-1" /> <span className="hidden sm:inline">Previous</span>
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1 || isFetching} onClick={() => setPage((p) => p + 1)}>
-              Next <ChevronRight size={14} className="ml-1" />
+            <Button variant="outline" size="sm" className="text-xs flex-1 sm:flex-none" disabled={page >= totalPages - 1 || isFetching} onClick={() => setPage((p) => p + 1)}>
+              <span className="hidden sm:inline">Next</span> <ChevronRight size={14} className="sm:ml-1" />
             </Button>
           </div>
         </div>

@@ -2,15 +2,40 @@
 // Uses jsPDF loaded dynamically from CDN (declared globally in main app file)
 declare const jspdf: any;
 
+// Track pending script loads to prevent race conditions
+const scriptLoadingPromises = new Map<string, Promise<void>>();
+
 async function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+  // Check if script already loaded in DOM
+  if (document.querySelector(`script[src="${src}"]`)) {
+    return Promise.resolve();
+  }
+  
+  // Check if we're already loading this script (prevent duplicates)
+  if (scriptLoadingPromises.has(src)) {
+    return scriptLoadingPromises.get(src)!;
+  }
+  
+  // Create promise for this script load
+  const loadPromise = new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
     s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    s.async = true;
+    s.onload = () => {
+      scriptLoadingPromises.delete(src);
+      resolve();
+    };
+    s.onerror = () => {
+      scriptLoadingPromises.delete(src);
+      reject(new Error(`Failed to load ${src}`));
+    };
     document.head.appendChild(s);
   });
+  
+  // Store promise to prevent concurrent loads
+  scriptLoadingPromises.set(src, loadPromise);
+  
+  return loadPromise;
 }
 
 async function ensureJsPDF(): Promise<boolean> {

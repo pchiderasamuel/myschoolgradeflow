@@ -114,24 +114,35 @@ export default function TenantApp() {
 
         let data = remote as Record<string, unknown>;
 
+        // Validate basic data structure
+        if (typeof data !== "object" || data === null) {
+          throw new Error("Invalid remote data structure");
+        }
+
         // Prefer newer local data (offline edits)
         try {
           const localRaw = localStorage.getItem(DB_KEY);
           if (localRaw) {
             const local = JSON.parse(localRaw) as Record<string, unknown>;
-            const localRevNum = (local._rev as number) ?? 0;
-            const remoteRevNum = (data._rev as number) ?? 0;
-            if (localRevNum > remoteRevNum) {
-              data = local;
+            if (typeof local === "object" && local !== null) {
+              const localRevNum = typeof local._rev === "number" ? local._rev : 0;
+              const remoteRevNum = typeof data._rev === "number" ? data._rev : 0;
+              if (localRevNum > remoteRevNum) {
+                data = local;
+              }
             }
           }
         } catch (e) {
-          console.warn("Failed to parse local DB", e);
+          console.error("Failed to parse local DB:", e);
+          // Continue with remote data if local parse fails
         }
 
-        // Enforce school name from session
-        if (!data.schoolSettings) data.schoolSettings = {};
-        (data.schoolSettings as any).name = s.schoolName;
+        // Safely initialize schoolSettings
+        if (!data.schoolSettings || typeof data.schoolSettings !== "object") {
+          data.schoolSettings = {};
+        }
+        // Enforce school name from session (override any unsafe data)
+        (data.schoolSettings as Record<string, unknown>).name = s.schoolName;
 
         const json = JSON.stringify(data);
 

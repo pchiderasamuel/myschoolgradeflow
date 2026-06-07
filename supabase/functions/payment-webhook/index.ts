@@ -7,13 +7,13 @@ import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
   const paystackSecret = Deno.env.get("PAYSTACK_SECRET_KEY");
   if (!paystackSecret) {
     console.error("PAYSTACK_SECRET_KEY not set");
-    return new Response("Server misconfiguration", { status: 500 });
+    return Response.json({ error: "Server misconfiguration" }, { status: 500 });
   }
 
   // ── 1. Read raw body for signature verification ────────────────────
@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   const signature = req.headers.get("x-paystack-signature");
 
   if (!signature) {
-    return new Response("Missing signature", { status: 401 });
+    return Response.json({ error: "Missing signature" }, { status: 401 });
   }
 
   // ── 2. Verify HMAC-SHA512 signature ──────────────────────────────
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
   if (computedSignature !== signature) {
     console.warn("Webhook signature mismatch");
-    return new Response("Invalid signature", { status: 401 });
+    return Response.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   // ── 3. Parse event ────────────────────────────────────────────────
@@ -52,12 +52,12 @@ Deno.serve(async (req) => {
   try {
     event = JSON.parse(rawBody);
   } catch {
-    return new Response("Invalid JSON", { status: 400 });
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const reference = event?.data?.reference;
   if (!reference) {
-    return new Response("Missing reference", { status: 400 });
+    return Response.json({ error: "Missing reference" }, { status: 400 });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -67,35 +67,49 @@ Deno.serve(async (req) => {
   // ── 4. Handle event types ─────────────────────────────────────────
   try {
     if (event.event === "charge.success") {
-      const { error } = await serviceClient
+      const { error, data } = await serviceClient
         .from("payments")
         .update({ status: "success", paid_at: new Date().toISOString() })
-        .eq("reference", reference);
+        .eq("reference", reference)
+        .select("id, status, student_id")
+        .single();
 
-      if (error) throw error;
-      console.log(`Payment success recorded: ${reference}`);
+      if (error) {
+        console.error(`Failed to update payment success for ${reference}:`, error.message);
+        throw new Error(`Payment update failed: ${error.message} (reference: ${reference})`);
+      }
+      console.log(`Payment success recorded: ${reference} (student_id: ${(data as any)?.student_id})`);
 
     } else if (
       event.event === "charge.failed" ||
       event.event === "transfer.failed" ||
       event.event === "transfer.reversed"
     ) {
-      const { error } = await serviceClient
+      const { error, data } = await serviceClient
         .from("payments")
         .update({ status: "failed" })
-        .eq("reference", reference);
+        .eq("reference", reference)
+        .select("id, status, student_id")
+        .single();
 
-      if (error) throw error;
-      console.log(`Payment failure recorded: ${reference} (${event.event})`);
+      if (error) {
+        console.error(`Failed to update payment failure for ${reference}:`, error.message);
+        throw new Error(`Payment failure update failed: ${error.message} (reference: ${reference}, event: ${event.event})`);
+      }
+      console.log(`Payment failure recorded: ${reference} (${event.event}, student_id: ${(data as any)?.student_id})`);
 
     } else {
       // Unhandled event type — acknowledge receipt so Paystack doesn't retry
-      console.log(`Unhandled Paystack event: ${event.event}`);
+      console.warn(`Unhandled Paystack event: ${event.event} (reference: ${reference})`);
     }
 
-    return new Response("ok", { status: 200 });
+    return Response.json({ success: true, reference }, { status: 200 });
   } catch (err) {
-    console.error("payment-webhook DB error:", err);
-    return new Response("Database error", { status: 500 });
+    const errorContext = err instanceof Error ? err.message : String(err);
+    console.error(`payment-webhook error (reference: ${reference}):`, errorContext);
+    return Response.json(
+      { error: "Payment processing failed", reference, details: errorContext },
+      { status: 500 }
+    );
   }
 });

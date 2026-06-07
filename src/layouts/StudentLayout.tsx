@@ -76,18 +76,22 @@ export default function StudentLayout({ schoolName }: { schoolName?: string }) {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
-          <button className="lg:hidden text-slate-500 hover:text-slate-800" onClick={() => setOpen(true)}>
+        <header className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between shrink-0 gap-2">
+          <button 
+            className="lg:hidden text-slate-500 hover:text-slate-800 flex-shrink-0 p-1 -ml-1" 
+            onClick={() => setOpen(true)}
+            title="Open menu"
+          >
             <Menu size={20} />
           </button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 hover:opacity-80 ml-auto">
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 flex-shrink-0">
                   <AvatarFallback className="bg-emerald-700 text-white text-xs">{initials}</AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:block text-sm font-medium text-slate-700">
+                <span className="hidden sm:block text-sm font-medium text-slate-700 truncate">
                   {profile?.firstName
                     ? `${profile.firstName} ${profile.lastName ?? ""}`.trim()
                     : profile?.email ?? "Student"}

@@ -41,17 +41,17 @@ export default function StudentOverviewCard() {
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="pb-3 border-b border-slate-100">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+      <CardHeader className="pb-3 border-b border-slate-100 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
               <Users size={15} />
             </div>
-            Student Overview
+            <span className="truncate">Student Overview</span>
           </CardTitle>
 
           <Select value={selectedClass} onValueChange={setSelectedClass}>
-            <SelectTrigger className="h-8 w-44 text-xs">
+            <SelectTrigger className="h-8 w-full sm:w-44 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -64,7 +64,7 @@ export default function StudentOverviewCard() {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-5 pb-5">
+      <CardContent className="pt-5 pb-5 px-4 sm:px-6">
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="animate-spin text-slate-300" size={22} />

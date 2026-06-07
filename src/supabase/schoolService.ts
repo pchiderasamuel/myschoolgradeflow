@@ -193,6 +193,36 @@ export interface Payment {
   created_at: string;
 }
 
+// ─── RPC Response Types ────────────────────────────────────────────────
+
+/** Response type for getRecentActivity RPC call */
+export interface RecentActivityRecord {
+  id: number;
+  staff_id: string;
+  action: string;
+  details: string | null;
+  timestamp: string;
+}
+
+/** Response type for getAllTenantActivityLogs RPC call */
+export interface TenantActivityRecord {
+  id: number;
+  tenant_id: string;
+  school_name: string;
+  staff_id: string;
+  action: string;
+  details: string | null;
+  timestamp: string;
+  total_count?: number;
+}
+
+/** Type for session log details JSON object */
+export interface SessionLogDetails {
+  ip_address?: string | null;
+  user_agent?: string | null;
+  provider?: string;
+}
+
 // ─── Internal helper ──────────────────────────────────────────────────
 
 function requireSchoolId(schoolId: string | null | undefined): string {
@@ -998,29 +1028,28 @@ export async function getTodayAttendanceByClass(
 export async function getRecentActivity(
   tenantId: string | null,
   limit = 10
-): Promise<{ id: number; staff_id: string; action: string; details: string | null; timestamp: string }[]> {
+): Promise<RecentActivityRecord[]> {
   if (!tenantId) return [];
   const { data, error } = await supabase.rpc("get_tenant_activity_logs", {
     _tenant_id: tenantId,
     _limit: limit,
   });
   throwIfError(error, "getRecentActivity");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data ?? []) as any as { id: number; staff_id: string; action: string; details: string | null; timestamp: string }[];
+  return (data ?? []) as RecentActivityRecord[];
 }
 
 export async function getAllTenantActivityLogs(
   limit = 50,
   offset = 0,
   schoolId?: string | null
-): Promise<{ data: { id: number; tenant_id: string; school_name: string; staff_id: string; action: string; details: string | null; timestamp: string }[]; total_count: number }> {
+): Promise<{ data: TenantActivityRecord[]; total_count: number }> {
   const { data, error } = await supabase.rpc("superadmin_get_all_tenant_activity", {
     _limit: limit,
     _offset: offset,
     _school_id: schoolId === "all" ? null : schoolId,
   });
   throwIfError(error, "getAllTenantActivityLogs");
-  const rows = (data ?? []) as any[];
+  const rows = (data ?? []) as TenantActivityRecord[];
   return {
     data: rows,
     total_count: rows.length > 0 ? Number(rows[0].total_count) : 0
@@ -1363,6 +1392,7 @@ export async function provisionSchool(params: {
 }): Promise<unknown> {
   const { data, error } = await supabase.functions.invoke("provision-school", {
     body: params,
+    contentType: "application/json",
   });
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.error);
@@ -1443,16 +1473,17 @@ export async function insertSessionLog(log: {
   school_id: string | null;
   user_name: string;
   event_type: string;
-  details?: Record<string, unknown> | null;
+  details?: SessionLogDetails | null;
 }): Promise<void> {
   // Client should no longer write directly to session_logs due to RLS,
   // but we keep this method with fallback behavior to prevent compilation issues.
+  const details = (log.details ?? {}) as SessionLogDetails;
   const { error } = await from("session_logs").insert({
     user_id: log.user_id,
     event: log.event_type.toUpperCase(),
-    ip_address: (log.details as any)?.ip_address ?? null,
-    user_agent: (log.details as any)?.user_agent ?? null,
-    provider: (log.details as any)?.provider ?? "email",
+    ip_address: details.ip_address ?? null,
+    user_agent: details.user_agent ?? null,
+    provider: details.provider ?? "email",
   });
   throwIfError(error, "insertSessionLog");
 }
@@ -1563,6 +1594,7 @@ export async function initiatePayment(params: {
 }): Promise<unknown> {
   const { data, error } = await supabase.functions.invoke("initiate-payment", {
     body: params,
+    contentType: "application/json",
   });
   if (error) throw new Error(error.message);
   return data;

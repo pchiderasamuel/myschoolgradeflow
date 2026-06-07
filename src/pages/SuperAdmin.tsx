@@ -22,6 +22,7 @@ import LoginActivityDashboard from "@/components/LoginActivityDashboard";
 import TenantActivityAudit from "@/components/TenantActivityAudit";
 import ProviderActivityDashboard from "@/components/ProviderActivityDashboard";
 import SuperAdminSessionHistory from "@/components/SuperAdminSessionHistory";
+import SuperAdminSessionActivity from "@/components/SuperAdminSessionActivity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -204,6 +205,10 @@ export default function SuperAdmin() {
         <SecurityChecksSection />
         <TokenAuditSection />
         <TenantAuthAuditSection />
+
+        <div className="mt-6">
+          <SuperAdminSessionActivity />
+        </div>
         
         <SuperAdminSessionHistory />
         

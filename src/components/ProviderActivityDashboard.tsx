@@ -192,6 +192,31 @@ export default function ProviderActivityDashboard() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+          <div className="flex gap-4">
+            <div className="flex-shrink-0">
+              <Activity className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-900">Failed to load activity data</h3>
+              <p className="mt-2 text-sm text-red-800">{error}</p>
+              <button
+                onClick={loadActivity}
+                className="mt-4 inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Try again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

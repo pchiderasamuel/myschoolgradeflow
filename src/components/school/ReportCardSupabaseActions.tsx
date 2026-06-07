@@ -53,6 +53,9 @@ interface ReportCardActionsProps {
   };
   /** Optional tenant UUID — used to look up the Supabase school_id */
   tenantId?: string | null;
+  canPrint?: boolean;
+  onExportPDF?: () => Promise<void>;
+  onExportExcel?: () => Promise<void>;
 }
 
 export default function ReportCardSupabaseActions({
@@ -60,6 +63,9 @@ export default function ReportCardSupabaseActions({
   curC,
   schoolSettings,
   tenantId,
+  canPrint = true,
+  onExportPDF,
+  onExportExcel,
 }: ReportCardActionsProps) {
   const { toast } = useToast();
 
@@ -75,6 +81,8 @@ export default function ReportCardSupabaseActions({
   const [emailDraft, setEmailDraft]             = useState("");
   const [savingEmail, setSavingEmail]           = useState(false);
   const [studentDbId, setStudentDbId]           = useState<string | null>(null);
+  const [exportingPDF, setExportingPDF]         = useState(false);
+  const [exportingExcel, setExportingExcel]     = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
 
   // Look up schoolId from tenantId once on mount
@@ -209,8 +217,20 @@ export default function ReportCardSupabaseActions({
     }
   }, [activeReport, curC, schoolId, schoolSettings, toast, studentDbId]);
 
-  // ─── Print ────────────────────────────────────────────────────────────────
+  // ─── Print & Export ───────────────────────────────────────────────────────
   const handlePrint = () => window.print();
+
+  const handleExportPDF = async () => {
+    if (!onExportPDF) return;
+    setExportingPDF(true);
+    try { await onExportPDF(); } finally { setExportingPDF(false); }
+  };
+
+  const handleExportExcel = async () => {
+    if (!onExportExcel) return;
+    setExportingExcel(true);
+    try { await onExportExcel(); } finally { setExportingExcel(false); }
+  };
 
   // ─── Send to Parent ───────────────────────────────────────────────────────
   const handleSendConfirm = useCallback(async () => {
@@ -236,6 +256,7 @@ export default function ReportCardSupabaseActions({
 
       const { data, error } = await supabase.functions.invoke("send-report-card", {
         body: { reportCardId: rcId, schoolId },
+        contentType: "application/json",
       });
 
       if (error) throw error;
@@ -270,7 +291,7 @@ export default function ReportCardSupabaseActions({
       `}</style>
 
       {/* ── Action buttons ───────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3 no-print">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 no-print">
         {/* Save to Supabase */}
         <Button
           variant="outline"
@@ -286,16 +307,30 @@ export default function ReportCardSupabaseActions({
           {saving ? "Saving…" : savedId ? "Saved ✓" : "Save to Cloud"}
         </Button>
 
-        {/* Print */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-10 text-xs font-black uppercase"
-          onClick={handlePrint}
-        >
-          <Printer size={14} className="mr-1.5" />
-          Print Report
-        </Button>
+        {canPrint && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 text-xs font-black uppercase"
+            onClick={handlePrint}
+          >
+            <Printer size={14} className="mr-1.5" />
+            Print Report
+          </Button>
+        )}
+
+        {canPrint && onExportPDF && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 text-xs font-black uppercase"
+            onClick={handleExportPDF}
+            disabled={exportingPDF}
+          >
+            {exportingPDF ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Printer size={14} className="mr-1.5" />}
+            {exportingPDF ? "Exporting…" : "Export PDF"}
+          </Button>
+        )}
 
         {/* Send to Parent */}
         <Button
@@ -314,6 +349,21 @@ export default function ReportCardSupabaseActions({
           {sending ? "Sending…" : sentTo ? "Resend to Parent" : "Send to Parent"}
         </Button>
       </div>
+      
+      {canPrint && onExportExcel && (
+        <div className="mt-3 flex justify-end no-print">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs font-black uppercase text-slate-500 hover:text-slate-800"
+            onClick={handleExportExcel}
+            disabled={exportingExcel}
+          >
+            {exportingExcel ? <Loader2 size={12} className="animate-spin mr-1" /> : <span className="mr-1">📊</span>}
+            {exportingExcel ? "Exporting…" : "Export Excel"}
+          </Button>
+        </div>
+      )}
 
       {/* Last sent timestamp */}
       {sentAt && sentTo && (
