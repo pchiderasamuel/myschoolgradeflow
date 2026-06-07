@@ -7,6 +7,23 @@ const corsHeaders = {
 
 const ALLOWED_ROLES = ["school_admin", "principal", "head_teacher"];
 
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function safeImageSrc(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  if (/^https:\/\//i.test(value)) return value;
+  if (/^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(value)) return value;
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -18,39 +35,8 @@ Deno.serve(async (req) => {
     const anonKey         = Deno.env.get("SUPABASE_ANON_KEY")!;
     const resendApiKey    = Deno.env.get("RESEND_API_KEY")!;
 
-    // ── 1. Auth: verify caller has allowed role ──────────────────────────────
-    const authHeader = req.headers.get("Authorization");
-
-    // Support both Supabase auth and tenant session token
-    const isTenantCall = !authHeader?.startsWith("Bearer eyJ");
-    let callerUserId: string | null = null;
-
-    if (authHeader && !isTenantCall) {
-      const callerClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user }, error: userError } = await callerClient.auth.getUser();
-      if (!userError && user) {
-        callerUserId = user.id;
-        // Check profile role
-        const adminClient = createClient(supabaseUrl, serviceRoleKey);
-        const { data: profile } = await adminClient
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-          return Response.json(
-            { error: "Insufficient permissions" },
-            { status: 403, headers: corsHeaders }
-          );
-        }
-      }
-    }
-    // Tenant session calls (PIN-based app) — allowed without Supabase auth
-
-    // ── 2. Parse request body ─────────────────────────────────────────────────
-    const { reportCardId, schoolId } = await req.json();
+    const body = await req.json().catch(() => ({} as any));
+    const { reportCardId, schoolId, sessionToken } = body ?? {};
     if (!reportCardId || !schoolId) {
       return Response.json(
         { error: "reportCardId and schoolId are required" },
@@ -58,7 +44,50 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── 1. Auth: require either a valid Supabase JWT OR a valid PIN session token ──
+    const authHeader = req.headers.get("Authorization");
+    let callerUserId: string | null = null;
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    if (authHeader?.startsWith("Bearer eyJ")) {
+      const callerClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: userError } = await callerClient.auth.getUser();
+      if (userError || !user) {
+        return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+      }
+      callerUserId = user.id;
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("role, school_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!profile || !ALLOWED_ROLES.includes(profile.role) || profile.school_id !== schoolId) {
+        return Response.json(
+          { error: "Insufficient permissions" },
+          { status: 403, headers: corsHeaders }
+        );
+      }
+    } else if (typeof sessionToken === "string" && sessionToken.length >= 16) {
+      const { data: session } = await admin
+        .from("pin_sessions")
+        .select("auth_user_id, school_id, subject_kind, expires_at, revoked_at")
+        .eq("token", sessionToken)
+        .maybeSingle();
+      const valid =
+        session &&
+        !session.revoked_at &&
+        new Date(session.expires_at).getTime() > Date.now() &&
+        (session.subject_kind === "admin" || session.subject_kind === "teacher") &&
+        session.school_id === schoolId;
+      if (!valid) {
+        return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+      }
+      callerUserId = session!.auth_user_id;
+    } else {
+      return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+    }
 
     // ── 3. Fetch report card ──────────────────────────────────────────────────
     const { data: rc, error: rcErr } = await admin
