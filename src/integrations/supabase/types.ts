@@ -1631,6 +1631,19 @@ export type Database = {
         Args: { _new_pin: string; _teacher_id: string }
         Returns: boolean
       }
+      superadmin_get_all_tenant_activity: {
+        Args: { _limit?: number; _offset?: number; _school_id?: string }
+        Returns: {
+          action: string
+          details: string
+          id: number
+          school_name: string
+          staff_id: string
+          tenant_id: string
+          timestamp: string
+          total_count: number
+        }[]
+      }
       suspend_duplicate_tenant: {
         Args: { _reason?: string; _tenant_id: string }
         Returns: boolean
