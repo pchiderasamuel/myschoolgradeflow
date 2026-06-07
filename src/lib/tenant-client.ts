@@ -61,18 +61,41 @@ export function clearSchoolIdentity() {
   localStorage.removeItem(SCHOOL_ID_KEY);
 }
 
-/** Verify school PIN. Returns session info (without admin flag) or null. */
+/**
+ * Verify school PIN.
+ * - Returns the session info on success.
+ * - Returns `null` when the PIN is valid format but doesn't match any school.
+ * - THROWS on network / RPC errors so the caller can show a real message
+ *   instead of misreporting a transient failure as "Invalid PIN".
+ */
 export async function verifySchoolPin(pin: string): Promise<Omit<TenantSession, "isAdmin"> | null> {
-  const { data, error } = await supabase.rpc("verify_school_pin_v2", { _pin: pin });
-  if (error || !data || data.length === 0) return null;
+  const trimmed = pin.trim();
+  if (!trimmed) return null;
+
+  let data: any;
+  let error: any;
+  try {
+    ({ data, error } = await supabase.rpc("verify_school_pin_v2", { _pin: trimmed }));
+  } catch (e) {
+    // Network failure ("Failed to fetch"), DNS, CORS, etc.
+    throw new Error(
+      e instanceof Error && e.message
+        ? `Network error: ${e.message}`
+        : "Network error — please check your connection and try again."
+    );
+  }
+  if (error) {
+    throw new Error(error.message || "Could not verify school PIN. Please try again.");
+  }
+  if (!data || data.length === 0) return null;
+
   const row = data[0];
-  
-  // Save the slug to localStorage under the key 'school_slug' as requested
+
   if (row.slug) {
     localStorage.setItem("school_slug", row.slug);
   }
 
-  const session = {
+  return {
     tenantId: row.tenant_id,
     schoolName: row.school_name,
     slug: row.slug ?? "",
@@ -82,11 +105,9 @@ export async function verifySchoolPin(pin: string): Promise<Omit<TenantSession, 
     subscriptionEndsAt: row.subscription_ends_at,
     trialStartedAt: row.trial_started_at,
     hasAdminPin: row.has_admin_pin,
-    role: "student" as const, // Default to student, will be updated after admin PIN verification
-    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(), // 8-hour expiry
+    role: "student" as const,
+    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
   };
-
-  return session;
 }
 
 export async function verifyAdminPin(session: TenantSession, pin: string): Promise<boolean> {
@@ -138,27 +159,16 @@ export function isSessionExpired(session: TenantSession): boolean {
   return new Date(session.expiresAt) < new Date();
 }
 
-/** Log PIN session event to session_logs table. */
+/**
+ * @deprecated PIN session login/logout is already recorded server-side by the
+ * bridge-pin-login edge function and `pin_logout` RPC, which insert correctly
+ * shaped rows into session_logs. This client-side helper inserted columns that
+ * don't exist on session_logs and is intentionally a no-op.
+ */
 export async function logPinSessionEvent(
-  session: TenantSession,
-  eventType: "LOGIN" | "LOGOUT",
-  role: "admin" | "teacher" | "student"
+  _session: TenantSession,
+  _eventType: "LOGIN" | "LOGOUT",
+  _role: "admin" | "teacher" | "student"
 ): Promise<void> {
-  try {
-    // Create a dummy user_id for PIN sessions (using tenant_id as reference)
-    // PIN sessions don't have a real user_id in auth.users, so we set user_id to null 
-    // to avoid a foreign key violation, and encode the tenantId in the provider field.
-    const { error } = await supabase.from("session_logs").insert({
-      user_id: null,
-      event: eventType,
-      ip_address: null,
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      provider: `pin_${role}_${session.tenantId}`,
-    });
-    if (error) {
-      console.warn("[logPinSessionEvent] Failed to log PIN session event:", error);
-    }
-  } catch (err) {
-    console.warn("[logPinSessionEvent] Error logging PIN session event:", err);
-  }
+  return;
 }
