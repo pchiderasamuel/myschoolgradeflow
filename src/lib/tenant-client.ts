@@ -159,13 +159,6 @@ export function isSessionExpired(session: TenantSession): boolean {
   return new Date(session.expiresAt) < new Date();
 }
 
-/** Log PIN session event to session_logs table. */
-export async function logPinSessionEvent(
-  session: TenantSession,
-  eventType: "LOGIN" | "LOGOUT",
-  role: "admin" | "teacher" | "student"
-): Promise<void> {
-  try {
 /**
  * @deprecated PIN session login/logout is already recorded server-side by the
  * bridge-pin-login edge function and `pin_logout` RPC, which insert correctly
