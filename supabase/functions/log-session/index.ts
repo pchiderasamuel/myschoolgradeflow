@@ -43,13 +43,14 @@ serve(async (req) => {
     const authUserId = claimsData.claims.sub as string;
 
     const body = await req.json().catch(() => ({}));
-    const event_type = body?.event_type;
-    if (!event_type || (event_type !== "login" && event_type !== "logout")) {
+    const raw = String(body?.event_type ?? "").toLowerCase();
+    if (raw !== "login" && raw !== "logout") {
       return new Response(
         JSON.stringify({ error: "event_type must be 'login' or 'logout'" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const event_type = raw.toUpperCase();
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
