@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
 
     const schoolName  = school?.name  ?? "Your School";
     const schoolEmail = school?.email ?? "";
-    const schoolLogo  = school?.logo  ?? null;
+    const schoolLogo  = safeImageSrc(school?.logo);
 
     // ── 7. Build email HTML ───────────────────────────────────────────────────
     const avgTotal = results && results.length > 0
@@ -168,78 +168,78 @@ Deno.serve(async (req) => {
       return "F";
     };
 
-    const daysOpen    = rc.days_open    ?? "—";
     const daysPresent = rc.days_present ?? "—";
     const daysAbsent  = rc.days_absent  ?? "—";
     const attRate     = rc.days_open && rc.days_present
       ? Math.round((rc.days_present / rc.days_open) * 100) + "%"
       : "—";
 
-    const termLabel = rc.term.charAt(0).toUpperCase() + rc.term.slice(1) + " Term";
+    const termRaw = String(rc.term ?? "");
+    const termLabel = (termRaw.charAt(0).toUpperCase() + termRaw.slice(1) + " Term");
+
+    const fmtNum = (n: unknown) => (n === null || n === undefined ? "—" : escapeHtml(n));
 
     const resultsRows = (results ?? []).map((r: any) => `
       <tr>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${r.subject_name ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.ca1 ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.ca2 ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.exam_score ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;">${r.total_score ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.grade ?? "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${r.remark ?? "—"}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(r.subject_name ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${fmtNum(r.ca1)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${fmtNum(r.ca2)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${fmtNum(r.exam_score)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;">${fmtNum(r.total_score)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${escapeHtml(r.grade ?? "—")}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(r.remark ?? "—")}</td>
       </tr>`).join("");
 
-    const signatureBlock = rc.signature
+    const signatureSrc = safeImageSrc(rc.signature);
+    const signatureBlock = signatureSrc
       ? `<p style="margin:0 0 4px 0;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">Authorised Signature</p>
-         <img src="${rc.signature}" width="200" style="max-height:80px;object-fit:contain;" alt="Signature" />`
+         <img src="${signatureSrc}" width="200" style="max-height:80px;object-fit:contain;" alt="Signature" />`
       : "";
 
     const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>${schoolName} — Report Card</title></head>
+<head><meta charset="UTF-8"><title>${escapeHtml(schoolName)} — Report Card</title></head>
 <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-    <!-- Header -->
     <tr>
       <td style="background:#1e3a5f;padding:28px 32px;">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td>
               ${schoolLogo ? `<img src="${schoolLogo}" width="60" style="border-radius:8px;margin-bottom:10px;" alt="Logo" />` : ""}
-              <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">${schoolName}</h1>
+              <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(schoolName)}</h1>
               <p style="margin:6px 0 0;color:#94a3b8;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:2px;">Academic Report Card</p>
             </td>
           </tr>
         </table>
       </td>
     </tr>
-    <!-- Student Info -->
     <tr>
       <td style="padding:24px 32px;border-bottom:1px solid #e2e8f0;">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="width:50%;padding:4px 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Student Name</span><br/>
-              <span style="font-size:16px;font-weight:900;color:#1e293b;">${rc.student_name}</span>
+              <span style="font-size:16px;font-weight:900;color:#1e293b;">${escapeHtml(rc.student_name)}</span>
             </td>
             <td style="width:50%;padding:4px 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Class</span><br/>
-              <span style="font-size:15px;font-weight:700;color:#1e293b;">${rc.student_class}</span>
+              <span style="font-size:15px;font-weight:700;color:#1e293b;">${escapeHtml(rc.student_class)}</span>
             </td>
           </tr>
           <tr>
             <td style="padding:8px 0 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Term</span><br/>
-              <span style="font-size:14px;font-weight:700;color:#1e293b;">${termLabel}</span>
+              <span style="font-size:14px;font-weight:700;color:#1e293b;">${escapeHtml(termLabel)}</span>
             </td>
             <td style="padding:8px 0 0;">
               <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Academic Year</span><br/>
-              <span style="font-size:14px;font-weight:700;color:#1e293b;">${rc.academic_year}</span>
+              <span style="font-size:14px;font-weight:700;color:#1e293b;">${escapeHtml(rc.academic_year)}</span>
             </td>
           </tr>
         </table>
       </td>
     </tr>
-    <!-- Results Table -->
     ${results && results.length > 0 ? `
     <tr>
       <td style="padding:24px 32px;">
@@ -260,15 +260,14 @@ Deno.serve(async (req) => {
           <tfoot>
             <tr style="background:#f1f5f9;">
               <td colspan="4" style="padding:8px 10px;font-weight:700;font-size:12px;">Overall Average</td>
-              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${avgTotal}</td>
-              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${grade(avgTotal)}</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${escapeHtml(avgTotal)}</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:14px;">${escapeHtml(grade(avgTotal))}</td>
               <td></td>
             </tr>
           </tfoot>
         </table>
       </td>
     </tr>` : ""}
-    <!-- Attendance -->
     <tr>
       <td style="padding:0 32px 24px;">
         <p style="margin:0 0 12px;font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Attendance</p>
@@ -277,30 +276,28 @@ Deno.serve(async (req) => {
             ${[["Present", daysPresent, "#dcfce7", "#166534"],["Absent", daysAbsent, "#fee2e2", "#991b1b"],["Rate", attRate, "#dbeafe", "#1e3a5f"]].map(([l, v, bg, fg]) =>
               `<td style="padding-right:12px;">
                 <div style="background:${bg};border-radius:8px;padding:12px 16px;text-align:center;min-width:72px;">
-                  <div style="font-size:18px;font-weight:900;color:${fg};">${v}</div>
-                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:${fg};opacity:0.7;margin-top:2px;">${l}</div>
+                  <div style="font-size:18px;font-weight:900;color:${fg};">${escapeHtml(v)}</div>
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:${fg};opacity:0.7;margin-top:2px;">${escapeHtml(l)}</div>
                 </div>
               </td>`).join("")}
           </tr>
         </table>
       </td>
     </tr>
-    <!-- Remarks -->
     ${rc.teacher_remark ? `
     <tr>
       <td style="padding:0 32px 20px;">
         <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Class Teacher's Remark</p>
-        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${rc.teacher_remark}"</p>
+        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${escapeHtml(rc.teacher_remark)}"</p>
       </td>
     </tr>` : ""}
     ${rc.principal_remark ? `
     <tr>
       <td style="padding:0 32px 20px;">
         <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Principal's Remark</p>
-        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${rc.principal_remark}"</p>
+        <p style="margin:0;font-size:14px;color:#334155;font-style:italic;">"${escapeHtml(rc.principal_remark)}"</p>
       </td>
     </tr>` : ""}
-    <!-- Signature -->
     ${signatureBlock ? `
     <tr>
       <td style="padding:0 32px 24px;">${signatureBlock}</td>
