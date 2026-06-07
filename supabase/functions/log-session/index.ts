@@ -7,58 +7,88 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
       throw new Error("Missing Supabase configuration environment variables.");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { user, event_type } = await req.json();
-
-    if (!user || !user.id || !event_type) {
+    // Require a valid JWT and use its `sub` as the source of truth for user_id.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: user.id and event_type are required." }),
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const authUserId = claimsData.claims.sub as string;
+
+    const body = await req.json().catch(() => ({}));
+    const event_type = body?.event_type;
+    if (!event_type || (event_type !== "login" && event_type !== "logout")) {
+      return new Response(
+        JSON.stringify({ error: "event_type must be 'login' or 'logout'" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Extract headers (IP address and User-Agent)
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
-    // Determine the auth provider
-    const provider = user.app_metadata?.provider || user.identities?.[0]?.provider || "email";
+    const admin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Insert record into session_logs using service role key (bypassing RLS safely)
-    const { error } = await supabase.from("session_logs").insert({
-      user_id: user.id,
-      event: event_type, // 'LOGIN' or 'LOGOUT'
+    // Fetch the caller's profile to populate required columns; never trust client-supplied values.
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("school_id, role, email, first_name, last_name")
+      .eq("id", authUserId)
+      .maybeSingle();
+
+    const userName = profile
+      ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
+        profile.email ||
+        "user"
+      : "user";
+
+    const { error } = await admin.from("session_logs").insert({
+      user_id: authUserId,
+      school_id: profile?.school_id ?? null,
+      user_name: userName,
+      role: profile?.role ?? "unassigned",
+      action: event_type,
       ip_address: ip,
-      user_agent: userAgent,
-      provider: provider,
+      device: userAgent,
     });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
-    console.error("Error in log-session function:", err.message);
+    console.error("Error in log-session function:", err?.message ?? err);
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
