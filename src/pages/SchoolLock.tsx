@@ -52,8 +52,24 @@ export default function SchoolLock() {
 
   const handleSchool = async (e: React.FormEvent) => {
     e.preventDefault();
+    const pin = schoolPin.trim();
+    if (!pin) {
+      toast({ title: "Enter your school PIN", variant: "destructive" });
+      return;
+    }
     setLoading(true);
-    const res = await verifySchoolPin(schoolPin.trim());
+    let res: Awaited<ReturnType<typeof verifySchoolPin>> = null;
+    try {
+      res = await verifySchoolPin(pin);
+    } catch (err) {
+      setLoading(false);
+      toast({
+        title: "Couldn't reach the server",
+        description: (err as Error).message || "Please check your connection and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(false);
     if (!res) {
       toast({ title: "Invalid school PIN", description: "Check with your provider.", variant: "destructive" });
