@@ -166,20 +166,16 @@ export async function logPinSessionEvent(
   role: "admin" | "teacher" | "student"
 ): Promise<void> {
   try {
-    // Create a dummy user_id for PIN sessions (using tenant_id as reference)
-    // PIN sessions don't have a real user_id in auth.users, so we set user_id to null 
-    // to avoid a foreign key violation, and encode the tenantId in the provider field.
-    const { error } = await supabase.from("session_logs").insert({
-      user_id: null,
-      event: eventType,
-      ip_address: null,
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      provider: `pin_${role}_${session.tenantId}`,
-    });
-    if (error) {
-      console.warn("[logPinSessionEvent] Failed to log PIN session event:", error);
-    }
-  } catch (err) {
-    console.warn("[logPinSessionEvent] Error logging PIN session event:", err);
-  }
+/**
+ * @deprecated PIN session login/logout is already recorded server-side by the
+ * bridge-pin-login edge function and `pin_logout` RPC, which insert correctly
+ * shaped rows into session_logs. This client-side helper inserted columns that
+ * don't exist on session_logs and is intentionally a no-op.
+ */
+export async function logPinSessionEvent(
+  _session: TenantSession,
+  _eventType: "LOGIN" | "LOGOUT",
+  _role: "admin" | "teacher" | "student"
+): Promise<void> {
+  return;
 }
