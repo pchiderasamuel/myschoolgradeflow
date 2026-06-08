@@ -17,8 +17,7 @@ interface BridgeReq {
   device?: string;
 }
 
-const PIN_USER_PASSWORD = Deno.env.get("PIN_USER_PASSWORD") ?? "pin-bridge-" +
-  (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "x").slice(0, 24);
+const PIN_USER_PASSWORD = Deno.env.get("PIN_USER_PASSWORD") ?? "";
 
 function syntheticEmail(kind: SubjectKind, id: string): string {
   return `${kind}+${id}@pin.local`;
