@@ -5,6 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function escapeHtml(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -122,13 +131,13 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from: "noreply@titbeattechsolutions.com",
           to: adminEmail,
-          subject: `Welcome to SchoolGradeFlow — ${name}`,
+          subject: `Welcome to SchoolGradeFlow — ${escapeHtml(name)}`,
           html: `
-            <h2>Welcome, ${adminName ?? "School Admin"}!</h2>
-            <p>Your school <strong>${name}</strong> has been provisioned on SchoolGradeFlow.</p>
+            <h2>Welcome, ${escapeHtml(adminName ?? "School Admin")}!</h2>
+            <p>Your school <strong>${escapeHtml(name)}</strong> has been provisioned on SchoolGradeFlow.</p>
             <p>Sign up with this email address to get started. Your account will automatically be assigned the <strong>School Admin</strong> role.</p>
-            <p>School Code: <strong>${code.toUpperCase()}</strong></p>
-            <p>Trial ends: <strong>${new Date(trialEndsAt).toDateString()}</strong></p>
+            <p>School Code: <strong>${escapeHtml(String(code).toUpperCase())}</strong></p>
+            <p>Trial ends: <strong>${escapeHtml(new Date(trialEndsAt).toDateString())}</strong></p>
           `,
         }),
       });
