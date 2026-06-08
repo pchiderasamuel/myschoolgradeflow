@@ -35,6 +35,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!PIN_USER_PASSWORD || PIN_USER_PASSWORD.length < 16) {
+      console.error("PIN_USER_PASSWORD env var is missing or too weak");
+      return json({ error: "Server misconfiguration" }, 500);
+    }
+
     const url = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
