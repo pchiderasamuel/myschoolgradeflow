@@ -50,7 +50,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const event_type = raw.toUpperCase();
+    const event_type = raw; // lowercase to match session_logs.action CHECK constraint
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
