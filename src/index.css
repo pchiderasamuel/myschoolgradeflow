@@ -415,3 +415,9 @@ body.auth-mode {
   display: flex; align-items: center; justify-content: center; font-size: .9rem; flex-shrink: 0;
 }
 .auth-float-card strong { color: #0f172a; }
+
+@media(max-width: 768px) {
+  .auth-float-card { display: none; }
+  .auth-bg { padding: 1.5rem 1rem; }
+  .auth-card { padding: 1.75rem; }
+}
