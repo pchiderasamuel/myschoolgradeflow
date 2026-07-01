@@ -665,6 +665,60 @@ export type Database = {
           },
         ]
       }
+      school_requests: {
+        Row: {
+          address_city: string | null
+          address_state: string | null
+          address_street: string | null
+          admin_email: string
+          admin_name: string
+          created_at: string
+          id: string
+          phone: string | null
+          plan: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school_code: string
+          school_name: string
+          status: string
+        }
+        Insert: {
+          address_city?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          admin_email: string
+          admin_name: string
+          created_at?: string
+          id?: string
+          phone?: string | null
+          plan?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_code: string
+          school_name: string
+          status?: string
+        }
+        Update: {
+          address_city?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          admin_email?: string
+          admin_name?: string
+          created_at?: string
+          id?: string
+          phone?: string | null
+          plan?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school_code?: string
+          school_name?: string
+          status?: string
+        }
+        Relationships: []
+      }
       schools: {
         Row: {
           academic_year: string | null
@@ -778,6 +832,94 @@ export type Database = {
           },
         ]
       }
+      staff: {
+        Row: {
+          auth_user_id: string | null
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          is_active: boolean
+          last_name: string
+          must_change_password: boolean
+          role: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          is_active?: boolean
+          last_name: string
+          must_change_password?: boolean
+          role?: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          is_active?: boolean
+          last_name?: string
+          must_change_password?: boolean
+          role?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_invite_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          tenant_id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          tenant_id: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          tenant_id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_invite_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_settings: {
         Row: {
           created_at: string | null
@@ -821,6 +963,7 @@ export type Database = {
           class_name: string | null
           created_at: string | null
           date_of_birth: string | null
+          email: string | null
           enrolled_at: string | null
           first_name: string
           gender: string | null
@@ -829,7 +972,9 @@ export type Database = {
           guardian_phone: string | null
           guardian_relationship: string | null
           id: string
+          is_active: boolean
           last_name: string
+          must_change_password: boolean
           other_names: string | null
           photo: string | null
           pin_hash: string | null
@@ -844,6 +989,7 @@ export type Database = {
           class_name?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          email?: string | null
           enrolled_at?: string | null
           first_name: string
           gender?: string | null
@@ -852,7 +998,9 @@ export type Database = {
           guardian_phone?: string | null
           guardian_relationship?: string | null
           id?: string
+          is_active?: boolean
           last_name: string
+          must_change_password?: boolean
           other_names?: string | null
           photo?: string | null
           pin_hash?: string | null
@@ -867,6 +1015,7 @@ export type Database = {
           class_name?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          email?: string | null
           enrolled_at?: string | null
           first_name?: string
           gender?: string | null
@@ -875,7 +1024,9 @@ export type Database = {
           guardian_phone?: string | null
           guardian_relationship?: string | null
           id?: string
+          is_active?: boolean
           last_name?: string
+          must_change_password?: boolean
           other_names?: string | null
           photo?: string | null
           pin_hash?: string | null
@@ -1198,26 +1349,78 @@ export type Database = {
           },
         ]
       }
+      tenant_members: {
+        Row: {
+          auth_user_id: string
+          id: string
+          role: string
+          tenant_id: string
+        }
+        Insert: {
+          auth_user_id: string
+          id?: string
+          role: string
+          tenant_id: string
+        }
+        Update: {
+          auth_user_id?: string
+          id?: string
+          role?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_sessions: {
         Row: {
           created_at: string
           expires_at: string
+          role: string | null
+          staff_id: string | null
+          student_id: string | null
           tenant_id: string
           token: string
         }
         Insert: {
           created_at?: string
           expires_at?: string
+          role?: string | null
+          staff_id?: string | null
+          student_id?: string | null
           tenant_id: string
           token: string
         }
         Update: {
           created_at?: string
           expires_at?: string
+          role?: string | null
+          staff_id?: string | null
+          student_id?: string | null
           tenant_id?: string
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenant_sessions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenant_sessions_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1480,6 +1683,7 @@ export type Database = {
         Returns: string
       }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
+      complete_password_change: { Args: never; Returns: boolean }
       create_tenant_v2: {
         Args: {
           _contact_email?: string
@@ -1499,6 +1703,13 @@ export type Database = {
           occurrences: number
           school_names: string[]
           tenant_ids: string[]
+        }[]
+      }
+      generate_staff_invite_token: {
+        Args: { _school_slug: string }
+        Returns: {
+          expires_at: string
+          token: string
         }[]
       }
       get_all_session_logs: {
@@ -1583,6 +1794,16 @@ export type Database = {
         Args: { _hours_valid?: number; _target_user_id: string }
         Returns: string
       }
+      log_pin_session: {
+        Args: {
+          _event_type: string
+          _role: string
+          _session_token: string
+          _tenant_id: string
+          _user_agent?: string
+        }
+        Returns: undefined
+      }
       log_tenant_activity: {
         Args: {
           _action: string
@@ -1592,6 +1813,20 @@ export type Database = {
           _timestamp?: string
         }
         Returns: undefined
+      }
+      login_staff: {
+        Args: { _first_name: string; _last_name: string; _school_id: string }
+        Returns: {
+          email: string
+          must_change_password: boolean
+        }[]
+      }
+      login_student: {
+        Args: { _admission_no: string; _school_id: string }
+        Returns: {
+          email: string
+          must_change_password: boolean
+        }[]
       }
       pin_logout: { Args: { _session_token: string }; Returns: boolean }
       redeem_super_admin_token: { Args: { _token: string }; Returns: boolean }
@@ -1655,6 +1890,26 @@ export type Database = {
           p_signature_type: string
         }
         Returns: undefined
+      }
+      validate_school_pin: {
+        Args: { _pin: string }
+        Returns: {
+          school_id: string
+          school_name: string
+          tenant_id: string
+        }[]
+      }
+      validate_staff_invite_token: {
+        Args: { _token: string }
+        Returns: {
+          plan: string
+          school_name: string
+          session_token: string
+          status: string
+          subscription_ends_at: string
+          tenant_id: string
+          trial_started_at: string
+        }[]
       }
       verify_admin_pin: {
         Args: { _pin_hash: string; _tenant_id: string }
