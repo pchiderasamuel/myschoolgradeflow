@@ -1,0 +1,395 @@
+﻿import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { logAuthEvent } from "@/lib/auth-logger";
+import { toast } from "@/hooks/use-toast";
+import {
+  verifySchoolPin,
+  verifyAdminPin,
+  setAdminPin,
+  saveTenantSession,
+  loadTenantSession,
+  daysRemaining,
+  type TenantSession,
+} from "@/lib/tenant-client";
+import { GraduationCap, User, Users, GraduationCap as StudentIcon } from "lucide-react";
+
+type Step = "school" | "role" | "admin" | "set-admin";
+type Role = "admin" | "teacher" | "student";
+
+function Spinner() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style={{ animation: "a-spin 0.8s linear infinite" }}>
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
+
+export default function SchoolLock() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState<Step>("school");
+  const [selectedRole, setSelectedRole] = useState<Role>("student");
+  const [schoolPin, setSchoolPin] = useState("");
+  const [adminPin, setAdminPinInput] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<Awaited<ReturnType<typeof verifySchoolPin>>>(null);
+  const [showPin, setShowPin] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    const existing = loadTenantSession();
+    if (existing && (existing.status === "trial" || existing.status === "active")) {
+      navigate("/app", { replace: true });
+    }
+  }, [navigate]);
+
+  const handleSchool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const res = await verifySchoolPin(schoolPin.trim());
+    setLoading(false);
+    if (!res) {
+      toast({ title: "Invalid school PIN", description: "Check with your provider.", variant: "destructive" });
+      return;
+    }
+    if (res.status === "suspended" || res.status === "expired") {
+      toast({
+        title: res.status === "suspended" ? "Account suspended" : "Subscription expired",
+        description: "Please contact your provider to renew.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPending(res);
+    setStep("role"); // Go to role selection step
+  };
+
+  const handleRoleSelect = (role: Role) => {
+    setSelectedRole(role);
+    if (role === "admin") {
+      setStep(pending?.hasAdminPin ? "admin" : "set-admin");
+    } else {
+      // Teacher and student can proceed without admin PIN
+      const session = { ...pending!, role, isAdmin: false, hasAdminPin: pending?.hasAdminPin ?? false };
+      saveTenantSession(session);
+      logAuthEvent({ authType: "tenant", eventType: "login", tenantId: session.tenantId, sessionToken: session.sessionToken }).catch(() => {});
+      navigate("/app", { replace: true });
+    }
+  };
+
+  const handleAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pending) return;
+    setLoading(true);
+    const ok = await verifyAdminPin({ ...pending, isAdmin: false }, adminPin.trim());
+    setLoading(false);
+    if (!ok) {
+      toast({ title: "Wrong admin PIN", variant: "destructive" });
+      return;
+    }
+    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
+    saveTenantSession(confirmedSession);
+    logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
+    navigate("/app", { replace: true });
+  };
+
+  const handleSetAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pending) return;
+    if (adminPin.length < 4) {
+      toast({ title: "Password too short", description: "Use at least 4 characters.", variant: "destructive" });
+      return;
+    }
+    if (adminPin !== confirmPin) {
+      toast({ title: "PINs do not match", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    const ok = await setAdminPin({ ...pending, isAdmin: false }, adminPin.trim());
+    setLoading(false);
+    if (!ok) {
+      toast({ title: "Could not set PIN", description: "Already set ΓÇö contact provider.", variant: "destructive" });
+      return;
+    }
+    const confirmedSession = { ...pending, role: "admin" as const, isAdmin: true, hasAdminPin: true };
+    saveTenantSession(confirmedSession);
+    logAuthEvent({ authType: "tenant", eventType: "login", tenantId: confirmedSession.tenantId, sessionToken: confirmedSession.sessionToken }).catch(() => {});
+    toast({ title: "Admin PIN created", description: "Welcome!" });
+    navigate("/app", { replace: true });
+  };
+
+  const banner = pending ? (() => {
+    const d = daysRemaining({ ...pending, isAdmin: false });
+    if (pending.status === "trial") return `≡ƒÄü Free trial ΓÇö ${d ?? "?"} days left`;
+    if (d !== null && d <= 14) return `ΓÅ░ Subscription ends in ${d} days`;
+    return null;
+  })() : null;
+
+  return (
+    <div className="auth-bg">
+      <div className="auth-blob auth-blob-1" />
+      <div className="auth-blob auth-blob-2" />
+      <div className="auth-blob auth-blob-3" />
+      <div className="auth-dots" />
+
+      {/* Floating ambient cards for extra trust/enterprise feel */}
+      <div className="auth-float-card" style={{ top: "12%", left: "5%", animationDelay: "0s" }}>
+        <div className="auth-float-card-icon" style={{ color: "#2563eb" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+        </div>
+        <span>Grade Analytics</span>
+      </div>
+      <div className="auth-float-card" style={{ bottom: "15%", right: "4%", animationDelay: "1.5s" }}>
+        <div className="auth-float-card-icon" style={{ color: "#059669" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <span>End-to-End Secure</span>
+      </div>
+
+      <div className="auth-layout">
+        <div className="auth-side">
+          <div className="auth-side-tag">Cloud Management</div>
+          <h1 className="auth-side-title">
+            The modern way to run your <span>school.</span>
+          </h1>
+          <p className="auth-side-sub">
+            Trusted by educational institutions to manage grades, attendance, and staff seamlessly. 
+            All your data, synced and secured.
+          </p>
+          
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div className="auth-feature">
+              <div className="auth-feature-icon" style={{ color: "#2563eb" }}>ΓÜí</div>
+              Offline-first technology
+            </div>
+            <div className="auth-feature">
+              <div className="auth-feature-icon" style={{ color: "#16a34a" }}>≡ƒôè</div>
+              Real-time synchronization
+            </div>
+            <div className="auth-feature">
+              <div className="auth-feature-icon" style={{ color: "#8b5cf6" }}>≡ƒöÆ</div>
+              Bank-grade PIN security
+            </div>
+          </div>
+        </div>
+
+        <div className="auth-card">
+          <div className="auth-logo-ring">
+            <GraduationCap size={28} color="#fff" strokeWidth={2} />
+          </div>
+
+          <div className="auth-steps">
+            <div className="auth-step-dot on" />
+            <div className={`auth-step-dot ${step === "role" || step === "admin" || step === "set-admin" ? "on" : ""}`} />
+            <div className={`auth-step-dot ${step === "admin" || step === "set-admin" ? "on" : ""}`} />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "0.25rem" }}>
+            <h2 className="auth-title">
+              {step === "school" && "School Login"}
+              {step === "role" && "Select Your Role"}
+              {step === "admin" && "Admin PIN"}
+              {step === "set-admin" && "Create PIN"}
+            </h2>
+            {pending && (
+              <span className="auth-badge">
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6" }} />
+                {pending.status === "trial" ? "Trial" : "Active"}
+              </span>
+            )}
+          </div>
+
+          <p className="auth-subtitle">
+            {step === "school" && "Enter your school's unique access PIN to continue."}
+            {step === "role" && <>Welcome to <strong>{pending?.schoolName}</strong>. Select your role to continue.</>}
+            {step === "admin" && <>Verifying access for <strong>{pending?.schoolName}</strong></>}
+            {step === "set-admin" && "First-time setup. Create a secure admin PIN for your school."}
+          </p>
+
+          {banner && (
+            <div className="auth-notice warn" style={{ marginTop: "1rem" }}>
+              {banner}
+            </div>
+          )}
+
+          <div style={{ marginTop: "1.75rem" }}>
+            {step === "school" && (
+              <form onSubmit={handleSchool} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div>
+                  <label className="auth-label" htmlFor="schoolPin">School PIN</label>
+                  <input
+                    id="schoolPin" className="auth-input" type="text" inputMode="text"
+                    value={schoolPin} onChange={(e) => setSchoolPin(e.target.value.toUpperCase())}
+                    placeholder="e.g. SCH-7K2P" required autoFocus
+                    style={{ letterSpacing: schoolPin ? "0.1em" : "normal", fontWeight: schoolPin ? 600 : 400 }}
+                  />
+                  <p style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "#64748b" }}>
+                    Issued by your provider on subscription.
+                  </p>
+                </div>
+
+                <button type="submit" className="auth-btn" disabled={loading} style={{ marginTop: "0.5rem" }}>
+                  {loading ? <><Spinner /> VerifyingΓÇª</> : <>Continue</>}
+                </button>
+
+                <div className="auth-divider">
+                  <div className="auth-divider-line" />
+                  <span className="auth-divider-text">service provider?</span>
+                  <div className="auth-divider-line" />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <button type="button" className="auth-link-btn" onClick={() => navigate("/auth")}>
+                    Provider sign-in &rarr;
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {step === "role" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect("admin")}
+                  className="auth-btn"
+                  style={{ 
+                    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                    padding: "1.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    justifyContent: "flex-start"
+                  }}
+                >
+                  <div style={{ background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "0.5rem" }}>
+                    <User size={24} />
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>Admin</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>Full access to all features</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect("teacher")}
+                  className="auth-btn"
+                  style={{ 
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    padding: "1.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    justifyContent: "flex-start"
+                  }}
+                >
+                  <div style={{ background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "0.5rem" }}>
+                    <Users size={24} />
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>Teacher</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>Mark attendance, enter scores</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect("student")}
+                  className="auth-btn"
+                  style={{ 
+                    background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                    padding: "1.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    justifyContent: "flex-start"
+                  }}
+                >
+                  <div style={{ background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "0.5rem" }}>
+                    <StudentIcon size={24} />
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>Student</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>View timetable, results, attendance</div>
+                  </div>
+                </button>
+
+                <button type="button" className="auth-back-link" style={{ justifyContent: "center", marginTop: "0.5rem" }}
+                  onClick={() => { setStep("school"); setPending(null); setSchoolPin(""); }}>
+                  &larr; Use a different school PIN
+                </button>
+              </div>
+            )}
+
+            {step === "admin" && (
+              <form onSubmit={handleAdmin} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div>
+                  <label className="auth-label" htmlFor="adminPin">Admin PIN</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      id="adminPin" className="auth-input"
+                      type={showPin ? "text" : "password"}
+                      value={adminPin} onChange={(e) => setAdminPinInput(e.target.value)}
+                      required autoFocus placeholder="Enter your admin password"
+                    />
+                    <button type="button" onClick={() => setShowPin(p => !p)}
+                      style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0 }}>
+                      {showPin ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="auth-btn" disabled={loading}>
+                  {loading ? <><Spinner /> VerifyingΓÇª</> : <>Unlock School</>}
+                </button>
+
+                <button type="button" className="auth-back-link" style={{ justifyContent: "center", marginBottom: 0 }}
+                  onClick={() => { setStep("school"); setPending(null); setAdminPinInput(""); }}>
+                  &larr; Use a different school PIN
+                </button>
+              </form>
+            )}
+
+            {step === "set-admin" && (
+              <form onSubmit={handleSetAdmin} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div className="auth-notice" style={{ textAlign: "left", marginBottom: "0.5rem" }}>
+                  ≡ƒöÉ First-time setup ΓÇö create your schoolΓÇÖs admin password. Letters, numbers and symbols are allowed. Keep it private.
+                </div>
+
+                <div>
+                  <label className="auth-label" htmlFor="newPin">New Admin PIN</label>
+                  <div style={{ position: "relative" }}>
+                    <input id="newPin" className="auth-input" type={showPin ? "text" : "password"} minLength={4} value={adminPin} onChange={(e) => setAdminPinInput(e.target.value)} required autoFocus placeholder="Min 4 characters" />
+                    <button type="button" onClick={() => setShowPin(p => !p)} style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0 }}>{showPin ? "Hide" : "Show"}</button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="auth-label" htmlFor="confirmPin">Confirm PIN</label>
+                  <div style={{ position: "relative" }}>
+                    <input id="confirmPin" className="auth-input" type={showConfirm ? "text" : "password"} minLength={4} value={confirmPin} onChange={(e) => setConfirmPin(e.target.value)} required placeholder="Re-enter password" />
+                    <button type="button" onClick={() => setShowConfirm(p => !p)} style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0 }}>{showConfirm ? "Hide" : "Show"}</button>
+                  </div>
+                  {confirmPin && adminPin && confirmPin !== adminPin && (
+                    <p style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "#ef4444" }}>PINs don't match</p>
+                  )}
+                </div>
+
+                <button type="submit" className="auth-btn" disabled={loading} style={{ marginTop: "0.5rem" }}>
+                  {loading ? <><Spinner /> SavingΓÇª</> : <>Create PIN & Enter</>}
+                </button>
+              </form>
+            )}
+          </div>
+
+          <div style={{ marginTop: "1.75rem", textAlign: "center" }}>
+            <p style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+              Powered by <strong style={{ color: "#64748b" }}>Titbeattechsolutions LLC</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

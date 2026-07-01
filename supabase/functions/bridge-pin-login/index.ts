@@ -17,7 +17,7 @@ interface BridgeReq {
   device?: string;
 }
 
-const PIN_USER_PASSWORD = Deno.env.get("PIN_USER_PASSWORD") ?? "";
+
 
 function syntheticEmail(kind: SubjectKind, id: string): string {
   return `${kind}+${id}@pin.local`;
@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const PIN_USER_PASSWORD = Deno.env.get("PIN_USER_PASSWORD") ?? "";
     if (!PIN_USER_PASSWORD || PIN_USER_PASSWORD.length < 16) {
       console.error("PIN_USER_PASSWORD env var is missing or too weak");
       return json({ error: "Server misconfiguration" }, 500);
