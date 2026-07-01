@@ -36,9 +36,10 @@ Deno.serve(async (req) => {
 
   try {
     const PIN_USER_PASSWORD = Deno.env.get("PIN_USER_PASSWORD") ?? "";
+    console.log(`[bridge-pin-login] PIN_USER_PASSWORD length: ${PIN_USER_PASSWORD.length}`);
     if (!PIN_USER_PASSWORD || PIN_USER_PASSWORD.length < 16) {
       console.error("PIN_USER_PASSWORD env var is missing or too weak");
-      return json({ error: "Server misconfiguration" }, 500);
+      return json({ error: "Server misconfiguration", debug_len: PIN_USER_PASSWORD.length }, 500);
     }
 
     const url = Deno.env.get("SUPABASE_URL")!;
