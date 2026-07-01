@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,12 @@ import {
   X,
   LogOut,
   ChevronRight,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logAuthEvent } from "@/lib/auth-logger";
+import NotificationScheduler from "@/components/NotificationScheduler";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface NavItem {
   to: string;
@@ -52,14 +55,30 @@ const PLAN_LABELS: Record<string, string> = {
   enterprise: "Enterprise",
 };
 
-export default function DashboardLayout({ schoolName, plan, features }: {
+export default function DashboardLayout({ schoolName, plan, features, logoUrl }: {
   schoolName?: string;
   plan?: string;
   features?: Record<string, boolean>;
+  logoUrl?: string;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const { permission, schedules } = useNotifications();
+  const activeCount = schedules.filter((s) => s.enabled).length;
+
+  // Close notification panel when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    if (notifOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
 
   const handleSignOut = async () => {
     console.log("[DashboardLayout] Sign out clicked");
@@ -105,11 +124,20 @@ export default function DashboardLayout({ schoolName, plan, features }: {
     >
       {/* Logo */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-        <div>
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">SchoolGradeFlow</p>
-          <p className="text-sm font-semibold text-white truncate max-w-[160px]">
-            {schoolName ?? "Loading…"}
-          </p>
+        <div className="flex items-center gap-3">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded object-cover bg-white" />
+          ) : (
+            <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center text-slate-300 font-bold text-lg shrink-0">
+              {schoolName ? schoolName[0].toUpperCase() : "S"}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider truncate">SchoolGradeFlow</p>
+            <p className="text-sm font-semibold text-white truncate max-w-[140px]">
+              {schoolName ?? "Loading…"}
+            </p>
+          </div>
         </div>
         {mobile && (
           <button onClick={() => setSidebarOpen(false)} className="text-slate-400 hover:text-white">
@@ -199,6 +227,54 @@ export default function DashboardLayout({ schoolName, plan, features }: {
               <ChevronRight size={14} className="flex-shrink-0" />
               <span className="hidden sm:inline">Dashboard</span>
             </div>
+          </div>
+
+          {/* Notification bell */}
+          <div ref={notifRef} style={{ position: "relative" }}>
+            <button
+              type="button"
+              title="Notification Alerts"
+              onClick={() => setNotifOpen((v) => !v)}
+              className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            >
+              <Bell size={20} />
+              {activeCount > 0 && (
+                <span
+                  className="absolute top-1 right-1 w-4 h-4 rounded-full text-white flex items-center justify-center"
+                  style={{ background: "#2563eb", fontSize: 9, fontWeight: 800 }}
+                >
+                  {activeCount}
+                </span>
+              )}
+              {permission !== "granted" && activeCount === 0 && (
+                <span
+                  className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white"
+                  style={{ background: "#f59e0b" }}
+                />
+              )}
+            </button>
+
+            {notifOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  right: 0,
+                  width: 540,
+                  maxWidth: "calc(100vw - 16px)",
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 20,
+                  boxShadow: "0 8px 32px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06)",
+                  padding: "1.25rem",
+                  zIndex: 100,
+                  maxHeight: "80vh",
+                  overflowY: "auto",
+                }}
+              >
+                <NotificationScheduler />
+              </div>
+            )}
           </div>
 
           {/* User menu */}

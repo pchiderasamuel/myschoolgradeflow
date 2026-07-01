@@ -33,7 +33,7 @@ export default function Auth() {
         if (userRole === "super_admin") navigate("/superadmin", { replace: true });
         else if (userRole === "student") navigate("/student", { replace: true });
         else if (["school_admin", "principal", "head_teacher", "teacher"].includes(userRole))
-          navigate("/school", { replace: true });
+          navigate(userRole === "teacher" ? "/teacher" : "/school", { replace: true });
         else navigate("/superadmin", { replace: true });
       } catch {
         navigate("/superadmin", { replace: true });
@@ -58,7 +58,7 @@ export default function Auth() {
         const userRole = role ?? "unassigned";
         if (userRole === "student") navigate("/student", { replace: true });
         else if (["school_admin", "principal", "head_teacher", "teacher"].includes(userRole))
-          navigate("/school", { replace: true });
+          navigate(userRole === "teacher" ? "/teacher" : "/school", { replace: true });
         else navigate("/superadmin", { replace: true });
       } else {
         navigate("/superadmin", { replace: true });

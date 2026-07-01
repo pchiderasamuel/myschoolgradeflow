@@ -6,15 +6,16 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CalendarClock, UserCircle, Menu, X, LogOut } from "lucide-react";
+import { CalendarClock, UserCircle, Menu, X, LogOut, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/student/timetable", label: "Timetable", icon: CalendarClock },
+  { to: "/student/fees",      label: "My Fees",   icon: Wallet },
   { to: "/student/profile",   label: "Profile",   icon: UserCircle },
 ];
 
-export default function StudentLayout({ schoolName }: { schoolName?: string }) {
+export default function StudentLayout({ schoolName, logoUrl }: { schoolName?: string; logoUrl?: string; }) {
   const [open, setOpen] = useState(false);
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -35,9 +36,18 @@ export default function StudentLayout({ schoolName }: { schoolName?: string }) {
       mobile ? "fixed inset-y-0 left-0 z-50 w-60" : "hidden lg:flex w-60 min-h-screen"
     )}>
       <div className="flex items-center justify-between px-5 py-4 border-b border-emerald-700">
-        <div>
-          <p className="text-xs text-emerald-300 font-medium uppercase tracking-wider">Student Portal</p>
-          <p className="text-sm font-semibold text-white truncate max-w-[150px]">{schoolName ?? "—"}</p>
+        <div className="flex items-center gap-3">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded object-cover bg-white shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded bg-emerald-800 flex items-center justify-center text-emerald-300 font-bold text-lg shrink-0">
+              {schoolName ? schoolName[0].toUpperCase() : "S"}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-emerald-300 font-medium uppercase tracking-wider truncate">Student Portal</p>
+            <p className="text-sm font-semibold text-white truncate max-w-[140px]">{schoolName ?? "—"}</p>
+          </div>
         </div>
         {mobile && (
           <button onClick={() => setOpen(false)} className="text-emerald-300 hover:text-white">

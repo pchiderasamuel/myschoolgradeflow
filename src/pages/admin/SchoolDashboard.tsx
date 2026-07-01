@@ -32,6 +32,7 @@ export default function SchoolDashboard() {
   return (
     <DashboardLayout
       schoolName={school?.name}
+      logoUrl={school?.logo}
       plan={undefined}
       features={school?.features as Record<string, boolean> | undefined}
     />

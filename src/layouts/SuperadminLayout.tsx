@@ -13,11 +13,11 @@ import {
 import { cn } from "@/lib/utils";
 
 const NAV = [
+  { to: "/superadmin/dashboard", label: "Dashboard",       icon: BarChart2 },
   { to: "/superadmin/schools",   label: "Schools",         icon: School },
   { to: "/superadmin/provision", label: "Provision School", icon: PlusCircle },
   { to: "/superadmin/billing",   label: "Billing",         icon: CreditCard },
   { to: "/superadmin/activity",  label: "Activity Log",    icon: Activity },
-  { to: "/superadmin/stats",     label: "Platform Stats",  icon: BarChart2 },
 ];
 
 export default function SuperadminLayout() {

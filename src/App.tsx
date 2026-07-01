@@ -33,13 +33,14 @@ import TeacherSettingsPage from "./pages/teacher/SettingsPage";
 import StudentPortal from "./pages/student/StudentPortal";
 import StudentProfilePage from "./pages/student/ProfilePage";
 import StudentTimetablePage from "./pages/student/TimetablePage";
+import StudentFeesPage from "./pages/student/FeesPage";
 import SuperadminLayout from "./layouts/SuperadminLayout";
 import SchoolsListPage from "./pages/superadmin/SchoolsListPage";
 import SchoolDetailPage from "./pages/superadmin/SchoolDetailPage";
 import ProvisionSchoolPage from "./pages/superadmin/ProvisionSchoolPage";
 import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
-import PlatformStatsPage from "./pages/superadmin/PlatformStatsPage";
 import BillingListPage from "./pages/superadmin/BillingListPage";
+import SuperadminDashboardPage from "./pages/superadmin/SuperadminDashboardPage";
 
 const queryClient = new QueryClient();
 
@@ -199,6 +200,7 @@ const App = () => (
             >
               <Route index element={<Navigate to="timetable" replace />} />
               <Route path="timetable" element={<StudentTimetablePage />} />
+              <Route path="fees"      element={<StudentFeesPage />} />
               <Route path="profile"   element={<StudentProfilePage />} />
             </Route>
             {/* Superadmin panel (new school-layer panel) */}
@@ -210,13 +212,13 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="schools" replace />} />
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard"        element={<SuperadminDashboardPage />} />
               <Route path="schools"          element={<SchoolsListPage />} />
               <Route path="schools/:schoolId" element={<SchoolDetailPage />} />
               <Route path="provision"        element={<ProvisionSchoolPage />} />
               <Route path="billing"          element={<BillingListPage />} />
               <Route path="activity"         element={<ActivityLogPage />} />
-              <Route path="stats"            element={<PlatformStatsPage />} />
             </Route>
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />

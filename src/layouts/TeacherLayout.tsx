@@ -20,7 +20,7 @@ const NAV = [
   { to: "/teacher/settings",   label: "Settings",    icon: Settings },
 ];
 
-export default function TeacherLayout({ schoolName }: { schoolName?: string }) {
+export default function TeacherLayout({ schoolName, logoUrl }: { schoolName?: string; logoUrl?: string; }) {
   const [open, setOpen] = useState(false);
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -51,9 +51,18 @@ export default function TeacherLayout({ schoolName }: { schoolName?: string }) {
       mobile ? "fixed inset-y-0 left-0 z-50 w-60" : "hidden lg:flex w-60 min-h-screen"
     )}>
       <div className="flex items-center justify-between px-5 py-4 border-b border-indigo-700">
-        <div>
-          <p className="text-xs text-indigo-300 font-medium uppercase tracking-wider">Teacher Portal</p>
-          <p className="text-sm font-semibold text-white truncate max-w-[150px]">{schoolName ?? "—"}</p>
+        <div className="flex items-center gap-3">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded object-cover bg-white shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded bg-indigo-800 flex items-center justify-center text-indigo-300 font-bold text-lg shrink-0">
+              {schoolName ? schoolName[0].toUpperCase() : "T"}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-indigo-300 font-medium uppercase tracking-wider truncate">Teacher Portal</p>
+            <p className="text-sm font-semibold text-white truncate max-w-[140px]">{schoolName ?? "—"}</p>
+          </div>
         </div>
         {mobile && (
           <button onClick={() => setOpen(false)} className="text-indigo-300 hover:text-white">

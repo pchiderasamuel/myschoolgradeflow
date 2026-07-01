@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import AttendanceWidget from "@/components/dashboard/AttendanceWidget";
 import SessionLog from "@/components/SessionLog";
 import StudentOverviewCard from "@/components/dashboard/StudentOverviewCard";
+import { supabase } from "@/integrations/supabase/client";
 
 const TERM_LABELS = { first: "1st Term", second: "2nd Term", third: "3rd Term" };
 
@@ -41,6 +42,29 @@ export default function OverviewPage() {
       setStudentTotal(summary.total);
     }).catch((e) => console.error(e))
       .finally(() => setLoadingStats(false));
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel(`tenant_activity:${schoolId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "tenant_activity_logs", filter: `tenant_id=eq.${schoolId}` },
+        (payload) => {
+          const newLog = payload.new as any;
+          setActivity((prev) => {
+            const formattedLog = {
+              id: newLog.id,
+              action: newLog.action,
+              details: newLog.details,
+              timestamp: newLog.created_at,
+            };
+            return [formattedLog, ...prev].slice(0, 10);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [schoolId]);
 
   const handleTermChange = async (term: string) => {
