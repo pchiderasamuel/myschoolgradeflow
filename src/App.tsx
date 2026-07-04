@@ -41,7 +41,7 @@ import SchoolsListPage from "./pages/superadmin/SchoolsListPage";
 import SchoolDetailPage from "./pages/superadmin/SchoolDetailPage";
 import ProvisionSchoolPage from "./pages/superadmin/ProvisionSchoolPage";
 import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
-import SuperadminDashboardPage from "./pages/superadmin/SuperadminDashboardPage";
+import PlatformStatsPage from "./pages/superadmin/PlatformStatsPage";
 import BillingListPage from "./pages/superadmin/BillingListPage";
 
 const queryClient = new QueryClient();
@@ -223,7 +223,7 @@ const App = () => (
               <Route path="provision"        element={<ProvisionSchoolPage />} />
               <Route path="billing"          element={<BillingListPage />} />
               <Route path="activity"         element={<ActivityLogPage />} />
-              <Route path="stats"            element={<SuperadminDashboardPage />} />
+              <Route path="stats"            element={<PlatformStatsPage />} />
             </Route>
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />

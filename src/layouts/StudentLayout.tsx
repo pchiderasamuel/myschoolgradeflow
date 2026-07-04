@@ -6,12 +6,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CalendarClock, UserCircle, Menu, X, LogOut, Wallet } from "lucide-react";
+import { CalendarClock, UserCircle, Menu, X, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/student/timetable", label: "Timetable", icon: CalendarClock },
-  { to: "/student/fees",      label: "My Fees",   icon: Wallet },
   { to: "/student/profile",   label: "Profile",   icon: UserCircle },
 ];
 

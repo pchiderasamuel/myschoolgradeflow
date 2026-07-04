@@ -233,19 +233,13 @@ export default function TimetablePage() {
     }
   }, [school]);
 
-  const [allSlots, setAllSlots] = useState<TimetableSlot[]>([]);
-
   // ── Load timetable slots whenever filters change ───────────────────
   const loadSlots = useCallback(async () => {
     if (!schoolId || !selectedClassId || !selectedTerm || !selectedYear) return;
     setLoadingSlots(true);
     try {
-      const [data, allData] = await Promise.all([
-        getTimetable(schoolId, selectedClassId, selectedTerm, selectedYear),
-        import("@/supabase/schoolService").then(m => m.getAllTimetableSlots(schoolId, selectedTerm, selectedYear))
-      ]);
+      const data = await getTimetable(schoolId, selectedClassId, selectedTerm, selectedYear);
       setSlots(data);
-      setAllSlots(allData);
     } catch (e) {
       toast({ title: "Error loading timetable", description: (e as Error).message, variant: "destructive" });
     } finally {
@@ -378,26 +372,6 @@ export default function TimetablePage() {
       });
       setSaving(false);
       return;
-    }
-
-    // Teacher double-booking conflict check
-    if (isLesson && draft.teacher_id) {
-      const conflicts = allSlots.filter((s) => 
-        s.teacher_id === draft.teacher_id &&
-        s.day === editTarget.day &&
-        s.period_number === editTarget.period_number &&
-        s.class_id !== selectedClassId
-      );
-
-      if (conflicts.length > 0) {
-        toast({
-          title: "Teacher Double-Booked",
-          description: `${tch?.first_name} ${tch?.last_name} is already assigned to ${conflicts[0].class_name} at this time.`,
-          variant: "destructive",
-        });
-        setSaving(false);
-        return;
-      }
     }
 
     try {
