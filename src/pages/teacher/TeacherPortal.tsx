@@ -13,5 +13,5 @@ export default function TeacherPortal() {
     );
   }
 
-  return <TeacherLayout schoolName={school?.name} logoUrl={school?.logo} />;
+  return <TeacherLayout schoolName={school?.name} />;
 }

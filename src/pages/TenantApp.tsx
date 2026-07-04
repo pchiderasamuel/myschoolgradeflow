@@ -45,11 +45,12 @@ export default function TenantApp() {
     profile?.role === "school_admin" ||
     profile?.role === "principal" ||
     profile?.role === "head_teacher" ||
+    profile?.role === "authorised_staff" ||
     profile?.role === "teacher" ||
     profile?.role === "student"
       ? profile.role
       : null;
-  if (!authLoading && authSession && bridge && bridgedRole) {
+  if (!authLoading && authSession && bridge && (bridgedRole || bridge.role)) {
     return <Navigate to={routeForRole(bridge.role)} replace />;
   }
 
@@ -115,7 +116,7 @@ export default function TenantApp() {
         let data = remote as Record<string, unknown>;
 
         // Validate basic data structure
-        if (typeof data !== "object" || data === null) {
+        if (typeof data !== "object" || data === null || Array.isArray(data)) {
           throw new Error("Invalid remote data structure");
         }
 
@@ -123,8 +124,9 @@ export default function TenantApp() {
         try {
           const localRaw = localStorage.getItem(DB_KEY);
           if (localRaw) {
-            const local = JSON.parse(localRaw) as Record<string, unknown>;
-            if (typeof local === "object" && local !== null) {
+            const parsedLocal = JSON.parse(localRaw);
+            if (typeof parsedLocal === "object" && parsedLocal !== null && !Array.isArray(parsedLocal)) {
+              const local = parsedLocal as Record<string, unknown>;
               const localRevNum = typeof local._rev === "number" ? local._rev : 0;
               const remoteRevNum = typeof data._rev === "number" ? data._rev : 0;
               if (localRevNum > remoteRevNum) {
@@ -138,7 +140,7 @@ export default function TenantApp() {
         }
 
         // Safely initialize schoolSettings
-        if (!data.schoolSettings || typeof data.schoolSettings !== "object") {
+        if (!data.schoolSettings || typeof data.schoolSettings !== "object" || Array.isArray(data.schoolSettings)) {
           data.schoolSettings = {};
         }
         // Enforce school name from session (override any unsafe data)

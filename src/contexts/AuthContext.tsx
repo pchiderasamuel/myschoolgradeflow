@@ -3,6 +3,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { insertSessionLog, getUserRole, checkUserRole, getUserProfile } from "@/supabase/schoolService";
 import { useToast } from "@/hooks/use-toast";
+import { getEffectiveRole, normalizeRole } from "@/lib/auth-role";
 
 export type AppRole = "super_admin" | "school_admin" | "authorised_staff" | "principal" | "head_teacher" | "teacher" | "student" | "unassigned";
 
@@ -75,27 +76,25 @@ async function logSessionEvent(
 }
 
 async function fetchProfile(userId: string, email: string | null): Promise<AuthProfile> {
-  // First try fetching from public.profiles (Phase 2 table)
   const profileRow = await getUserProfile(userId);
-  
-  if (profileRow) {
-    return {
-      userId,
-      email,
-      role: (profileRow.role as AppRole) ?? "unassigned",
-      schoolId: profileRow.school_id ?? null,
-      firstName: profileRow.first_name ?? null,
-      lastName: profileRow.last_name ?? null,
-    };
+  const normalizedFromProfile = normalizeRole(profileRow?.role ?? null);
+  let resolvedRole: AppRole = normalizedFromProfile ?? "unassigned";
+
+  if (!profileRow || resolvedRole === "unassigned") {
+    const isSuperAdmin = await checkUserRole(userId, "super_admin");
+    if (isSuperAdmin) {
+      resolvedRole = "super_admin";
+    }
   }
 
-  // Fallback: check user_roles table (super_admin bootstrap path)
-  const isSuperAdmin = await checkUserRole(userId, "super_admin");
-  if (isSuperAdmin) {
-    return { userId, email, role: "super_admin", schoolId: null, firstName: null, lastName: null };
-  }
-
-  return { userId, email, role: "unassigned", schoolId: null, firstName: null, lastName: null };
+  return {
+    userId,
+    email,
+    role: resolvedRole,
+    schoolId: profileRow?.school_id ?? null,
+    firstName: profileRow?.first_name ?? null,
+    lastName: profileRow?.last_name ?? null,
+  };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -114,17 +113,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authUnsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    // NOTE: We do NOT call getSession() + fetchProfile here separately.
+    // onAuthStateChange fires with INITIAL_SESSION for existing sessions,
+    // so letting it be the single source of truth prevents the race condition
+    // where two concurrent fetchProfile calls could override each other.
+    // We only call getSession to quickly determine if there's NO session
+    // so we can stop the loading spinner immediately.
     supabase.auth.getSession().then(({ data }) => {
       const s = data.session ?? null;
+      // Always sync session/user immediately so ProtectedRoute never sees null session
+      // for a logged-in user. Profile loading is handled by onAuthStateChange.
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
         currentUserRef.current = s.user;
-        fetchProfile(s.user.id, s.user.email ?? null).then((p) => {
-          setProfile(p);
-          profileRef.current = p;
-          setLoading(false);
-        });
+        // onAuthStateChange (INITIAL_SESSION) will call fetchProfile — don't do it here
+        // to avoid the double-fetch race condition.
       } else {
         setLoading(false);
       }
@@ -138,8 +142,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(true);
         fetchProfile(s.user.id, s.user.email ?? null)
           .then((p) => {
-            setProfile(p);
-            profileRef.current = p;
+            let parsedBridge: { role?: string } | null = null;
+            try {
+              const bridgeRole = typeof window !== "undefined" ? window.localStorage.getItem("pin_bridge_session") : null;
+              parsedBridge = bridgeRole ? JSON.parse(bridgeRole) : null;
+            } catch {
+              parsedBridge = null;
+            }
+            const effectiveRole = getEffectiveRole(p.role, parsedBridge?.role);
+            const resolvedProfile: AuthProfile = {
+              ...p,
+              role: (effectiveRole ?? p.role) as AppRole,
+            };
+            setProfile(resolvedProfile);
+            profileRef.current = resolvedProfile;
             setLoading(false);
             // Log login once per user within a 5-minute window to prevent duplicates from token refresh
             if (event === "SIGNED_IN") {
@@ -151,13 +167,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (now - lastLoginTime > fiveMinutes) {
                 lastLoginTimeRef.current[userId] = now;
                 sessionExpiredShownRef.current = false;
-                logSessionEvent(s.user, "LOGIN", p);
+                logSessionEvent(s.user, "LOGIN", resolvedProfile);
               }
             }
           })
           .catch((err) => {
             console.error("[AuthContext] Failed to fetch profile:", err);
-            // Fallback to unassigned role to keep app functional
+            // If we already have a valid profile loaded (e.g. from a previous
+            // successful fetch), keep it rather than overriding with "unassigned".
+            // This prevents the race condition where a second fetch failure
+            // after a successful first fetch causes an Access Denied redirect.
+            if (profileRef.current && profileRef.current.role !== "unassigned") {
+              console.warn("[AuthContext] Keeping existing valid profile after fetch error.");
+              setLoading(false);
+              return;
+            }
+            // No prior valid profile — fall back to unassigned
             const fallbackProfile: AuthProfile = {
               userId: s.user.id,
               email: s.user.email ?? null,
@@ -188,6 +213,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             currentUserRef.current = null;
           }
           
+          // Only show "session expired" if this wasn't a manual sign-out
+          // and wasn't triggered by an INITIAL_SESSION event
           if (!sessionExpiredShownRef.current) {
             sessionExpiredShownRef.current = true;
             toast({

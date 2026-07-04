@@ -1182,8 +1182,8 @@ export default function TimetablePage() {
   // ── Render ─────────────────────────────────────────────────────────
   if (loadingInit) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-slate-400" size={28} />
+      <div className="flex items-center justify-center py-20 text-sm text-slate-400">
+        Loading timetable…
       </div>
     );
   }
@@ -1360,8 +1360,8 @@ export default function TimetablePage() {
 
         {/* ── Grid ── */}
         {loadingSlots ? (
-          <div className="flex justify-center py-14">
-            <Loader2 className="animate-spin text-slate-400" size={24} />
+          <div className="flex justify-center py-14 text-sm text-slate-400">
+            Loading timetable grid…
           </div>
         ) : !canShowGrid ? (
           <div className="rounded-xl border border-dashed border-slate-200 py-14 text-center">

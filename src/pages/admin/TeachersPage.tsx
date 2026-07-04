@@ -86,7 +86,7 @@ export default function TeachersPage() {
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-400" /></div>
+          <div className="flex justify-center py-12 text-sm text-slate-400">Loading teachers…</div>
         ) : teachers.length === 0 ? (
           <p className="text-center text-slate-400 py-12 text-sm">No teachers yet</p>
         ) : (

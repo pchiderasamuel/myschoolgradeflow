@@ -184,7 +184,7 @@ function FeesPageContent() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-slate-400" /></div>
+        <div className="flex justify-center py-16 text-sm text-slate-400">Loading fees…</div>
       ) : fees.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <Wallet size={32} className="mx-auto mb-3 opacity-40" />

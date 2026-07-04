@@ -27,27 +27,27 @@ declare const firebase: any;
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
 const CURRICULUM: Record<string, { classes: string[]; subjects: string[] }> = {
-  "Early Years":      { classes:["Creche","Pre-Nursery","Nursery 1","Nursery 2"], subjects:["Numeracy","Literacy","Health Habits","Social Norms","Basic Science","CRS","IRS","Rhymes & Poem","Phonics","Creative Arts","Physical Development"] },
-  "Lower Primary":    { classes:["Primary 1","Primary 2","Primary 3"],           subjects:["Mathematics","English Studies","Basic Science & Tech","Social Studies","Civic Education","Agricultural Science","Home Economics","CRS","IRS","PHE","Computer Studies","Cultural & Creative Arts","Verbal Reasoning","Quantitative Reasoning","Yoruba/Igbo/Hausa"] },
-  "Upper Primary":    { classes:["Primary 4","Primary 5","Primary 6"],           subjects:["Mathematics","English Studies","Basic Science","ICT","Social Studies","Civic Education","Agricultural Science","Home Economics","CRS","IRS","PHE","Cultural & Creative Arts","Verbal Reasoning","Quantitative Reasoning","French","Yoruba/Igbo/Hausa"] },
-  "Junior Secondary": { classes:["JSS 1","JSS 2","JSS 3"],                       subjects:["Mathematics","English Language","Basic Science","Basic Technology","Social Studies","Civic Education","Agricultural Science","Home Economics","Business Studies","CRS","IRS","PHE","Computer Studies","Cultural & Creative Arts","French","Nigerian Language"] },
-  "Senior Secondary": { classes:["SS 1","SS 2","SS 3"],                          subjects:["Mathematics","English Language","Civic Education","Biology","Economics","Physics","Chemistry","Further Mathematics","Agricultural Science","Geography","Government","Literature-in-English","CRS","IRS","Financial Accounting","Commerce","Data Processing","Marketing","Technical Drawing"] },
+  "Early Years": { classes: ["Creche", "Pre-Nursery", "Nursery 1", "Nursery 2"], subjects: ["Numeracy", "Literacy", "Health Habits", "Social Norms", "Basic Science", "CRS", "IRS", "Rhymes & Poem", "Phonics", "Creative Arts", "Physical Development"] },
+  "Lower Primary": { classes: ["Primary 1", "Primary 2", "Primary 3"], subjects: ["Mathematics", "English Studies", "Basic Science & Tech", "Social Studies", "Civic Education", "Agricultural Science", "Home Economics", "CRS", "IRS", "PHE", "Computer Studies", "Cultural & Creative Arts", "Verbal Reasoning", "Quantitative Reasoning", "Yoruba/Igbo/Hausa"] },
+  "Upper Primary": { classes: ["Primary 4", "Primary 5", "Primary 6"], subjects: ["Mathematics", "English Studies", "Basic Science", "ICT", "Social Studies", "Civic Education", "Agricultural Science", "Home Economics", "CRS", "IRS", "PHE", "Cultural & Creative Arts", "Verbal Reasoning", "Quantitative Reasoning", "French", "Yoruba/Igbo/Hausa"] },
+  "Junior Secondary": { classes: ["JSS 1", "JSS 2", "JSS 3"], subjects: ["Mathematics", "English Language", "Basic Science", "Basic Technology", "Social Studies", "Civic Education", "Agricultural Science", "Home Economics", "Business Studies", "CRS", "IRS", "PHE", "Computer Studies", "Cultural & Creative Arts", "French", "Nigerian Language"] },
+  "Senior Secondary": { classes: ["SS 1", "SS 2", "SS 3"], subjects: ["Mathematics", "English Language", "Civic Education", "Biology", "Economics", "Physics", "Chemistry", "Further Mathematics", "Agricultural Science", "Geography", "Government", "Literature-in-English", "CRS", "IRS", "Financial Accounting", "Commerce", "Data Processing", "Marketing", "Technical Drawing"] },
 };
 const ALL_CLASSES: string[] = Object.values(CURRICULUM).flatMap(c => c.classes);
-const TERMS = ["First Term","Second Term","Third Term"];
-const ROLES = ["Teacher","Class Teacher","Subject Teacher","Head of Dept","Bursar","Secretary","Headmaster","Headmistress","Vice Principal","Principal"];
+const TERMS = ["First Term", "Second Term", "Third Term"];
+const ROLES = ["Teacher", "Class Teacher", "Subject Teacher", "Head of Dept", "Bursar", "Secretary", "Headmaster", "Headmistress", "Vice Principal", "Principal"];
 const ADMIN_PIN_KEY = "gm_admin_pin_v1";
 const PERMS_META = [
-  { key:"scoreEntry",    label:"Score Entry",    desc:"Enter CA & exam scores" },
-  { key:"viewReports",   label:"View Reports",   desc:"Access student reports" },
-  { key:"printReports",  label:"Print Reports",  desc:"Print or export reports" },
-  { key:"manageRecords", label:"Manage Records", desc:"Delete or edit grades" },
+  { key: "scoreEntry", label: "Score Entry", desc: "Enter CA & exam scores" },
+  { key: "viewReports", label: "View Reports", desc: "Access student reports" },
+  { key: "printReports", label: "Print Reports", desc: "Print or export reports" },
+  { key: "manageRecords", label: "Manage Records", desc: "Delete or edit grades" },
 ];
 const ATT_STATUSES = [
-  { key:"present", label:"Present", icon:"✓", color:"emerald" },
-  { key:"absent",  label:"Absent",  icon:"✗", color:"red" },
-  { key:"late",    label:"Late",    icon:"⏱", color:"amber" },
-  { key:"excused", label:"Excused", icon:"📋", color:"indigo" },
+  { key: "present", label: "Present", icon: "✓", color: "emerald" },
+  { key: "absent", label: "Absent", icon: "✗", color: "red" },
+  { key: "late", label: "Late", icon: "⏱", color: "amber" },
+  { key: "excused", label: "Excused", icon: "📋", color: "indigo" },
 ];
 
 const BUILTIN_REMARKS = {
@@ -236,17 +236,17 @@ async function ensureHashed(pin: string): Promise<string> {
 // configured or when the device is offline.
 
 const FIREBASE_CONFIG = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  databaseURL:       "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT.appspot.com",
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID",
+  appId: "YOUR_APP_ID",
 };
 
 const FIREBASE_ENABLED = !FIREBASE_CONFIG.apiKey.startsWith("YOUR_");
-const FIREBASE_PATH    = "/greatmind_school/v1";
+const FIREBASE_PATH = "/greatmind_school/v1";
 
 // Dynamically load Firebase SDK
 async function loadFirebase(): Promise<boolean> {
@@ -295,8 +295,8 @@ async function fetchFromFirebase(): Promise<Partial<AppState> | null> {
 }
 
 function subscribeFirebase(cb: (data: Partial<AppState>) => void): (() => void) {
-  if (!FIREBASE_ENABLED) return () => {};
-  let unsub = () => {};
+  if (!FIREBASE_ENABLED) return () => { };
+  let unsub = () => { };
   loadFirebase().then(ok => {
     if (!ok) return;
     const ref = firebase.database().ref(FIREBASE_PATH);
@@ -325,7 +325,7 @@ function loadDB(): Partial<AppState> {
   try {
     const raw = localStorage.getItem(DB_KEY);
     if (!raw) return {};
-    
+
     let parsed: Partial<AppState> & { _timetableVersion?: string };
     try {
       parsed = JSON.parse(raw) as Partial<AppState> & { _timetableVersion?: string };
@@ -335,19 +335,19 @@ function loadDB(): Partial<AppState> {
       localStorage.removeItem(DB_KEY);
       return {};
     }
-    
+
     // Validate parsed data is an object
     if (!parsed || typeof parsed !== "object") {
       console.error("[loadDB] Invalid data structure, expected object");
       localStorage.removeItem(DB_KEY);
       return {};
     }
-    
+
     // Drop the stored timetable if its schema version is missing/outdated
     if (parsed._timetableVersion !== TIMETABLE_SCHEMA_VERSION) {
       delete parsed.timetable;
     }
-    
+
     return parsed;
   } catch (err) {
     console.error("[loadDB] Unexpected error:", err);
@@ -367,13 +367,13 @@ function saveDB(state: AppState) {
         existing = {};
       }
     }
-    
+
     // Validate state before saving
     if (!state || typeof state !== "object") {
       console.error("[saveDB] Invalid state, cannot save");
       return;
     }
-    
+
     const dataToSave = {
       ...state,
       _rev: typeof existing._rev === "number" ? existing._rev : 0,
@@ -381,7 +381,7 @@ function saveDB(state: AppState) {
       _deviceId: typeof existing._deviceId === "string" ? existing._deviceId : undefined,
       _timetableVersion: TIMETABLE_SCHEMA_VERSION,
     };
-    
+
     localStorage.setItem(DB_KEY, JSON.stringify(dataToSave));
   } catch (err) {
     if (err instanceof Error && err.message.includes("QuotaExceededError")) {
@@ -398,7 +398,7 @@ function debouncedSaveDB(state: AppState, pushCloud = true) {
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
     saveDB(state);
-    if (pushCloud) pushToFirebase(state).catch(() => {});
+    if (pushCloud) pushToFirebase(state).catch(() => { });
   }, 600);
 }
 
@@ -436,7 +436,7 @@ async function exportReportToPDF(report: any, curC: any, attRate: number | null,
 
   const hexToRGB = (hex: string) => {
     const h = hex.replace("#", "");
-    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)] as [number,number,number];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)] as [number, number, number];
   };
   const hdrRGB = hexToRGB(tpl.headerColor);
   const accRGB = hexToRGB(tpl.accentColor);
@@ -518,10 +518,10 @@ async function exportReportToPDF(report: any, curC: any, attRate: number | null,
     doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(100, 116, 139);
     doc.text("ATTENDANCE", margin, y); y += 4;
     const attCols = [
-      ["Days Opened",  curC.daysOpen  || "—"],
+      ["Days Opened", curC.daysOpen || "—"],
       ["Days Present", curC.daysPresent || "—"],
-      ["Days Absent",  curC.daysAbsent  || "—"],
-      ["Rate",         attRate !== null ? `${attRate}%` : "—"],
+      ["Days Absent", curC.daysAbsent || "—"],
+      ["Rate", attRate !== null ? `${attRate}%` : "—"],
     ];
     const attW = (W - margin * 2) / 4;
     attCols.forEach(([label, val], i) => {
@@ -647,8 +647,8 @@ async function exportClassToExcel(
       [""],
       ["Attendance Summary"],
       ["Present", sAtt.filter(a => a.status === "present").length],
-      ["Absent",  sAtt.filter(a => a.status === "absent").length],
-      ["Late",    sAtt.filter(a => a.status === "late").length],
+      ["Absent", sAtt.filter(a => a.status === "absent").length],
+      ["Late", sAtt.filter(a => a.status === "late").length],
       ["Excused", sAtt.filter(a => a.status === "excused").length],
     ];
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
@@ -695,14 +695,14 @@ async function exportSingleStudentExcel(report: any, curC: any, attRate: number 
     ["CUMULATIVE TOTAL", "", "", report.summary.total, `${report.summary.avg}%`, g.remark],
     [""],
     ["Attendance"],
-    ["Days Opened",  curC.daysOpen  || "—"],
+    ["Days Opened", curC.daysOpen || "—"],
     ["Days Present", curC.daysPresent || "—"],
-    ["Days Absent",  curC.daysAbsent  || "—"],
+    ["Days Absent", curC.daysAbsent || "—"],
     ["Attendance Rate", attRate !== null ? `${attRate}%` : "—"],
     [""],
     ["Class Teacher's Remark", curC.teacher || ""],
-    ["Principal's Remark",     curC.principal || ""],
-    ["Next Resumption",        schoolSettings.resumptionDate],
+    ["Principal's Remark", curC.principal || ""],
+    ["Next Resumption", schoolSettings.resumptionDate],
   ];
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
   ws["!cols"] = [{ wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 14 }];
@@ -753,94 +753,94 @@ function parseCSVRoll(csvText: string): { name: string; admNo: string }[] {
 }
 
 const getGrade = (s: number) => {
-  if (s >= 75) return { grade:"A1", remark:"Excellent",  color:"#059669", bg:"#d1fae5" };
-  if (s >= 70) return { grade:"B2", remark:"Very Good",  color:"#10b981", bg:"#d1fae5" };
-  if (s >= 65) return { grade:"B3", remark:"Good",       color:"#2563eb", bg:"#dbeafe" };
-  if (s >= 60) return { grade:"C4", remark:"Credit",     color:"#3b82f6", bg:"#dbeafe" };
-  if (s >= 55) return { grade:"C5", remark:"Credit",     color:"#6366f1", bg:"#e0e7ff" };
-  if (s >= 50) return { grade:"C6", remark:"Credit",     color:"#8b5cf6", bg:"#ede9fe" };
-  if (s >= 45) return { grade:"D7", remark:"Pass",       color:"#d97706", bg:"#fef3c7" };
-  if (s >= 40) return { grade:"E8", remark:"Pass",       color:"#f59e0b", bg:"#fef3c7" };
-  return           { grade:"F9", remark:"Fail",       color:"#dc2626", bg:"#fee2e2" };
+  if (s >= 75) return { grade: "A1", remark: "Excellent", color: "#059669", bg: "#d1fae5" };
+  if (s >= 70) return { grade: "B2", remark: "Very Good", color: "#10b981", bg: "#d1fae5" };
+  if (s >= 65) return { grade: "B3", remark: "Good", color: "#2563eb", bg: "#dbeafe" };
+  if (s >= 60) return { grade: "C4", remark: "Credit", color: "#3b82f6", bg: "#dbeafe" };
+  if (s >= 55) return { grade: "C5", remark: "Credit", color: "#6366f1", bg: "#e0e7ff" };
+  if (s >= 50) return { grade: "C6", remark: "Credit", color: "#8b5cf6", bg: "#ede9fe" };
+  if (s >= 45) return { grade: "D7", remark: "Pass", color: "#d97706", bg: "#fef3c7" };
+  if (s >= 40) return { grade: "E8", remark: "Pass", color: "#f59e0b", bg: "#fef3c7" };
+  return { grade: "F9", remark: "Fail", color: "#dc2626", bg: "#fee2e2" };
 };
 
 const getOrdinal = (n: number) => {
-  const s = ["th","st","nd","rd"], v = n % 100;
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
 const fmtTs = (iso: string) => {
   const d = new Date(iso);
   return {
-    date: d.toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" }),
-    time: d.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" }),
+    date: d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+    time: d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
   };
 };
 
 const fmtDate = (iso: string) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"2-digit", month:"short", year:"numeric" });
+  new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
 
 // ─── State / Reducer ──────────────────────────────────────────────────────────
 // Default staff — plain PINs, automatically migrated to hashed on first login
 const _defaultStaff: StaffMember[] = [
-  { id:"s1", name:"Mrs. Amaka Obi",  role:"Class Teacher",   pin:"5678", status:"active", assignedClasses:["Primary 3","Primary 4"], assignedSubjects:[], permissions:{scoreEntry:true,viewReports:true,printReports:true,manageRecords:false},  createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
-  { id:"s2", name:"Mr. Chidi Eze",   role:"Subject Teacher", pin:"9012", status:"active", assignedClasses:["JSS 1","JSS 2","JSS 3"],  assignedSubjects:["Mathematics"], permissions:{scoreEntry:true,viewReports:true,printReports:false,manageRecords:false}, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+  { id: "s1", name: "Mrs. Amaka Obi", role: "Class Teacher", pin: "5678", status: "active", assignedClasses: ["Primary 3", "Primary 4"], assignedSubjects: [], permissions: { scoreEntry: true, viewReports: true, printReports: true, manageRecords: false }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: "s2", name: "Mr. Chidi Eze", role: "Subject Teacher", pin: "9012", status: "active", assignedClasses: ["JSS 1", "JSS 2", "JSS 3"], assignedSubjects: ["Mathematics"], permissions: { scoreEntry: true, viewReports: true, printReports: false, manageRecords: false }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
 
 // Standard Timetable: Assembly → 4 lessons → Short Break → 2 lessons → Lunch → 2 lessons → Closing
 const _defaultTimetable: TimetableState = {
   periods: [
-    { id: "asm", label: "Assembly",     start: "07:30", end: "07:50" },
-    { id: "p1",  label: "Period 1",     start: "08:00", end: "08:40" },
-    { id: "p2",  label: "Period 2",     start: "08:40", end: "09:20" },
-    { id: "p3",  label: "Period 3",     start: "09:20", end: "10:00" },
-    { id: "p4",  label: "Period 4",     start: "10:00", end: "10:40" },
-    { id: "sbr", label: "Short Break",  start: "10:40", end: "11:10" },
-    { id: "p5",  label: "Period 5",     start: "11:10", end: "11:50" },
-    { id: "p6",  label: "Period 6",     start: "11:50", end: "12:30" },
-    { id: "lbr", label: "Lunch",       start: "12:30", end: "13:10" },
-    { id: "p7",  label: "Period 7",     start: "13:10", end: "13:50" },
-    { id: "p8",  label: "Period 8",     start: "13:50", end: "14:30" },
-    { id: "cls", label: "Closing",      start: "14:30", end: "15:00" },
+    { id: "asm", label: "Assembly", start: "07:30", end: "07:50" },
+    { id: "p1", label: "Period 1", start: "08:00", end: "08:40" },
+    { id: "p2", label: "Period 2", start: "08:40", end: "09:20" },
+    { id: "p3", label: "Period 3", start: "09:20", end: "10:00" },
+    { id: "p4", label: "Period 4", start: "10:00", end: "10:40" },
+    { id: "sbr", label: "Short Break", start: "10:40", end: "11:10" },
+    { id: "p5", label: "Period 5", start: "11:10", end: "11:50" },
+    { id: "p6", label: "Period 6", start: "11:50", end: "12:30" },
+    { id: "lbr", label: "Lunch", start: "12:30", end: "13:10" },
+    { id: "p7", label: "Period 7", start: "13:10", end: "13:50" },
+    { id: "p8", label: "Period 8", start: "13:50", end: "14:30" },
+    { id: "cls", label: "Closing", start: "14:30", end: "15:00" },
   ],
   days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
   cells: {},
 };
 
 const defaultState: AppState = {
-  entries:        [],
-  bin:            [],
-  logs:           [],
-  comments:       {},
-  attendance:     [],
-  classRolls:     {},
-  staffList:      _defaultStaff,
-  schoolSettings: { name:"Greatmind Academy", motto:"Excellence in every child", session:"2024/2025", term:"First Term", resumptionDate:"January 8th, 2025" },
-  timetable:      _defaultTimetable,
-  notifications:  [],
-  staffSignIns:   [],
+  entries: [],
+  bin: [],
+  logs: [],
+  comments: {},
+  attendance: [],
+  classRolls: {},
+  staffList: _defaultStaff,
+  schoolSettings: { name: "Greatmind Academy", motto: "Excellence in every child", session: "2024/2025", term: "First Term", resumptionDate: "January 8th, 2025" },
+  timetable: _defaultTimetable,
+  notifications: [],
+  staffSignIns: [],
 };
 
 function getInitialState(): AppState {
   const saved = loadDB();
   return {
-    entries:        saved.entries        ?? [],
-    bin:            saved.bin            ?? [],
-    logs:           saved.logs           ?? [],
-    comments:       saved.comments       ?? {},
-    attendance:     saved.attendance     ?? [],
-    classRolls:     saved.classRolls     ?? {},
-    staffList:      saved.staffList      ?? _defaultStaff,
-    schoolSettings: saved.schoolSettings ?? { name:"Greatmind Academy", motto:"Excellence in every child", session:"2024/2025", term:"First Term", resumptionDate:"January 8th, 2025" },
-    timetable:      saved.timetable      ?? _defaultTimetable,
-    notifications:  saved.notifications  ?? [],
-    staffSignIns:   saved.staffSignIns   ?? [],
+    entries: saved.entries ?? [],
+    bin: saved.bin ?? [],
+    logs: saved.logs ?? [],
+    comments: saved.comments ?? {},
+    attendance: saved.attendance ?? [],
+    classRolls: saved.classRolls ?? {},
+    staffList: saved.staffList ?? _defaultStaff,
+    schoolSettings: saved.schoolSettings ?? { name: "Greatmind Academy", motto: "Excellence in every child", session: "2024/2025", term: "First Term", resumptionDate: "January 8th, 2025" },
+    timetable: saved.timetable ?? _defaultTimetable,
+    notifications: saved.notifications ?? [],
+    staffSignIns: saved.staffSignIns ?? [],
   };
 }
 
 
 function mkLog(action: string, student: string, subject: string, detail = "", actor = "") {
-  return { id:uid(), action, student, subject, detail, ts:new Date().toISOString(), actor };
+  return { id: uid(), action, student, subject, detail, ts: new Date().toISOString(), actor };
 }
 
 function appReducer(state: AppState, action: any): AppState {
@@ -906,10 +906,10 @@ function appReducer(state: AppState, action: any): AppState {
       const actor = action.actor || "";
       const notify = actor && actor !== "Admin"
         ? [makeNotification({
-            fromActor: actor, fromRole: "system", toScope: "admin",
-            title: "Attendance recorded",
-            body: `${actor} saved attendance for ${cls} on ${date} (${action.payload.length} student${action.payload.length === 1 ? "" : "s"}).`,
-          })]
+          fromActor: actor, fromRole: "system", toScope: "admin",
+          title: "Attendance recorded",
+          body: `${actor} saved attendance for ${cls} on ${date} (${action.payload.length} student${action.payload.length === 1 ? "" : "s"}).`,
+        })]
         : [];
       return {
         ...state,
@@ -1033,12 +1033,12 @@ function useToast() {
 // ─── Primitives ───────────────────────────────────────────────────────────────
 const colorMap: Record<string, string> = {
   slate: "bg-slate-100 text-slate-600",
-  blue:  "bg-blue-100 text-blue-700",
+  blue: "bg-blue-100 text-blue-700",
   green: "bg-emerald-100 text-emerald-700",
   amber: "bg-amber-100 text-amber-700",
-  red:   "bg-red-100 text-red-700",
-  indigo:"bg-indigo-100 text-indigo-700",
-  emerald:"bg-emerald-100 text-emerald-700",
+  red: "bg-red-100 text-red-700",
+  indigo: "bg-indigo-100 text-indigo-700",
+  emerald: "bg-emerald-100 text-emerald-700",
 };
 
 const Pill = ({ children, color = "slate" }: { children: React.ReactNode; color?: string }) => (
@@ -1049,17 +1049,17 @@ const Pill = ({ children, color = "slate" }: { children: React.ReactNode; color?
 
 const StatusPill = ({ status }: { status: string }) => {
   const m: Record<string, { l: string; c: string }> = {
-    active:     { l:"Active",     c:"green" },
-    restricted: { l:"Restricted", c:"amber" },
-    revoked:    { l:"Revoked",    c:"red" },
+    active: { l: "Active", c: "green" },
+    restricted: { l: "Restricted", c: "amber" },
+    revoked: { l: "Revoked", c: "red" },
   };
   const s = m[status] || m.active;
   return <Pill color={s.c}>{s.l}</Pill>;
 };
 
 const SchoolLogo = ({ logoUrl, size = "md", className = "" }: { logoUrl: string | null; size?: string; className?: string }) => {
-  const sz: Record<string, string> = { lg:"w-16 h-16", sm:"w-8 h-8", xs:"w-6 h-6", md:"w-10 h-10" };
-  const ic: Record<string, number> = { lg:32, sm:18, xs:14, md:22 };
+  const sz: Record<string, string> = { lg: "w-16 h-16", sm: "w-8 h-8", xs: "w-6 h-6", md: "w-10 h-10" };
+  const ic: Record<string, number> = { lg: 32, sm: 18, xs: 14, md: 22 };
   if (logoUrl) return (
     <img src={logoUrl} alt="Logo" className={`${sz[size] || sz.md} rounded-xl object-contain bg-white border border-slate-100 flex-shrink-0 ${className}`} />
   );
@@ -1101,12 +1101,12 @@ const Sel = ({ label, children, className = "", ...p }: any) => (
 // FIX: Destructure loading separately so it's not passed to DOM <button>
 const Btn = ({ children, variant = "primary", size = "md", className = "", loading = false, ...p }: any) => {
   const base = "inline-flex items-center justify-center gap-2 font-black uppercase tracking-widest rounded-xl transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed";
-  const sz: Record<string, string> = { sm:"text-xs px-3 py-2", md:"text-xs px-4 py-3", lg:"text-sm px-6 py-4" };
+  const sz: Record<string, string> = { sm: "text-xs px-3 py-2", md: "text-xs px-4 py-3", lg: "text-sm px-6 py-4" };
   const v: Record<string, string> = {
     primary: "bg-blue-600 text-white hover:bg-blue-700 shadow-sm",
-    danger:  "bg-red-600 text-white hover:bg-red-700",
+    danger: "bg-red-600 text-white hover:bg-red-700",
     success: "bg-emerald-600 text-white hover:bg-emerald-700",
-    ghost:   "bg-slate-100 text-slate-700 hover:bg-slate-200",
+    ghost: "bg-slate-100 text-slate-700 hover:bg-slate-200",
     outline: "bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-300",
   };
   return (
@@ -1358,9 +1358,9 @@ const DefaultSignaturesPanel = memo(({ initialTeacher, initialPrincipal, onSave,
 });
 
 const Toast = memo(({ toast }: { toast: { msg: string; type: string; id: string } }) => {
-  const s: Record<string, string> = { success:"bg-slate-900 text-white", error:"bg-red-600 text-white", warning:"bg-amber-500 text-white" };
-  const ic: Record<string, React.ReactNode> = { success:<Check size={12}/>, error:<X size={12}/>, warning:<AlertTriangle size={12}/> };
-  const ib: Record<string, string> = { success:"bg-emerald-500", error:"bg-white/20", warning:"bg-white/20" };
+  const s: Record<string, string> = { success: "bg-slate-900 text-white", error: "bg-red-600 text-white", warning: "bg-amber-500 text-white" };
+  const ic: Record<string, React.ReactNode> = { success: <Check size={12} />, error: <X size={12} />, warning: <AlertTriangle size={12} /> };
+  const ib: Record<string, string> = { success: "bg-emerald-500", error: "bg-white/20", warning: "bg-white/20" };
   return (
     <div key={toast.id} className={`fixed bottom-24 md:bottom-6 right-4 md:right-6 z-[300] flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-xs font-black uppercase tracking-widest ${s[toast.type] || s.success}`}>
       <div className={`p-1.5 rounded-full ${ib[toast.type] || ib.success}`}>{ic[toast.type] || ic.success}</div>
@@ -1412,17 +1412,17 @@ const StaffCard = memo(({ s, onEdit, onRevoke, onRestore }: { s: StaffMember; on
 
 // ─── Staff Dialog ─────────────────────────────────────────────────────────────
 const STEPS = [
-  { id:"identity",    label:"Identity",    icon:"👤", desc:"Name, role & PIN" },
-  { id:"status",      label:"Status",      icon:"🔑", desc:"Account access level" },
-  { id:"permissions", label:"Permissions", icon:"🛡️", desc:"Feature access" },
-  { id:"classes",     label:"Classes",     icon:"📚", desc:"Assigned classes" },
+  { id: "identity", label: "Identity", icon: "👤", desc: "Name, role & PIN" },
+  { id: "status", label: "Status", icon: "🔑", desc: "Account access level" },
+  { id: "permissions", label: "Permissions", icon: "🛡️", desc: "Feature access" },
+  { id: "classes", label: "Classes", icon: "📚", desc: "Assigned classes" },
 ];
 
 const blankStaff = (): Omit<StaffMember, "id" | "createdAt" | "updatedAt"> => ({
   name: "", role: "Teacher", pin: "", status: "active",
   assignedClasses: [],
   assignedSubjects: [],
-  permissions: { scoreEntry:true, viewReports:true, printReports:false, manageRecords:false },
+  permissions: { scoreEntry: true, viewReports: true, printReports: false, manageRecords: false },
 });
 
 const StaffDialog = memo(({ staff, mode, onSave, onClose }: { staff?: StaffMember; mode: "add" | "edit"; onSave: (s: StaffMember) => void; onClose: () => void }) => {
@@ -1568,9 +1568,9 @@ const StaffDialog = memo(({ staff, mode, onSave, onClose }: { staff?: StaffMembe
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3">
             {([
-              ["active",     "✓ Active",      "Full access to all permitted features.", "border-emerald-400 bg-emerald-50 text-emerald-700", "bg-emerald-500"],
-              ["restricted", "⚠ Restricted",  "Can log in but with limited feature access.", "border-amber-400 bg-amber-50 text-amber-700", "bg-amber-500"],
-              ["revoked",    "✗ Revoked",     "Account disabled — staff cannot log in.", "border-red-400 bg-red-50 text-red-700", "bg-red-400"],
+              ["active", "✓ Active", "Full access to all permitted features.", "border-emerald-400 bg-emerald-50 text-emerald-700", "bg-emerald-500"],
+              ["restricted", "⚠ Restricted", "Can log in but with limited feature access.", "border-amber-400 bg-amber-50 text-amber-700", "bg-amber-500"],
+              ["revoked", "✗ Revoked", "Account disabled — staff cannot log in.", "border-red-400 bg-red-50 text-red-700", "bg-red-400"],
             ] as const).map(([v, l, desc, ac, dot]) => (
               <button key={v} type="button" onClick={() => setF("status", v)}
                 className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${form.status === v ? ac : "border-slate-200 bg-white hover:border-slate-300"}`}>
@@ -1843,12 +1843,12 @@ const StaffDialog = memo(({ staff, mode, onSave, onClose }: { staff?: StaffMembe
 
 // ─── Export Dialog (Print / PDF / Excel / Email / Share) ─────────────────────
 const EXPORT_OPTS = [
-  { id:"pdf",       icon:"📄", label:"Export PDF",       desc:"Formatted A4 report (jsPDF)" },
-  { id:"excel",     icon:"📊", label:"Export Excel",     desc:"Full spreadsheet with all subjects" },
-  { id:"browser",   icon:"🖨️", label:"Browser Print",    desc:"Print via browser / USB printer" },
-  { id:"download",  icon:"💾", label:"Download HTML",    desc:"Save as HTML file" },
-  { id:"email",     icon:"📧", label:"Email",            desc:"Send to parent / guardian" },
-  { id:"share",     icon:"📤", label:"Share",            desc:"WhatsApp / native share" },
+  { id: "pdf", icon: "📄", label: "Export PDF", desc: "Formatted A4 report (jsPDF)" },
+  { id: "excel", icon: "📊", label: "Export Excel", desc: "Full spreadsheet with all subjects" },
+  { id: "browser", icon: "🖨️", label: "Browser Print", desc: "Print via browser / USB printer" },
+  { id: "download", icon: "💾", label: "Download HTML", desc: "Save as HTML file" },
+  { id: "email", icon: "📧", label: "Email", desc: "Send to parent / guardian" },
+  { id: "share", icon: "📤", label: "Share", desc: "WhatsApp / native share" },
 ];
 
 const PrintDialog = memo(({ student, schoolName, schoolLogo, curC, attRate, schoolSettings, onClose }: {
@@ -1901,21 +1901,21 @@ const PrintDialog = memo(({ student, schoolName, schoolLogo, curC, attRate, scho
         // Enhanced email validation: RFC 5322 simplified pattern
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const trimmedEmail = email.trim();
-        
+
         if (!emailRegex.test(trimmedEmail)) {
           throw new Error("bad-email");
         }
-        
+
         // Additional checks: valid length and no suspicious patterns
         if (trimmedEmail.length < 5 || trimmedEmail.length > 254) {
           throw new Error("bad-email");
         }
-        
+
         // Check for consecutive dots or invalid characters
         if (trimmedEmail.includes("..") || /[<>()[\]\\,;:\s@"]/g.test(trimmedEmail)) {
           throw new Error("bad-email");
         }
-        
+
         const s = encodeURIComponent(`${student.name} Report — ${schoolName}`);
         const b = encodeURIComponent(`Please find the academic report for ${student.name}.\n\nSession: ${schoolSettings.session}\nTerm: ${schoolSettings.term}\n\n— ${schoolName}`);
         window.location.href = `mailto:${encodeURIComponent(trimmedEmail)}?subject=${s}&body=${b}`;
@@ -2026,13 +2026,13 @@ const DEFAULT_REPORT_TEMPLATE: ReportTemplateConfig = {
 };
 
 const SETTINGS_SECTIONS = [
-  { id:"logo",     label:"School Logo",    icon:"🖼️" },
-  { id:"info",     label:"School Info",    icon:"🏫" },
-  { id:"session",  label:"Session & Term", icon:"📅" },
-  { id:"template", label:"Report Template",icon:"📋" },
-  { id:"signatures",label:"Signatures",    icon:"✍️" },
-  { id:"security", label:"Security & PIN", icon:"🔒" },
-  { id:"database", label:"Database",       icon:"🗄️" },
+  { id: "logo", label: "School Logo", icon: "🖼️" },
+  { id: "info", label: "School Info", icon: "🏫" },
+  { id: "session", label: "Session & Term", icon: "📅" },
+  { id: "template", label: "Report Template", icon: "📋" },
+  { id: "signatures", label: "Signatures", icon: "✍️" },
+  { id: "security", label: "Security & PIN", icon: "🔒" },
+  { id: "database", label: "Database", icon: "🗄️" },
 ];
 
 // ─── Fees: auto-structured tracker ────────────────────────────────────────────
@@ -2175,7 +2175,7 @@ const FeesTab = memo(({ showToast }: { showToast: (msg: string, type?: string) =
             {classes.map(c => <option key={c}>{c}</option>)}
           </Sel>
           <Btn variant="outline" onClick={openStructureEditor} disabled={!activeClass}>
-            <Settings size={14}/>{currentStructure ? "Edit Structure" : "Set Structure"}
+            <Settings size={14} />{currentStructure ? "Edit Structure" : "Set Structure"}
           </Btn>
         </div>
       </div>
@@ -2184,20 +2184,20 @@ const FeesTab = memo(({ showToast }: { showToast: (msg: string, type?: string) =
         <EmptyState icon={DollarSign} title="No classes yet" subtitle="Enrol students from Attendance roll or Score Entry to start tracking fees" />
       ) : !currentStructure ? (
         <Card className="p-8 text-center">
-          <DollarSign size={32} className="mx-auto text-slate-300 mb-3"/>
+          <DollarSign size={32} className="mx-auto text-slate-300 mb-3" />
           <p className="font-black text-slate-700 mb-1">No fee structure for {activeClass} ({term})</p>
           <p className="text-sm text-slate-400 mb-4">Set the tuition and extras once — it applies automatically to all {studentsInClass.length} enrolled student{studentsInClass.length === 1 ? "" : "s"}.</p>
-          <Btn variant="primary" onClick={openStructureEditor}><PlusCircle size={14}/>Set Structure</Btn>
+          <Btn variant="primary" onClick={openStructureEditor}><PlusCircle size={14} />Set Structure</Btn>
         </Card>
       ) : (
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Expected",      value: stats.expectedTotal, color: "bg-slate-100 text-slate-700",  icon: Wallet },
-              { label: "Collected",     value: stats.collected,     color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
-              { label: "Outstanding",   value: stats.balance,       color: "bg-red-100 text-red-700",      icon: AlertTriangle },
-              { label: "Per Student",   value: expectedPerStudent,  color: "bg-blue-100 text-blue-700",    icon: Users },
+              { label: "Expected", value: stats.expectedTotal, color: "bg-slate-100 text-slate-700", icon: Wallet },
+              { label: "Collected", value: stats.collected, color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
+              { label: "Outstanding", value: stats.balance, color: "bg-red-100 text-red-700", icon: AlertTriangle },
+              { label: "Per Student", value: expectedPerStudent, color: "bg-blue-100 text-blue-700", icon: Users },
             ].map((s) => (
               <Card key={s.label} className="p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -2265,7 +2265,7 @@ const FeesTab = memo(({ showToast }: { showToast: (msg: string, type?: string) =
                           </div>
                         </div>
                         <Btn variant={balance > 0 ? "primary" : "ghost"} size="sm" onClick={() => { setPayingStudent(name); setPayAmount(""); setPayNote(""); }}>
-                          {balance > 0 ? <><PlusCircle size={13}/>Record Payment</> : <><Check size={13}/>Add Payment</>}
+                          {balance > 0 ? <><PlusCircle size={13} />Record Payment</> : <><Check size={13} />Add Payment</>}
                         </Btn>
                       </div>
                     </div>
@@ -2293,14 +2293,14 @@ const FeesTab = memo(({ showToast }: { showToast: (msg: string, type?: string) =
                   <div key={idx} className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg">
                     <span className="flex-1 text-sm font-medium">{it.label}</span>
                     <span className="font-black text-slate-700">₦{it.amount.toLocaleString()}</span>
-                    <button onClick={() => setItemsInput(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700"><Trash2 size={13}/></button>
+                    <button onClick={() => setItemsInput(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700"><Trash2 size={13} /></button>
                   </div>
                 ))}
               </div>
               <div className="grid grid-cols-[1fr_120px_auto] gap-2">
-                <input value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Item name (e.g. Books)" className="px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg text-sm"/>
-                <input type="number" value={newItemAmount} onChange={e => setNewItemAmount(e.target.value)} placeholder="Amount" className="px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg text-sm"/>
-                <Btn variant="outline" size="sm" onClick={addItem} disabled={!newItemLabel.trim() || !newItemAmount}><PlusCircle size={13}/></Btn>
+                <input value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Item name (e.g. Books)" className="px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg text-sm" />
+                <input type="number" value={newItemAmount} onChange={e => setNewItemAmount(e.target.value)} placeholder="Amount" className="px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg text-sm" />
+                <Btn variant="outline" size="sm" onClick={addItem} disabled={!newItemLabel.trim() || !newItemAmount}><PlusCircle size={13} /></Btn>
               </div>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
@@ -2310,7 +2310,7 @@ const FeesTab = memo(({ showToast }: { showToast: (msg: string, type?: string) =
           </div>
           <div className="px-6 pb-6 grid grid-cols-2 gap-2">
             <Btn variant="ghost" onClick={() => setEditingStructure(false)}>Cancel</Btn>
-            <Btn variant="primary" onClick={saveStructure}><Save size={13}/>Save Structure</Btn>
+            <Btn variant="primary" onClick={saveStructure}><Save size={13} />Save Structure</Btn>
           </div>
         </Modal>
       )}
@@ -2341,7 +2341,7 @@ const FeesTab = memo(({ showToast }: { showToast: (msg: string, type?: string) =
           </div>
           <div className="px-6 pb-6 grid grid-cols-2 gap-2">
             <Btn variant="ghost" onClick={() => setPayingStudent(null)}>Cancel</Btn>
-            <Btn variant="primary" onClick={recordPayment} disabled={!payAmount}><Check size={13}/>Record</Btn>
+            <Btn variant="primary" onClick={recordPayment} disabled={!payAmount}><Check size={13} />Record</Btn>
           </div>
         </Modal>
       )}
@@ -2372,8 +2372,8 @@ const FeesOverviewCard = memo(({ schoolSettings, classRolls, entries, setActiveT
   const overview = useMemo(() => {
     let structures: Record<string, Record<string, { tuition: number; items: { label: string; amount: number }[] }>> = {};
     let payments: Record<string, { paid: number; history: any[] }> = {};
-    try { structures = JSON.parse(localStorage.getItem(FEE_STRUCT_LS) || "{}"); } catch {}
-    try { payments = JSON.parse(localStorage.getItem(FEES_LS) || "{}"); } catch {}
+    try { structures = JSON.parse(localStorage.getItem(FEE_STRUCT_LS) || "{}"); } catch { }
+    try { payments = JSON.parse(localStorage.getItem(FEES_LS) || "{}"); } catch { }
 
     const classes = [...new Set([
       ...Object.keys(classRolls).filter(c => (classRolls[c] || []).length > 0),
@@ -2431,18 +2431,17 @@ const FeesOverviewCard = memo(({ schoolSettings, classRolls, entries, setActiveT
       <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
         <Wallet size={14} className="text-emerald-500" />
         <p className="text-sm font-black uppercase text-slate-600">Fees Overview · {term}</p>
-        <span className={`ml-auto text-xs font-black px-2 py-0.5 rounded-md ${
-          overview.collectionRate >= 80 ? "bg-emerald-100 text-emerald-700" :
-          overview.collectionRate >= 50 ? "bg-amber-100 text-amber-700" :
-          "bg-red-100 text-red-700"
-        }`}>{overview.collectionRate}% collected</span>
+        <span className={`ml-auto text-xs font-black px-2 py-0.5 rounded-md ${overview.collectionRate >= 80 ? "bg-emerald-100 text-emerald-700" :
+            overview.collectionRate >= 50 ? "bg-amber-100 text-amber-700" :
+              "bg-red-100 text-red-700"
+          }`}>{overview.collectionRate}% collected</span>
         <button onClick={() => setActiveTab("fees")} className="text-xs font-black text-blue-600 hover:text-blue-700">Manage →</button>
       </div>
 
       {overview.expectedTotal === 0 ? (
         <div className="px-5 py-6 text-center">
           <p className="text-xs text-slate-400 font-bold mb-2">No fee structures set yet for this term.</p>
-          <Btn variant="outline" size="sm" onClick={() => setActiveTab("fees")}><PlusCircle size={12}/>Set Fee Structure</Btn>
+          <Btn variant="outline" size="sm" onClick={() => setActiveTab("fees")}><PlusCircle size={12} />Set Fee Structure</Btn>
         </div>
       ) : (
         <>
@@ -2533,7 +2532,7 @@ const ResourcesTab = memo(({ showToast }: { showToast: (msg: string, type?: stri
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      try { localStorage.setItem("saved_resources", JSON.stringify(Array.from(next))); } catch {}
+      try { localStorage.setItem("saved_resources", JSON.stringify(Array.from(next))); } catch { }
       return next;
     });
   };
@@ -2604,31 +2603,28 @@ const ResourcesTab = memo(({ showToast }: { showToast: (msg: string, type?: stri
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setSelectedSection("curriculum")}
-            className={`px-4 py-2.5 min-h-[48px] rounded-lg text-xs font-black uppercase transition-all ${
-              selectedSection === "curriculum"
+            className={`px-4 py-2.5 min-h-[48px] rounded-lg text-xs font-black uppercase transition-all ${selectedSection === "curriculum"
                 ? "bg-blue-600 text-white"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
+              }`}
           >
             Curriculum Sync
           </button>
           <button
             onClick={() => setSelectedSection("notes")}
-            className={`px-4 py-2.5 min-h-[48px] rounded-lg text-xs font-black uppercase transition-all ${
-              selectedSection === "notes"
+            className={`px-4 py-2.5 min-h-[48px] rounded-lg text-xs font-black uppercase transition-all ${selectedSection === "notes"
                 ? "bg-blue-600 text-white"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
+              }`}
           >
             E-Notes
           </button>
           <button
             onClick={() => setSelectedSection("sources")}
-            className={`px-4 py-2.5 min-h-[48px] rounded-lg text-xs font-black uppercase transition-all ${
-              selectedSection === "sources"
+            className={`px-4 py-2.5 min-h-[48px] rounded-lg text-xs font-black uppercase transition-all ${selectedSection === "sources"
                 ? "bg-blue-600 text-white"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
+              }`}
           >
             External Sources
           </button>
@@ -2882,11 +2878,10 @@ const ResourcesTab = memo(({ showToast }: { showToast: (msg: string, type?: stri
                   <button
                     key={filter}
                     onClick={() => setCoverageFilter(filter)}
-                    className={`px-4 py-2 min-h-[40px] rounded-full text-xs font-black transition-all ${
-                      coverageFilter === filter
+                    className={`px-4 py-2 min-h-[40px] rounded-full text-xs font-black transition-all ${coverageFilter === filter
                         ? "bg-blue-600 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                      }`}
                   >
                     {filter}
                   </button>
@@ -2947,11 +2942,10 @@ const ResourcesTab = memo(({ showToast }: { showToast: (msg: string, type?: stri
                                 toggleSaveResource(src.id);
                                 showToast(isSaved ? "Removed from library" : "Saved to library", "success");
                               }}
-                              className={`min-h-[48px] px-4 py-2 rounded-lg text-xs font-black uppercase transition-all flex items-center gap-2 border-2 ${
-                                isSaved
+                              className={`min-h-[48px] px-4 py-2 rounded-lg text-xs font-black uppercase transition-all flex items-center gap-2 border-2 ${isSaved
                                   ? "bg-amber-50 border-amber-300 text-amber-700"
                                   : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                              }`}
+                                }`}
                               title={isSaved ? "Remove from library" : "Save to library"}
                             >
                               <BookMarked size={14} /> {isSaved ? "Saved" : "Save"}
@@ -2994,7 +2988,7 @@ const ResourcesTab = memo(({ showToast }: { showToast: (msg: string, type?: stri
                 <button
                   onClick={() => {
                     setSavedResources(new Set());
-                    try { localStorage.removeItem("saved_resources"); } catch {}
+                    try { localStorage.removeItem("saved_resources"); } catch { }
                     showToast("Library cleared", "success");
                   }}
                   className="px-4 py-2 min-h-[40px] bg-white border-2 border-amber-300 text-amber-700 rounded-lg text-xs font-black uppercase hover:bg-amber-100 transition-all"
@@ -3037,7 +3031,7 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
     try {
       const raw = localStorage.getItem(DB_KEY) || "";
       const bytes = new Blob([raw]).size;
-      const size = bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes/1024).toFixed(1)} KB` : `${(bytes/1048576).toFixed(2)} MB`;
+      const size = bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(2)} MB`;
       const keys = Object.keys(localStorage).filter(k => k.startsWith("greatmind"));
       setDbStats({ size, keys });
     } catch { setDbStats({ size: "N/A", keys: [] }); }
@@ -3068,7 +3062,7 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
     if (pinF.nxt !== pinF.cnf) return setPinErr("New PINs do not match.");
     const hashed = await ensureHashed(pinF.nxt);
     adminPinRef.current = hashed;
-    try { localStorage.setItem(ADMIN_PIN_KEY, hashed); } catch {}
+    try { localStorage.setItem(ADMIN_PIN_KEY, hashed); } catch { }
     setPinF({ cur: "", nxt: "", cnf: "" });
     showToast("Admin PIN updated & encrypted");
   };
@@ -3077,7 +3071,7 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
     setClearPinErr("");
     const ok = await verifyPIN(clearPin, adminPinRef.current);
     if (!ok) return setClearPinErr("Incorrect PIN.");
-    try { localStorage.removeItem(DB_KEY); } catch {}
+    try { localStorage.removeItem(DB_KEY); } catch { }
     showToast("Database cleared — reloading…", "warning");
     setClearPin("");
     setTimeout(() => window.location.reload(), 1500);
@@ -3364,7 +3358,7 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
                       try {
                         await pushToFirebase(state as any);
                         showToast("Pushed to Firebase ✓");
-                      } catch { showToast("Push failed","error"); }
+                      } catch { showToast("Push failed", "error"); }
                     }}>
                       ☁️ Push to Cloud
                     </Btn>
@@ -3375,8 +3369,8 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
                           showToast("Cloud data fetched — reload to apply", "warning");
                           saveDB(remote as any);
                           setTimeout(() => window.location.reload(), 1500);
-                        } else { showToast("No cloud data found","warning"); }
-                      } catch { showToast("Fetch failed","error"); }
+                        } else { showToast("No cloud data found", "warning"); }
+                      } catch { showToast("Fetch failed", "error"); }
                     }}>
                       🔄 Pull from Cloud
                     </Btn>
@@ -3399,8 +3393,8 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
                 <p className="text-sm font-black uppercase text-slate-700">Local Database</p>
                 <div className="grid grid-cols-2 gap-3">
                   {([
-                    ["Storage Used", dbStats.size,                    "bg-blue-50 text-blue-800"],
-                    ["DB Keys",      String(dbStats.keys.length),      "bg-slate-50 text-slate-700"],
+                    ["Storage Used", dbStats.size, "bg-blue-50 text-blue-800"],
+                    ["DB Keys", String(dbStats.keys.length), "bg-slate-50 text-slate-700"],
                   ] as const).map(([l, v, c]) => (
                     <div key={l} className={`${c} rounded-xl p-4 text-center border border-slate-100`}>
                       <p className="text-2xl font-black">{v}</p>
@@ -3413,12 +3407,12 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
                   <p className="text-xs font-black uppercase text-slate-400 mb-3">Data Breakdown</p>
                   {([
-                    ["Score Records",  state.entries.length],
-                    ["Bin (deleted)",  state.bin.length],
-                    ["Attendance",     state.attendance.length],
+                    ["Score Records", state.entries.length],
+                    ["Bin (deleted)", state.bin.length],
+                    ["Attendance", state.attendance.length],
                     ["Staff Accounts", state.staffList.length],
-                    ["Class Rolls",    Object.values(state.classRolls).reduce((a, b) => a + b.length, 0)],
-                    ["Activity Logs",  state.logs.length],
+                    ["Class Rolls", Object.values(state.classRolls).reduce((a, b) => a + b.length, 0)],
+                    ["Activity Logs", state.logs.length],
                   ] as const).map(([l, v]) => (
                     <div key={l} className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-600">{l}</span>
@@ -3434,16 +3428,16 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
                     <Btn variant="outline" size="sm" onClick={() => {
                       const data = localStorage.getItem(DB_KEY) || "{}";
                       const a = document.createElement("a");
-                      a.href = URL.createObjectURL(new Blob([data], { type:"application/json" }));
+                      a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
                       a.download = `greatmind_backup_${today()}.json`;
                       a.click(); showToast("JSON backup downloaded");
                     }}>
                       <Database size={13} />Backup JSON
                     </Btn>
                     <Btn variant="outline" size="sm" onClick={async () => {
-                      if (!state.entries.length) return showToast("No data to export","warning");
+                      if (!state.entries.length) return showToast("No data to export", "warning");
                       const classes = [...new Set(state.entries.map(e => e.studentClass))];
-                      showToast(`Exporting ${classes.length} class${classes.length!==1?"es":""}…`);
+                      showToast(`Exporting ${classes.length} class${classes.length !== 1 ? "es" : ""}…`);
                       for (const cls of classes) {
                         await exportClassToExcel(cls, state.schoolSettings.session, state.schoolSettings.term, state.entries, state.attendance);
                       }
@@ -3470,7 +3464,7 @@ const SettingsTab = memo(({ logoUrl, setSchoolLogo, logoRef, showToast, adminPin
                           saveDB(parsed);
                           showToast("Backup restored — reloading…");
                           setTimeout(() => window.location.reload(), 1200);
-                        } catch { showToast("Invalid backup file","error"); }
+                        } catch { showToast("Invalid backup file", "error"); }
                       };
                       r.readAsText(f);
                       e.target.value = "";
@@ -3610,7 +3604,7 @@ const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }:
           <thead>
             <tr style={{ backgroundColor: tpl.headerColor, color: "#fff" }}>
               {headers.map((h, i) => (
-                <th key={i} style={{ padding:"9px 10px", textAlign: i === 0 ? "left" : "center", fontWeight:800, fontSize:"9px", letterSpacing:"0.1em", textTransform:"uppercase", borderRight: i < headers.length - 1 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>{h}</th>
+                <th key={i} style={{ padding: "9px 10px", textAlign: i === 0 ? "left" : "center", fontWeight: 800, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", borderRight: i < headers.length - 1 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -3621,22 +3615,22 @@ const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }:
               const border = tpl.tableStyle === "minimal" ? "none" : "1px solid #e2e8f0";
               return (
                 <tr key={i} style={{ background: bg }}>
-                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, fontWeight:700, textTransform:"uppercase", fontSize:"10px" }}>{r.subject}</td>
-                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:700 }}>{r.caScore}</td>
-                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:700 }}>{r.examScore}</td>
-                  <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:900, fontSize:"12px" }}>{r.total}</td>
-                  {tpl.showGrade && <td style={{ padding:"8px 10px", borderRight: border, borderBottom: border, textAlign:"center", fontWeight:900, color:g.color }}>{g.grade}</td>}
-                  {tpl.showGrade && <td style={{ padding:"8px 10px", borderBottom: border, fontStyle:"italic", color:"#64748b", fontSize:"10px" }}>{g.remark}</td>}
+                  <td style={{ padding: "8px 10px", borderRight: border, borderBottom: border, fontWeight: 700, textTransform: "uppercase", fontSize: "10px" }}>{r.subject}</td>
+                  <td style={{ padding: "8px 10px", borderRight: border, borderBottom: border, textAlign: "center", fontWeight: 700 }}>{r.caScore}</td>
+                  <td style={{ padding: "8px 10px", borderRight: border, borderBottom: border, textAlign: "center", fontWeight: 700 }}>{r.examScore}</td>
+                  <td style={{ padding: "8px 10px", borderRight: border, borderBottom: border, textAlign: "center", fontWeight: 900, fontSize: "12px" }}>{r.total}</td>
+                  {tpl.showGrade && <td style={{ padding: "8px 10px", borderRight: border, borderBottom: border, textAlign: "center", fontWeight: 900, color: g.color }}>{g.grade}</td>}
+                  {tpl.showGrade && <td style={{ padding: "8px 10px", borderBottom: border, fontStyle: "italic", color: "#64748b", fontSize: "10px" }}>{g.remark}</td>}
                 </tr>
               );
             })}
           </tbody>
           <tfoot>
             <tr style={{ background: tpl.headerColor }}>
-              <td colSpan={tpl.showGrade ? 3 : 3} style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Cumulative Total</td>
-              <td style={{ padding:"9px 10px", textAlign:"center", color:"#fff", fontWeight:900, fontSize:"14px" }}>{report.summary.total}<span style={{ fontSize:"9px", opacity:0.5 }}>/{report.summary.obtainable}</span></td>
-              {tpl.showGrade && <td style={{ padding:"9px 10px", textAlign:"center", color:"#34d399", fontWeight:900, fontSize:"12px" }}>{report.summary.avg}%</td>}
-              {tpl.showGrade && <td style={{ padding:"9px 10px", color:"#94a3b8", fontWeight:800, fontSize:"9px", textTransform:"uppercase" }}>Avg.</td>}
+              <td colSpan={tpl.showGrade ? 3 : 3} style={{ padding: "9px 10px", color: "#94a3b8", fontWeight: 800, fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.1em" }}>Cumulative Total</td>
+              <td style={{ padding: "9px 10px", textAlign: "center", color: "#fff", fontWeight: 900, fontSize: "14px" }}>{report.summary.total}<span style={{ fontSize: "9px", opacity: 0.5 }}>/{report.summary.obtainable}</span></td>
+              {tpl.showGrade && <td style={{ padding: "9px 10px", textAlign: "center", color: "#34d399", fontWeight: 900, fontSize: "12px" }}>{report.summary.avg}%</td>}
+              {tpl.showGrade && <td style={{ padding: "9px 10px", color: "#94a3b8", fontWeight: 800, fontSize: "9px", textTransform: "uppercase" }}>Avg.</td>}
             </tr>
           </tfoot>
         </table>
@@ -3646,9 +3640,9 @@ const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }:
           <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-2">Attendance</p>
           <div className="grid grid-cols-4 gap-2">
             {([
-              ["Days Opened",  curC.daysOpen    || "—", "bg-slate-100 text-slate-800"],
+              ["Days Opened", curC.daysOpen || "—", "bg-slate-100 text-slate-800"],
               ["Days Present", curC.daysPresent || "—", "bg-emerald-50 text-emerald-800"],
-              ["Days Absent",  curC.daysAbsent  || "—", "bg-red-50 text-red-700"],
+              ["Days Absent", curC.daysAbsent || "—", "bg-red-50 text-red-700"],
               ["Rate", attRate !== null ? `${attRate}%` : "—", attRate === null ? "bg-slate-100 text-slate-800" : attRate >= 75 ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900"],
             ] as const).map(([l, v, c]) => (
               <div key={l} className={`${c} rounded-xl p-3 text-center`}>
@@ -3673,7 +3667,7 @@ const ReportSheet = memo(({ report, curC, attRate, schoolLogo, schoolSettings }:
                   {curC[sf] && typeof curC[sf] === "string" && curC[sf].startsWith("data:image") ? (
                     <img src={curC[sf]} alt="signature" style={{ maxHeight: "48px", maxWidth: "100%", objectFit: "contain" }} />
                   ) : curC[sf] ? (
-                    <p className="italic text-base" style={{ fontFamily:`${tpl.fontFamily},serif`, color: tpl.accentColor }}>{curC[sf]}</p>
+                    <p className="italic text-base" style={{ fontFamily: `${tpl.fontFamily},serif`, color: tpl.accentColor }}>{curC[sf]}</p>
                   ) : (
                     <p className="italic text-xs text-slate-300">_____________________</p>
                   )}
@@ -3782,7 +3776,7 @@ const AttendanceTab = memo(() => {
       s.name.toLowerCase().includes(rollSearch.toLowerCase()) ||
       (s.admNo || "").includes(rollSearch)
     ),
-  [rollStudents, rollSearch]);
+    [rollStudents, rollSearch]);
 
   const addStudent = () => {
     if (!newName.trim()) return showToast("Enter student name", "error");
@@ -3868,7 +3862,7 @@ const AttendanceTab = memo(() => {
 
   const filteredMark = useMemo(() =>
     markPool.filter(n => n.toLowerCase().includes(markSearch.toLowerCase())),
-  [markPool, markSearch]);
+    [markPool, markSearch]);
 
   const existingForDate = useMemo(() => {
     const m: Record<string, { status: string; note: string }> = {};
@@ -3882,10 +3876,10 @@ const AttendanceTab = memo(() => {
     const all = attendance.filter(a => a.studentClass === markClass && a.date === markDate);
     return {
       present: all.filter(a => a.status === "present").length,
-      absent:  all.filter(a => a.status === "absent").length,
-      late:    all.filter(a => a.status === "late").length,
+      absent: all.filter(a => a.status === "absent").length,
+      late: all.filter(a => a.status === "late").length,
       excused: all.filter(a => a.status === "excused").length,
-      total:   all.length,
+      total: all.length,
     };
   }, [attendance, markClass, markDate]);
 
@@ -3924,21 +3918,21 @@ const AttendanceTab = memo(() => {
   const unsavedCount = Object.values(markRecords).filter(v => v?.status).length;
 
   // ── History ───────────────────────────────────────────────────────────────
-  const [hClass,  setHClass]  = useState("");
-  const [hDate,   setHDate]   = useState(today());
+  const [hClass, setHClass] = useState("");
+  const [hDate, setHDate] = useState(today());
   const [hStatus, setHStatus] = useState("All");
   const [hSearch, setHSearch] = useState("");
 
   const historyData = useMemo(() => {
     let d = [...attendance];
-    if (hClass)          d = d.filter(a => a.studentClass === hClass);
-    if (hDate)           d = d.filter(a => a.date === hDate);
+    if (hClass) d = d.filter(a => a.studentClass === hClass);
+    if (hDate) d = d.filter(a => a.date === hDate);
     if (hStatus !== "All") d = d.filter(a => a.status === hStatus);
-    if (hSearch)         d = d.filter(a => a.studentName.toLowerCase().includes(hSearch.toLowerCase()));
+    if (hSearch) d = d.filter(a => a.studentName.toLowerCase().includes(hSearch.toLowerCase()));
     return d.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [attendance, hClass, hDate, hStatus, hSearch]);
 
-  const statColor: Record<string, string> = { present:"emerald", absent:"red", late:"amber", excused:"indigo" };
+  const statColor: Record<string, string> = { present: "emerald", absent: "red", late: "amber", excused: "indigo" };
 
   return (
     <div className="space-y-5">
@@ -3952,9 +3946,9 @@ const AttendanceTab = memo(() => {
         </div>
         <div className="flex gap-2 flex-wrap">
           {([
-            ["roll",    "Class Rolls", ClipboardList],
-            ["mark",    "Mark",        CalendarDays],
-            ["history", "History",     Database],
+            ["roll", "Class Rolls", ClipboardList],
+            ["mark", "Mark", CalendarDays],
+            ["history", "History", Database],
           ] as const).map(([id, label, Icon]) => (
             <Btn key={id} variant={attTab === id ? "primary" : "outline"} size="sm" onClick={() => setAttTab(id)}>
               <Icon size={14} />{label}
@@ -3982,17 +3976,17 @@ const AttendanceTab = memo(() => {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  {(classRolls[rollClass]||[]).length > 0 && (
+                  {(classRolls[rollClass] || []).length > 0 && (
                     <Btn variant="ghost" size="sm" onClick={async () => {
                       const ok = await loadSheetJS();
-                      if (!ok) { showToast("Could not load Excel engine","error"); return; }
+                      if (!ok) { showToast("Could not load Excel engine", "error"); return; }
                       const wb = XLSX.utils.book_new();
-                      const rows: any[][] = [["#","Student Name","Adm No."]];
-                      (classRolls[rollClass]||[]).forEach((s, i) => rows.push([i+1, s.name, s.admNo||""]));
+                      const rows: any[][] = [["#", "Student Name", "Adm No."]];
+                      (classRolls[rollClass] || []).forEach((s, i) => rows.push([i + 1, s.name, s.admNo || ""]));
                       const ws = XLSX.utils.aoa_to_sheet(rows);
-                      ws["!cols"] = [{wch:5},{wch:30},{wch:14}];
+                      ws["!cols"] = [{ wch: 5 }, { wch: 30 }, { wch: 14 }];
                       XLSX.utils.book_append_sheet(wb, ws, rollClass);
-                      XLSX.writeFile(wb, `${rollClass.replace(/\s+/g,"_")}_Roll.xlsx`);
+                      XLSX.writeFile(wb, `${rollClass.replace(/\s+/g, "_")}_Roll.xlsx`);
                       showToast("Roll exported to Excel");
                     }}>
                       📊 Export Roll
@@ -4195,8 +4189,8 @@ const AttendanceTab = memo(() => {
               <div className="grid grid-cols-4 gap-2 pt-1">
                 {([
                   ["Present", markSummary.present, "bg-emerald-50 text-emerald-700"],
-                  ["Absent",  markSummary.absent,  "bg-red-50 text-red-700"],
-                  ["Late",    markSummary.late,    "bg-amber-50 text-amber-700"],
+                  ["Absent", markSummary.absent, "bg-red-50 text-red-700"],
+                  ["Late", markSummary.late, "bg-amber-50 text-amber-700"],
                   ["Excused", markSummary.excused, "bg-indigo-50 text-indigo-700"],
                 ] as const).map(([l, v, c]) => (
                   <div key={l} className={`${c} rounded-xl p-3 text-center`}>
@@ -4323,9 +4317,9 @@ const AttendanceTab = memo(() => {
             </div>
             {(hClass || hStatus !== "All" || hSearch) && (
               <div className="flex items-center gap-2 flex-wrap">
-                {hSearch  && <Pill color="blue">"{hSearch}"</Pill>}
-                {hClass   && <Pill color="indigo">{hClass}</Pill>}
-                {hDate    && <Pill color="green">{fmtDate(hDate)}</Pill>}
+                {hSearch && <Pill color="blue">"{hSearch}"</Pill>}
+                {hClass && <Pill color="indigo">{hClass}</Pill>}
+                {hDate && <Pill color="green">{fmtDate(hDate)}</Pill>}
                 {hStatus !== "All" && <Pill color={statColor[hStatus] || "slate"}>{hStatus}</Pill>}
                 <span className="text-xs text-slate-400 font-bold">{historyData.length} record{historyData.length !== 1 ? "s" : ""}</span>
                 <button onClick={() => { setHSearch(""); setHClass(""); setHDate(today()); setHStatus("All"); }}
@@ -4353,8 +4347,8 @@ const AttendanceTab = memo(() => {
                     {historyData.map(a => {
                       const sc: Record<string, string> = {
                         present: "bg-emerald-100 text-emerald-700",
-                        absent:  "bg-red-100 text-red-700",
-                        late:    "bg-amber-100 text-amber-700",
+                        absent: "bg-red-100 text-red-700",
+                        late: "bg-amber-100 text-amber-700",
                         excused: "bg-indigo-100 text-indigo-700",
                       };
                       return (
@@ -4409,7 +4403,7 @@ function PendingDraftRow({ draft, onFinalize, onDelete }: {
         type="number" min="0" max="60" step="0.5" placeholder="Exam"
         value={exam}
         onChange={e => { const v = e.target.value; if (v === "" || (+v >= 0 && +v <= 60)) setExam(v); }}
-        onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
+        onKeyDown={e => ["-", "e", "E", "+"].includes(e.key) && e.preventDefault()}
         className="w-20 px-2 py-2 bg-slate-50 border-2 border-slate-100 rounded-lg text-sm font-black text-center focus:border-amber-500 focus:bg-white outline-none"
       />
       <button
@@ -4512,12 +4506,12 @@ function TimetableView({
   // Helper: Generate auto-fill for a class using curriculum subjects
   const generateAutoFill = (cls: string) => {
     const subjects = getSubjectsForClass(cls);
-    const periods = timetable.periods.filter(p => !["sbr","lbr","br","asm","cls"].includes(p.id) && !/break|lunch|assembly|closing/i.test(p.label));
+    const periods = timetable.periods.filter(p => !["sbr", "lbr", "br", "asm", "cls"].includes(p.id) && !/break|lunch|assembly|closing/i.test(p.label));
     const days = timetable.days;
-    
+
     const newCells = { ...timetable.cells };
     let subjectIndex = 0;
-    
+
     periods.forEach((period) => {
       days.forEach((day) => {
         if (subjectIndex < subjects.length) {
@@ -4529,7 +4523,7 @@ function TimetableView({
         }
       });
     });
-    
+
     return newCells;
   };
 
@@ -4606,8 +4600,8 @@ function TimetableView({
         {/* Class Selection - Mobile-friendly Dropdown */}
         <div className="space-y-2">
           <label className="text-xs font-black uppercase text-slate-500">Select Class:</label>
-          <select 
-            value={activeClass} 
+          <select
+            value={activeClass}
             onChange={e => setActiveClass(e.target.value)}
             className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-sm font-bold focus:border-blue-500 outline-none"
           >
@@ -4662,88 +4656,88 @@ function TimetableView({
             </thead>
             <tbody>
               {timetable.periods.map(p => {
-                const isShortBreak = ["sbr","br"].includes(p.id) || /short.?break/i.test(p.label);
-                const isLongBreak  = p.id === "lbr" || /long.?break|lunch/i.test(p.label);
-                const isBreak      = isShortBreak || isLongBreak;
-                const isAssembly   = p.id === "asm" || /morning.?assembly|^assembly/i.test(p.label);
-                const isClosing    = p.id === "cls" || /closing/i.test(p.label);
+                const isShortBreak = ["sbr", "br"].includes(p.id) || /short.?break/i.test(p.label);
+                const isLongBreak = p.id === "lbr" || /long.?break|lunch/i.test(p.label);
+                const isBreak = isShortBreak || isLongBreak;
+                const isAssembly = p.id === "asm" || /morning.?assembly|^assembly/i.test(p.label);
+                const isClosing = p.id === "cls" || /closing/i.test(p.label);
                 const isNonAcademic = isBreak || isAssembly || isClosing;
 
-                const bandBg: Record<string,string> = {
-                  assembly:    "#DBEAFE", short_break: "#FEF9C3",
-                  long_break:  "#DCFCE7", closing:     "#FEE2E2",
+                const bandBg: Record<string, string> = {
+                  assembly: "#DBEAFE", short_break: "#FEF9C3",
+                  long_break: "#DCFCE7", closing: "#FEE2E2",
                 };
-                const bandText: Record<string,string> = {
-                  assembly:    "#1E40AF", short_break: "#854D0E",
-                  long_break:  "#166534", closing:     "#991B1B",
+                const bandText: Record<string, string> = {
+                  assembly: "#1E40AF", short_break: "#854D0E",
+                  long_break: "#166534", closing: "#991B1B",
                 };
-                const bandBorder: Record<string,string> = {
-                  assembly:    "#BFDBFE", short_break: "#FDE68A",
-                  long_break:  "#BBF7D0", closing:     "#FECACA",
+                const bandBorder: Record<string, string> = {
+                  assembly: "#BFDBFE", short_break: "#FDE68A",
+                  long_break: "#BBF7D0", closing: "#FECACA",
                 };
-                const bandEmoji: Record<string,string> = {
+                const bandEmoji: Record<string, string> = {
                   assembly: "🎒", short_break: "☕️", long_break: "🍽️", closing: "🏠",
                 };
                 const bandKey = isAssembly ? "assembly" : isShortBreak ? "short_break" : isLongBreak ? "long_break" : "closing";
 
                 return (
-                <tr key={p.id}>
-                  <td
-                    className="px-1 sm:px-2 py-1 align-middle"
-                    style={isNonAcademic ? { background: bandBg[bandKey] } : {}}
-                  >
-                    <p className="font-black text-[10px] sm:text-xs" style={{ color: isNonAcademic ? bandText[bandKey] : undefined }}>{p.label}</p>
-                    <p className="text-[9px]" style={{ color: isNonAcademic ? bandText[bandKey] : "#94a3b8", opacity: isNonAcademic ? 0.7 : 1 }}>{p.start}–{p.end}</p>
-                  </td>
-                  {isNonAcademic ? (
+                  <tr key={p.id}>
                     <td
-                      colSpan={timetable.days.length}
-                      style={{
-                        background: bandBg[bandKey],
-                        padding: "6px 8px",
-                        textAlign: "center",
-                        fontWeight: 700,
-                        fontSize: "11px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: bandText[bandKey],
-                      }}
+                      className="px-1 sm:px-2 py-1 align-middle"
+                      style={isNonAcademic ? { background: bandBg[bandKey] } : {}}
                     >
-                      {bandEmoji[bandKey]} {p.label}
+                      <p className="font-black text-[10px] sm:text-xs" style={{ color: isNonAcademic ? bandText[bandKey] : undefined }}>{p.label}</p>
+                      <p className="text-[9px]" style={{ color: isNonAcademic ? bandText[bandKey] : "#94a3b8", opacity: isNonAcademic ? 0.7 : 1 }}>{p.start}–{p.end}</p>
                     </td>
-                  ) : timetable.days.map(d => {
-                    const c = cellOf(d, p.id);
-                    const mine = c?.teacherName && c.teacherName === currentActor;
-                    const dim = !canEdit && myOnly && !mine;
-                    return (
-                      <td key={d} className="align-top">
-                        <button
-                          disabled={!canEdit}
-                          onClick={() => canEdit && setEditing({
-                            key: `${activeClass}|${d}|${p.id}`,
-                            subject: c?.subject || "",
-                            teacherName: c?.teacherName || "",
-                          })}
-                          className={`w-full min-h-[48px] sm:min-h-[56px] p-1 sm:p-2 rounded-lg text-left transition-all border-2 text-[10px] sm:text-xs ${
-                            dim ? "opacity-30" :
-                            mine ? "bg-emerald-50 border-emerald-300" :
-                            c ? "bg-blue-50 border-blue-100" : "bg-slate-50 border-dashed border-slate-200"
-                          } ${canEdit ? "hover:border-blue-400 cursor-pointer" : "cursor-default"}`}
-                        >
-                          {c ? (
-                            <>
-                              <p className="font-black text-slate-800 leading-tight line-clamp-1">{c.subject || "—"}</p>
-                              {c.teacherName && <p className="text-[9px] text-slate-500 mt-0.5 truncate">{c.teacherName}</p>}
-                            </>
-                          ) : (
-                            <p className="text-[9px] text-slate-400 italic">{canEdit ? "Tap to set" : "—"}</p>
-                          )}
-                        </button>
+                    {isNonAcademic ? (
+                      <td
+                        colSpan={timetable.days.length}
+                        style={{
+                          background: bandBg[bandKey],
+                          padding: "6px 8px",
+                          textAlign: "center",
+                          fontWeight: 700,
+                          fontSize: "11px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: bandText[bandKey],
+                        }}
+                      >
+                        {bandEmoji[bandKey]} {p.label}
                       </td>
-                    );
-                  })}
-                </tr>
-              );})}
+                    ) : timetable.days.map(d => {
+                      const c = cellOf(d, p.id);
+                      const mine = c?.teacherName && c.teacherName === currentActor;
+                      const dim = !canEdit && myOnly && !mine;
+                      return (
+                        <td key={d} className="align-top">
+                          <button
+                            disabled={!canEdit}
+                            onClick={() => canEdit && setEditing({
+                              key: `${activeClass}|${d}|${p.id}`,
+                              subject: c?.subject || "",
+                              teacherName: c?.teacherName || "",
+                            })}
+                            className={`w-full min-h-[48px] sm:min-h-[56px] p-1 sm:p-2 rounded-lg text-left transition-all border-2 text-[10px] sm:text-xs ${dim ? "opacity-30" :
+                                mine ? "bg-emerald-50 border-emerald-300" :
+                                  c ? "bg-blue-50 border-blue-100" : "bg-slate-50 border-dashed border-slate-200"
+                              } ${canEdit ? "hover:border-blue-400 cursor-pointer" : "cursor-default"}`}
+                          >
+                            {c ? (
+                              <>
+                                <p className="font-black text-slate-800 leading-tight line-clamp-1">{c.subject || "—"}</p>
+                                {c.teacherName && <p className="text-[9px] text-slate-500 mt-0.5 truncate">{c.teacherName}</p>}
+                              </>
+                            ) : (
+                              <p className="text-[9px] text-slate-400 italic">{canEdit ? "Tap to set" : "—"}</p>
+                            )}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -4756,7 +4750,7 @@ function TimetableView({
           <div className="p-6 space-y-4">
             <p className="text-sm text-slate-600">This will auto-fill empty slots with subjects from the curriculum for <strong>{activeClass}</strong>. You can customize individual cells afterward.</p>
             <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded text-sm text-blue-700">
-              <p className="font-semibold mb-1">ℹ Subjects will be cycled through {timetable.periods.filter(p => !["sbr","lbr","br","asm","cls"].includes(p.id) && !/break|lunch|assembly|closing/i.test(p.label)).length} academic periods.</p>
+              <p className="font-semibold mb-1">ℹ Subjects will be cycled through {timetable.periods.filter(p => !["sbr", "lbr", "br", "asm", "cls"].includes(p.id) && !/break|lunch|assembly|closing/i.test(p.label)).length} academic periods.</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Btn variant="ghost" onClick={() => setShowAutoSet(false)}>Cancel</Btn>
@@ -4799,15 +4793,19 @@ function TimetableView({
                 setEditing(null);
               }}>Clear</Btn>
               <Btn variant="primary" onClick={() => {
-                dispatch({ type: "SET_TIMETABLE_CELL", key: editing.key,
-                  cell: { subject: editing.subject.trim(), teacherName: editing.teacherName } });
+                dispatch({
+                  type: "SET_TIMETABLE_CELL", key: editing.key,
+                  cell: { subject: editing.subject.trim(), teacherName: editing.teacherName }
+                });
                 if (editing.teacherName) {
-                  dispatch({ type: "ADD_NOTIFICATION", payload: makeNotification({
-                    fromActor: currentActor, fromRole: "system",
-                    toScope: `staff:${editing.teacherName}`,
-                    title: "New timetable assignment",
-                    body: `You have been assigned ${editing.subject || "a period"} (${editing.key.replace(/\|/g, " · ")}).`,
-                  }) });
+                  dispatch({
+                    type: "ADD_NOTIFICATION", payload: makeNotification({
+                      fromActor: currentActor, fromRole: "system",
+                      toScope: `staff:${editing.teacherName}`,
+                      title: "New timetable assignment",
+                      body: `You have been assigned ${editing.subject || "a period"} (${editing.key.replace(/\|/g, " · ")}).`,
+                    })
+                  });
                 }
                 showToast("Slot saved — staff notified");
                 setEditing(null);
@@ -4848,14 +4846,16 @@ function InboxView({
 
   const send = () => {
     if (!draft.title.trim() || !draft.body.trim()) return showToast("Add a title and message.", "error");
-    dispatch({ type: "ADD_NOTIFICATION", payload: makeNotification({
-      fromActor: currentActor,
-      fromRole: canEdit ? "admin" : "staff",
-      toScope: draft.toScope as any,
-      title: draft.title.trim(),
-      body: draft.body.trim(),
-      priority: draft.priority,
-    }) });
+    dispatch({
+      type: "ADD_NOTIFICATION", payload: makeNotification({
+        fromActor: currentActor,
+        fromRole: canEdit ? "admin" : "staff",
+        toScope: draft.toScope as any,
+        title: draft.title.trim(),
+        body: draft.body.trim(),
+        priority: draft.priority,
+      })
+    });
     showToast("Message sent");
     setDraft({ toScope: canEdit ? "all-staff" : "admin", title: "", body: "", priority: "normal" });
     setComposing(false);
@@ -4985,8 +4985,8 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
           case "BULK_SAVE_ATTENDANCE": actionStr = "Saved Attendance"; details = `${action.payload.length} records`; break;
           case "SAVE_CLASS_ROLL": actionStr = "Saved Class Roll"; details = `Class: ${action.className}`; break;
         }
-        syncActivityLog(null, actor, actionStr, details).catch(() => {});
-      }).catch(() => {});
+        syncActivityLog(null, actor, actionStr, details).catch(() => { });
+      }).catch(() => { });
     }
   }, []);
   const { toast, showToast } = useToast();
@@ -4997,7 +4997,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
   const persistAdminPin = useCallback(async (raw: string) => {
     const hashed = await ensureHashed(raw);
     adminPinRef.current = hashed;
-    try { localStorage.setItem(ADMIN_PIN_KEY, hashed); } catch {}
+    try { localStorage.setItem(ADMIN_PIN_KEY, hashed); } catch { }
   }, []);
   const logoRef = useRef<HTMLInputElement>(null);
   const [schoolLogo, setSchoolLogo] = useState<string | null>(null);
@@ -5016,13 +5016,13 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
   const [forgotStep, setForgotStep] = useState(1);
   const [forgotInput, setForgotInput] = useState("");
   const [dbSearch, setDbSearch] = useState("");
-  const [dbClass,  setDbClass]  = useState("");
-  const [dbDate,   setDbDate]   = useState("");
-  const [dbTerm,   setDbTerm]   = useState<string>("Current"); // "Current" | "All" | term name
+  const [dbClass, setDbClass] = useState("");
+  const [dbDate, setDbDate] = useState("");
+  const [dbTerm, setDbTerm] = useState<string>("Current"); // "Current" | "All" | term name
   const [rpSearch, setRpSearch] = useState("");
-  const [rpClass,  setRpClass]  = useState("All");
+  const [rpClass, setRpClass] = useState("All");
   const [activeReport, setActiveReport] = useState<any>(null);
-  const [scoreForm, setScoreForm] = useState({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
+  const [scoreForm, setScoreForm] = useState({ studentName: "", studentClass: "", subject: "", caScore: "", examScore: "" });
 
   // CA-only drafts: stored separately until exam scores are ready, then promoted to entries.
   type CADraft = { id: string; studentName: string; studentClass: string; subject: string; caScore: number; term: string; session: string; enteredBy: string; createdAt: string };
@@ -5030,7 +5030,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
   const [caDrafts, setCaDrafts] = useState<CADraft[]>(() => {
     try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || "[]"); } catch { return []; }
   });
-  useEffect(() => { try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(caDrafts)); } catch {} }, [caDrafts]);
+  useEffect(() => { try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(caDrafts)); } catch { } }, [caDrafts]);
 
   const { entries, bin, logs, attendance, classRolls, staffList, schoolSettings } = appState;
   const isAdmin = !auth.user;
@@ -5068,7 +5068,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
 
   // Refresh score entry form whenever the active actor changes (login/logout/switch)
   useEffect(() => {
-    setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
+    setScoreForm({ studentName: "", studentClass: "", subject: "", caScore: "", examScore: "" });
   }, [auth.user?.id, isAdmin]);
 
   const subjectList = useMemo(() => {
@@ -5118,7 +5118,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
       s.name.toLowerCase().includes(rpSearch.toLowerCase()) &&
       (rpClass === "All" || s.class === rpClass)
     ),
-  [studentList, rpSearch, rpClass]);
+    [studentList, rpSearch, rpClass]);
 
   const filteredEntries = useMemo(() => {
     const base = dbTerm === "Current"
@@ -5126,16 +5126,16 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
       : dbTerm === "All"
         ? entries
         : entries.filter(e => (e.term || schoolSettings.term) === dbTerm &&
-            (!e.session || e.session === schoolSettings.session));
+          (!e.session || e.session === schoolSettings.session));
     return base.filter(e =>
       (!dbSearch || e.studentName.toLowerCase().includes(dbSearch.toLowerCase())) &&
-      (!dbClass  || e.studentClass === dbClass) &&
-      (!dbDate   || e.createdAt.slice(0, 10) === dbDate)
+      (!dbClass || e.studentClass === dbClass) &&
+      (!dbDate || e.createdAt.slice(0, 10) === dbDate)
     );
   }, [termEntries, entries, dbSearch, dbClass, dbDate, dbTerm, schoolSettings.term, schoolSettings.session]);
 
   const curC = useMemo(() => {
-    if (!activeReport) return { teacher:"", principal:"", teacherSig:"", principalSig:"", daysOpen:"", daysPresent:"", daysAbsent:"" };
+    if (!activeReport) return { teacher: "", principal: "", teacherSig: "", principalSig: "", daysOpen: "", daysPresent: "", daysAbsent: "" };
     const saved = appState.comments[activeReport.id] || {};
     return {
       teacher: saved.teacher || "",
@@ -5160,22 +5160,22 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
   }, []);
 
   const TABS = useMemo(() => [
-    { id:"dashboard",  label:"Dashboard",  icon:LayoutDashboard, show:true,                                   primary:true },
-    { id:"entry",      label:"Score Entry",icon:PlusCircle,       show:canEdit||canMarkAttendance,             primary:true },
-    { id:"database",   label:"Records",    icon:Database,         show:canEdit||canMarkAttendance,            primary:true },
-    { id:"reports",    label:"Reports",    icon:FileText,         show:true,                                  primary:true },
-    { id:"attendance", label:"Attendance", icon:CalendarDays,     show:canMarkAttendance,                     primary:false },
-    { id:"timetable",  label:"Timetable",  icon:CalendarClock,    show:true,                                  primary:false },
-    { id:"inbox",      label:"Inbox",      icon:Inbox,            show:canEdit,                               primary:false },
-    { id:"fees",       label:"Fees",       icon:DollarSign,       show:canEdit,                               primary:false },
-    { id:"staff",      label:"Staff",      icon:Users,            show:canEdit,                               primary:false },
-    { id:"resources",  label:"Resources",  icon:BookOpen,         show:canEdit||canMarkAttendance,            primary:false },
-    { id:"signatures", label:"Signatures", icon:PenTool,          show:canEdit||canMarkAttendance,            primary:false },
-    { id:"settings",   label:"Settings",   icon:Settings,         show:canEdit,                               primary:false },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, show: true, primary: true },
+    { id: "entry", label: "Score Entry", icon: PlusCircle, show: canEdit || canMarkAttendance, primary: true },
+    { id: "database", label: "Records", icon: Database, show: canEdit || canMarkAttendance, primary: true },
+    { id: "reports", label: "Reports", icon: FileText, show: true, primary: true },
+    { id: "attendance", label: "Attendance", icon: CalendarDays, show: canMarkAttendance, primary: false },
+    { id: "timetable", label: "Timetable", icon: CalendarClock, show: true, primary: false },
+    { id: "inbox", label: "Inbox", icon: Inbox, show: canEdit, primary: false },
+    { id: "fees", label: "Fees", icon: DollarSign, show: canEdit, primary: false },
+    { id: "staff", label: "Staff", icon: Users, show: canEdit, primary: false },
+    { id: "resources", label: "Resources", icon: BookOpen, show: canEdit || canMarkAttendance, primary: false },
+    { id: "signatures", label: "Signatures", icon: PenTool, show: canEdit || canMarkAttendance, primary: false },
+    { id: "settings", label: "Settings", icon: Settings, show: canEdit, primary: false },
   ].filter(t => t.show), [canEdit, canMarkAttendance]);
 
   const primaryTabs = useMemo(() => TABS.filter(t => t.primary), [TABS]);
-  const moreTabs    = useMemo(() => TABS.filter(t => !t.primary), [TABS]);
+  const moreTabs = useMemo(() => TABS.filter(t => !t.primary), [TABS]);
 
   const doLogin = useCallback(async () => {
     setLoginErr("");
@@ -5192,7 +5192,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
       setAuth({ loggedIn: true, user: null });
       setActiveTab("dashboard");
       logSignIn("Admin", "Administrator");
-      logAuthEvent({ authType: "staff", eventType: "login", tenantId, staffId: "admin" }).catch(() => {});
+      logAuthEvent({ authType: "staff", eventType: "login", tenantId, staffId: "admin" }).catch(() => { });
       return;
     }
 
@@ -5213,7 +5213,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
     setAuth({ loggedIn: true, user: s });
     setActiveTab("dashboard");
     logSignIn(s.name, s.role);
-    logAuthEvent({ authType: "staff", eventType: "login", tenantId, staffId: s.id }).catch(() => {});
+    logAuthEvent({ authType: "staff", eventType: "login", tenantId, staffId: s.id }).catch(() => { });
     if (s.status === "restricted") showToast("Account restricted — limited access.", "warning");
   }, [loginId, loginPass, staffList, showToast]);
 
@@ -5409,7 +5409,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
       setTimeout(() => window.location.reload(), 1800);
     });
     return unsub;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Firebase real-time subscription (multi-device sync) ───────────────────
@@ -5422,7 +5422,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
       if (!remote._updatedAt) return;
       // Compare timestamps — only apply if remote is newer
       const remoteTs = new Date(remote._updatedAt).getTime();
-      const localTs  = appState.logs[0]?.ts ? new Date(appState.logs[0].ts).getTime() : 0;
+      const localTs = appState.logs[0]?.ts ? new Date(appState.logs[0].ts).getTime() : 0;
       if (remoteTs > localTs + 5000) { // 5 second grace period
         // Apply remote state
         const { _deviceId: _d, _updatedAt: _u, ...cleanState } = remote;
@@ -5435,7 +5435,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
       }
     });
     return unsub;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Forgot password ────────────────────────────────────────────────────────
@@ -5657,125 +5657,125 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                   ? logs
                   : logs.filter((l: any) => (l.actor || "") === (auth.user?.name || ""));
                 return (
-                <>
-                  <div className={`rounded-2xl p-5 ${isAdmin ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white" : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white"}`}>
-                    <p className="text-xs font-black uppercase tracking-widest opacity-80">{isAdmin ? "Administrator Console" : "Staff Workspace"}</p>
-                    <h1 className="text-2xl md:text-3xl font-black mt-1">{timeGreeting()}, {who}!</h1>
-                    <p className="text-xs md:text-sm opacity-90 mt-1">{schoolSettings.term} · {schoolSettings.session}</p>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {(isAdmin ? ([
-                      ["Students",     studentList.length,                                                          "border-l-blue-500"],
-                      ["Records (Term)", termEntries.length,                                                         "border-l-emerald-500"],
-                      ["Active Staff", `${staffList.filter(s => s.status === "active").length}/${staffList.length}`,"border-l-indigo-500"],
-                    ] as const) : ([
-                      ["My Entries (Term)", termEntries.filter(e => (e.enteredBy || "") === (auth.user?.name || "")).length, "border-l-emerald-500"],
-                      ["Classes", (auth.user?.assignedClasses?.length || 0), "border-l-blue-500"],
-                      ["My Actions", visibleLogs.length, "border-l-indigo-500"],
-                    ] as const)).map(([l, v, a]) => (
-                      <Card key={l} className={`p-5 border-l-4 ${a}`}>
-                        <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-1">{l}</p>
-                        <p className="text-2xl font-black text-slate-900">{v}</p>
+                  <>
+                    <div className={`rounded-2xl p-5 ${isAdmin ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white" : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white"}`}>
+                      <p className="text-xs font-black uppercase tracking-widest opacity-80">{isAdmin ? "Administrator Console" : "Staff Workspace"}</p>
+                      <h1 className="text-2xl md:text-3xl font-black mt-1">{timeGreeting()}, {who}!</h1>
+                      <p className="text-xs md:text-sm opacity-90 mt-1">{schoolSettings.term} · {schoolSettings.session}</p>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {(isAdmin ? ([
+                        ["Students", studentList.length, "border-l-blue-500"],
+                        ["Records (Term)", termEntries.length, "border-l-emerald-500"],
+                        ["Active Staff", `${staffList.filter(s => s.status === "active").length}/${staffList.length}`, "border-l-indigo-500"],
+                      ] as const) : ([
+                        ["My Entries (Term)", termEntries.filter(e => (e.enteredBy || "") === (auth.user?.name || "")).length, "border-l-emerald-500"],
+                        ["Classes", (auth.user?.assignedClasses?.length || 0), "border-l-blue-500"],
+                        ["My Actions", visibleLogs.length, "border-l-indigo-500"],
+                      ] as const)).map(([l, v, a]) => (
+                        <Card key={l} className={`p-5 border-l-4 ${a}`}>
+                          <p className="text-xs font-black uppercase text-slate-400 tracking-wide mb-1">{l}</p>
+                          <p className="text-2xl font-black text-slate-900">{v}</p>
+                        </Card>
+                      ))}
+                      <Card className="p-5 bg-slate-900 border-slate-900 col-span-2 md:col-span-1">
+                        <p className="text-xs font-black uppercase text-blue-400 tracking-wide mb-1">Session</p>
+                        <p className="text-lg font-black text-white leading-tight">{schoolSettings.session || "—"}</p>
+                        <p className="text-xs text-slate-400 mt-1 font-bold">{schoolSettings.term || "—"}</p>
                       </Card>
-                    ))}
-                    <Card className="p-5 bg-slate-900 border-slate-900 col-span-2 md:col-span-1">
-                      <p className="text-xs font-black uppercase text-blue-400 tracking-wide mb-1">Session</p>
-                      <p className="text-lg font-black text-white leading-tight">{schoolSettings.session || "—"}</p>
-                      <p className="text-xs text-slate-400 mt-1 font-bold">{schoolSettings.term || "—"}</p>
-                    </Card>
-                  </div>
+                    </div>
 
-                  {/* ── Fees Overview (admin-only) ─────────────────────────────── */}
-                  {canEdit && <FeesOverviewCard schoolSettings={schoolSettings} classRolls={appState.classRolls} entries={entries} setActiveTab={setActiveTab} />}
+                    {/* ── Fees Overview (admin-only) ─────────────────────────────── */}
+                    {canEdit && <FeesOverviewCard schoolSettings={schoolSettings} classRolls={appState.classRolls} entries={entries} setActiveTab={setActiveTab} />}
 
-                  {/* ── Staff sign-in roll (admin-only daily presence log) ────── */}
-                  {canEdit && (() => {
-                    const today = new Date().toISOString().slice(0, 10);
-                    const todays = appState.staffSignIns.filter(s => s.date === today);
-                    const allStaffNames = staffList.filter(s => s.status !== "revoked").map(s => s.name);
-                    const presentNames = new Set(todays.map(t => t.staffName));
-                    const absent = allStaffNames.filter(n => !presentNames.has(n));
-                    return (
+                    {/* ── Staff sign-in roll (admin-only daily presence log) ────── */}
+                    {canEdit && (() => {
+                      const today = new Date().toISOString().slice(0, 10);
+                      const todays = appState.staffSignIns.filter(s => s.date === today);
+                      const allStaffNames = staffList.filter(s => s.status !== "revoked").map(s => s.name);
+                      const presentNames = new Set(todays.map(t => t.staffName));
+                      const absent = allStaffNames.filter(n => !presentNames.has(n));
+                      return (
+                        <Card>
+                          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                            <CalendarDays size={14} className="text-emerald-500" />
+                            <p className="text-sm font-black uppercase text-slate-600">Staff Sign-In · Today</p>
+                            <span className="ml-auto text-xs font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">{todays.length} present</span>
+                            {absent.length > 0 && <span className="text-xs font-black px-2 py-0.5 rounded-md bg-slate-100 text-slate-500">{absent.length} not in</span>}
+                          </div>
+                          <div className="divide-y divide-slate-50 max-h-[280px] overflow-y-auto">
+                            {todays.length === 0 ? (
+                              <p className="px-5 py-6 text-center text-xs text-slate-400 font-bold">No staff has signed in today yet.</p>
+                            ) : (
+                              todays
+                                .slice()
+                                .sort((a, b) => a.time.localeCompare(b.time))
+                                .map(t => (
+                                  <div key={t.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-xs font-black text-emerald-700">{t.staffName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}</span>
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-black text-slate-900 truncate">{t.staffName}</p>
+                                        <p className="text-xs text-slate-500 truncate">{t.role}</p>
+                                      </div>
+                                    </div>
+                                    <span className="text-xs font-black text-emerald-600">{t.time}</span>
+                                  </div>
+                                ))
+                            )}
+                            {absent.length > 0 && (
+                              <div className="px-5 py-3 bg-slate-50/50">
+                                <p className="text-[10px] font-black uppercase text-slate-400 mb-1.5 tracking-wider">Not signed in</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {absent.map(n => (
+                                    <span key={n} className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-500 text-[11px] font-bold">{n}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })()}
+
+                    {visibleLogs.length > 0 && (
                       <Card>
                         <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                          <CalendarDays size={14} className="text-emerald-500" />
-                          <p className="text-sm font-black uppercase text-slate-600">Staff Sign-In · Today</p>
-                          <span className="ml-auto text-xs font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">{todays.length} present</span>
-                          {absent.length > 0 && <span className="text-xs font-black px-2 py-0.5 rounded-md bg-slate-100 text-slate-500">{absent.length} not in</span>}
+                          <Clock size={14} className="text-slate-400" />
+                          <p className="text-sm font-black uppercase text-slate-600">{canEdit ? "Live Staff Activity" : "My Recent Activity"}</p>
+                          {canEdit && <span className="ml-auto text-xs font-bold text-emerald-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Real-time</span>}
                         </div>
-                        <div className="divide-y divide-slate-50 max-h-[280px] overflow-y-auto">
-                          {todays.length === 0 ? (
-                            <p className="px-5 py-6 text-center text-xs text-slate-400 font-bold">No staff has signed in today yet.</p>
-                          ) : (
-                            todays
-                              .slice()
-                              .sort((a, b) => a.time.localeCompare(b.time))
-                              .map(t => (
-                                <div key={t.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-xs font-black text-emerald-700">{t.staffName.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()}</span>
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-black text-slate-900 truncate">{t.staffName}</p>
-                                      <p className="text-xs text-slate-500 truncate">{t.role}</p>
-                                    </div>
+                        <div className="divide-y divide-slate-50 max-h-[420px] overflow-y-auto">
+                          {visibleLogs.slice(0, canEdit ? 30 : 15).map((log: any) => {
+                            const { date, time } = fmtTs(log.ts);
+                            const ac = log.action === "Deleted" ? "bg-red-100 text-red-600" : log.action === "Restored" ? "bg-emerald-100 text-emerald-700" : log.action.includes("Revok") ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
+                            return (
+                              <div key={log.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className={`text-xs font-black px-2 py-0.5 rounded-md flex-shrink-0 ${ac}`}>{log.action}</span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-slate-900 truncate">
+                                      {log.student}
+                                      {canEdit && log.actor && (
+                                        <span className="ml-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">by {log.actor}</span>
+                                      )}
+                                    </p>
+                                    <p className="text-xs text-slate-500 truncate">{log.subject}{log.detail && ` · ${log.detail}`}</p>
                                   </div>
-                                  <span className="text-xs font-black text-emerald-600">{t.time}</span>
                                 </div>
-                              ))
-                          )}
-                          {absent.length > 0 && (
-                            <div className="px-5 py-3 bg-slate-50/50">
-                              <p className="text-[10px] font-black uppercase text-slate-400 mb-1.5 tracking-wider">Not signed in</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {absent.map(n => (
-                                  <span key={n} className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-500 text-[11px] font-bold">{n}</span>
-                                ))}
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-xs font-bold text-slate-500">{time}</p>
+                                  <p className="text-xs text-slate-400">{date}</p>
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            );
+                          })}
                         </div>
                       </Card>
-                    );
-                  })()}
-
-                  {visibleLogs.length > 0 && (
-                    <Card>
-                      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                        <Clock size={14} className="text-slate-400" />
-                        <p className="text-sm font-black uppercase text-slate-600">{canEdit ? "Live Staff Activity" : "My Recent Activity"}</p>
-                        {canEdit && <span className="ml-auto text-xs font-bold text-emerald-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Real-time</span>}
-                      </div>
-                      <div className="divide-y divide-slate-50 max-h-[420px] overflow-y-auto">
-                        {visibleLogs.slice(0, canEdit ? 30 : 15).map((log: any) => {
-                          const { date, time } = fmtTs(log.ts);
-                          const ac = log.action === "Deleted" ? "bg-red-100 text-red-600" : log.action === "Restored" ? "bg-emerald-100 text-emerald-700" : log.action.includes("Revok") ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
-                          return (
-                            <div key={log.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span className={`text-xs font-black px-2 py-0.5 rounded-md flex-shrink-0 ${ac}`}>{log.action}</span>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-black text-slate-900 truncate">
-                                    {log.student}
-                                    {canEdit && log.actor && (
-                                      <span className="ml-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">by {log.actor}</span>
-                                    )}
-                                  </p>
-                                  <p className="text-xs text-slate-500 truncate">{log.subject}{log.detail && ` · ${log.detail}`}</p>
-                                </div>
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-xs font-bold text-slate-500">{time}</p>
-                                <p className="text-xs text-slate-400">{date}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </Card>
-                  )}
-                </>
+                    )}
+                  </>
                 );
               })()}
 
@@ -5786,165 +5786,165 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                   d.studentClass === scoreForm.studentClass && d.subject === scoreForm.subject
                 );
                 return (
-                <div className="max-w-xl mx-auto space-y-4">
-                  {/* Term/Session banner — clarifies which period this entry belongs to */}
-                  <div className="rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <CalendarDays size={16} className="text-amber-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase text-amber-700 tracking-wider">Saving to</p>
-                        <p className="text-sm font-black text-amber-900 truncate">{schoolSettings.term} · {schoolSettings.session}</p>
-                      </div>
-                    </div>
-                    {isAdmin && (
-                      <select
-                        value={schoolSettings.term}
-                        onChange={(e) => { dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { term: e.target.value } }); showToast(`Switched to ${e.target.value}`); }}
-                        className="px-3 py-1.5 bg-white border-2 border-amber-200 rounded-lg text-xs font-black text-amber-800 outline-none"
-                        title="Switch term"
-                      >
-                        {TERMS.map(t => <option key={t}>{t}</option>)}
-                      </select>
-                    )}
-                  </div>
-
-                  <Card className="overflow-hidden">
-                    <div className="bg-blue-600 px-6 py-4 flex items-center gap-3">
-                      <BookOpen size={18} className="text-white/80" />
-                      <p className="text-white font-black uppercase tracking-widest text-sm">Score Submission</p>
-                    </div>
-                    <div className="p-6 space-y-5">
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">Student Name</label>
-                        <input
-                          list="student-suggestions"
-                          value={scoreForm.studentName}
-                          onChange={e => setScoreForm(f => ({ ...f, studentName: e.target.value }))}
-                          placeholder="Student full name"
-                          className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-semibold text-sm text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
-                        />
-                        <datalist id="student-suggestions">
-                          {classSuggestions.map(n => <option key={n} value={n} />)}
-                        </datalist>
-                        {classSuggestions.length > 0 && (
-                          <p className="text-xs text-blue-600 font-bold">{classSuggestions.length} student{classSuggestions.length !== 1 ? "s" : ""} on roll — type to filter</p>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <Sel
-                          label="Class"
-                          value={scoreForm.studentClass}
-                          onChange={(e: any) => setScoreForm(f => ({ ...f, studentClass: e.target.value, subject: "" }))}
-                        >
-                          <option value="">Select class</option>
-                          {(auth.user?.assignedClasses?.length ? auth.user.assignedClasses : ALL_CLASSES).map(c => <option key={c}>{c}</option>)}
-                        </Sel>
-                        <Sel
-                          label="Subject"
-                          value={scoreForm.subject}
-                          onChange={(e: any) => setScoreForm(f => ({ ...f, subject: e.target.value }))}
-                          disabled={!scoreForm.studentClass}
-                        >
-                          <option value="">Select subject</option>
-                          {subjectList.map(s => <option key={s}>{s}</option>)}
-                        </Sel>
-                      </div>
-
-                      {draftMatch && (
-                        <div className="rounded-xl bg-emerald-50 border-2 border-emerald-200 px-4 py-3 flex items-center gap-3">
-                          <Check size={14} className="text-emerald-600 flex-shrink-0" />
-                          <p className="text-xs font-bold text-emerald-800">
-                            CA already saved as draft (<span className="font-black">{draftMatch.caScore}</span>). Add the exam score below to finalize.
-                          </p>
+                  <div className="max-w-xl mx-auto space-y-4">
+                    {/* Term/Session banner — clarifies which period this entry belongs to */}
+                    <div className="rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 px-4 py-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CalendarDays size={16} className="text-amber-600 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase text-amber-700 tracking-wider">Saving to</p>
+                          <p className="text-sm font-black text-amber-900 truncate">{schoolSettings.term} · {schoolSettings.session}</p>
                         </div>
+                      </div>
+                      {isAdmin && (
+                        <select
+                          value={schoolSettings.term}
+                          onChange={(e) => { dispatch({ type: "SET_SCHOOL_SETTINGS", payload: { term: e.target.value } }); showToast(`Switched to ${e.target.value}`); }}
+                          className="px-3 py-1.5 bg-white border-2 border-amber-200 rounded-lg text-xs font-black text-amber-800 outline-none"
+                          title="Switch term"
+                        >
+                          {TERMS.map(t => <option key={t}>{t}</option>)}
+                        </select>
                       )}
-
-                      <div className="grid grid-cols-2 gap-4">
-                        {([
-                          ["caScore",   "CA Score (max 40)",   40],
-                          ["examScore", "Exam Score (max 60)", 60],
-                        ] as const).map(([field, label, max]) => (
-                          <div key={field} className="space-y-1.5">
-                            <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{label}</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max={max}
-                              step="0.5"
-                              value={field === "caScore" && draftMatch && scoreForm.caScore === "" ? String(draftMatch.caScore) : scoreForm[field]}
-                              placeholder={`0–${max}`}
-                              onChange={e => {
-                                const v = e.target.value;
-                                if (v === "" || (+v >= 0 && +v <= max))
-                                  setScoreForm(f => ({ ...f, [field]: v }));
-                              }}
-                              onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
-                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-lg focus:border-blue-500 focus:bg-white outline-none transition-all"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      {/* Score preview */}
-                      {(scoreForm.caScore !== "" || scoreForm.examScore !== "") && (() => {
-                        const t = (+scoreForm.caScore || 0) + (+scoreForm.examScore || 0);
-                        const g = getGrade(t);
-                        return (
-                          <div className="bg-slate-50 rounded-xl p-4 text-center border-2 border-slate-100">
-                            <p className="text-xs font-black uppercase text-slate-400 mb-1">Total Preview</p>
-                            <p className="text-4xl font-black text-slate-900">{t}<span className="text-lg text-slate-400">/100</span></p>
-                            <span className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-black uppercase" style={{ background: g.bg, color: g.color }}>
-                              {g.grade} — {g.remark}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                      <div className="grid grid-cols-3 gap-2 pt-1">
-                        <Btn variant="ghost" onClick={() => {
-                          const hasData = scoreForm.studentName.trim() || scoreForm.subject || scoreForm.caScore !== "" || scoreForm.examScore !== "";
-                          const caUnsaved = scoreForm.caScore !== "" && scoreForm.examScore === "";
-                          const msg = caUnsaved
-                            ? "You entered a CA score but haven't saved it. Discard this CA without saving?"
-                            : "Discard the current entry?";
-                          if (hasData && !window.confirm(msg)) return;
-                          setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
-                          showToast("Form cleared");
-                        }}>
-                          Clear
-                        </Btn>
-                        <Btn variant="outline" onClick={saveCADraft} title="Save CA only — finalize when exam is ready">
-                          <Save size={13} />Save CA
-                        </Btn>
-                        <Btn variant="primary" onClick={() => {
-                          // CA completeness check: warn if exam present but CA missing/zero
-                          if (scoreForm.examScore !== "" && (scoreForm.caScore === "" || parseFloat(scoreForm.caScore) === 0) && !draftMatch) {
-                            if (!window.confirm("CA score is empty. Continue saving with CA = 0?")) return;
-                          }
-                          if (draftMatch && scoreForm.caScore === "" && scoreForm.examScore !== "") {
-                            finalizeDraft(draftMatch.id, scoreForm.examScore);
-                            setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
-                          } else {
-                            submitScore();
-                          }
-                        }}><Check size={14} />Save Full</Btn>
-                      </div>
                     </div>
-                  </Card>
 
-                  {/* Pending CA drafts — finalize when exam is ready */}
-                  {termDrafts.length > 0 && (
                     <Card className="overflow-hidden">
-                      <div className="bg-amber-500 px-5 py-3 flex items-center gap-2">
-                        <Clock size={14} className="text-white" />
-                        <p className="text-white font-black uppercase tracking-widest text-xs">Pending Exam Score ({termDrafts.length})</p>
+                      <div className="bg-blue-600 px-6 py-4 flex items-center gap-3">
+                        <BookOpen size={18} className="text-white/80" />
+                        <p className="text-white font-black uppercase tracking-widest text-sm">Score Submission</p>
                       </div>
-                      <div className="divide-y divide-slate-100">
-                        {termDrafts.map(d => (
-                          <PendingDraftRow key={d.id} draft={d} onFinalize={finalizeDraft} onDelete={deleteDraft} />
-                        ))}
+                      <div className="p-6 space-y-5">
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">Student Name</label>
+                          <input
+                            list="student-suggestions"
+                            value={scoreForm.studentName}
+                            onChange={e => setScoreForm(f => ({ ...f, studentName: e.target.value }))}
+                            placeholder="Student full name"
+                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-semibold text-sm text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
+                          />
+                          <datalist id="student-suggestions">
+                            {classSuggestions.map(n => <option key={n} value={n} />)}
+                          </datalist>
+                          {classSuggestions.length > 0 && (
+                            <p className="text-xs text-blue-600 font-bold">{classSuggestions.length} student{classSuggestions.length !== 1 ? "s" : ""} on roll — type to filter</p>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <Sel
+                            label="Class"
+                            value={scoreForm.studentClass}
+                            onChange={(e: any) => setScoreForm(f => ({ ...f, studentClass: e.target.value, subject: "" }))}
+                          >
+                            <option value="">Select class</option>
+                            {(auth.user?.assignedClasses?.length ? auth.user.assignedClasses : ALL_CLASSES).map(c => <option key={c}>{c}</option>)}
+                          </Sel>
+                          <Sel
+                            label="Subject"
+                            value={scoreForm.subject}
+                            onChange={(e: any) => setScoreForm(f => ({ ...f, subject: e.target.value }))}
+                            disabled={!scoreForm.studentClass}
+                          >
+                            <option value="">Select subject</option>
+                            {subjectList.map(s => <option key={s}>{s}</option>)}
+                          </Sel>
+                        </div>
+
+                        {draftMatch && (
+                          <div className="rounded-xl bg-emerald-50 border-2 border-emerald-200 px-4 py-3 flex items-center gap-3">
+                            <Check size={14} className="text-emerald-600 flex-shrink-0" />
+                            <p className="text-xs font-bold text-emerald-800">
+                              CA already saved as draft (<span className="font-black">{draftMatch.caScore}</span>). Add the exam score below to finalize.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4">
+                          {([
+                            ["caScore", "CA Score (max 40)", 40],
+                            ["examScore", "Exam Score (max 60)", 60],
+                          ] as const).map(([field, label, max]) => (
+                            <div key={field} className="space-y-1.5">
+                              <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{label}</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={max}
+                                step="0.5"
+                                value={field === "caScore" && draftMatch && scoreForm.caScore === "" ? String(draftMatch.caScore) : scoreForm[field]}
+                                placeholder={`0–${max}`}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  if (v === "" || (+v >= 0 && +v <= max))
+                                    setScoreForm(f => ({ ...f, [field]: v }));
+                                }}
+                                onKeyDown={e => ["-", "e", "E", "+"].includes(e.key) && e.preventDefault()}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-lg focus:border-blue-500 focus:bg-white outline-none transition-all"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        {/* Score preview */}
+                        {(scoreForm.caScore !== "" || scoreForm.examScore !== "") && (() => {
+                          const t = (+scoreForm.caScore || 0) + (+scoreForm.examScore || 0);
+                          const g = getGrade(t);
+                          return (
+                            <div className="bg-slate-50 rounded-xl p-4 text-center border-2 border-slate-100">
+                              <p className="text-xs font-black uppercase text-slate-400 mb-1">Total Preview</p>
+                              <p className="text-4xl font-black text-slate-900">{t}<span className="text-lg text-slate-400">/100</span></p>
+                              <span className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-black uppercase" style={{ background: g.bg, color: g.color }}>
+                                {g.grade} — {g.remark}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <Btn variant="ghost" onClick={() => {
+                            const hasData = scoreForm.studentName.trim() || scoreForm.subject || scoreForm.caScore !== "" || scoreForm.examScore !== "";
+                            const caUnsaved = scoreForm.caScore !== "" && scoreForm.examScore === "";
+                            const msg = caUnsaved
+                              ? "You entered a CA score but haven't saved it. Discard this CA without saving?"
+                              : "Discard the current entry?";
+                            if (hasData && !window.confirm(msg)) return;
+                            setScoreForm({ studentName: "", studentClass: "", subject: "", caScore: "", examScore: "" });
+                            showToast("Form cleared");
+                          }}>
+                            Clear
+                          </Btn>
+                          <Btn variant="outline" onClick={saveCADraft} title="Save CA only — finalize when exam is ready">
+                            <Save size={13} />Save CA
+                          </Btn>
+                          <Btn variant="primary" onClick={() => {
+                            // CA completeness check: warn if exam present but CA missing/zero
+                            if (scoreForm.examScore !== "" && (scoreForm.caScore === "" || parseFloat(scoreForm.caScore) === 0) && !draftMatch) {
+                              if (!window.confirm("CA score is empty. Continue saving with CA = 0?")) return;
+                            }
+                            if (draftMatch && scoreForm.caScore === "" && scoreForm.examScore !== "") {
+                              finalizeDraft(draftMatch.id, scoreForm.examScore);
+                              setScoreForm({ studentName: "", studentClass: "", subject: "", caScore: "", examScore: "" });
+                            } else {
+                              submitScore();
+                            }
+                          }}><Check size={14} />Save Full</Btn>
+                        </div>
                       </div>
                     </Card>
-                  )}
-                </div>
+
+                    {/* Pending CA drafts — finalize when exam is ready */}
+                    {termDrafts.length > 0 && (
+                      <Card className="overflow-hidden">
+                        <div className="bg-amber-500 px-5 py-3 flex items-center gap-2">
+                          <Clock size={14} className="text-white" />
+                          <p className="text-white font-black uppercase tracking-widest text-xs">Pending Exam Score ({termDrafts.length})</p>
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                          {termDrafts.map(d => (
+                            <PendingDraftRow key={d.id} draft={d} onFinalize={finalizeDraft} onDelete={deleteDraft} />
+                          ))}
+                        </div>
+                      </Card>
+                    )}
+                  </div>
                 );
               })()}
 
@@ -5987,9 +5987,9 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                       {(dbSearch || dbClass || dbDate || dbTerm !== "Current") && (
                         <div className="flex items-center gap-2 flex-wrap">
                           {dbSearch && <Pill color="blue">Name: "{dbSearch}"</Pill>}
-                          {dbClass  && <Pill color="indigo">{dbClass}</Pill>}
+                          {dbClass && <Pill color="indigo">{dbClass}</Pill>}
                           {dbTerm !== "Current" && <Pill color="amber">{dbTerm === "All" ? "All Terms" : dbTerm}</Pill>}
-                          {dbDate   && <Pill color="green">{new Date(dbDate + "T00:00:00").toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })}</Pill>}
+                          {dbDate && <Pill color="green">{new Date(dbDate + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</Pill>}
                           <span className="text-xs text-slate-400 font-bold">{filteredEntries.length} result{filteredEntries.length !== 1 ? "s" : ""}</span>
                           <button onClick={() => { setDbSearch(""); setDbClass(""); setDbDate(""); setDbTerm("Current"); }}
                             className="text-xs font-black uppercase text-red-400 hover:text-red-600 flex items-center gap-1">
@@ -6004,15 +6004,15 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                       ? <EmptyState icon={Database} title="No records yet" subtitle="Add scores in the Score Entry tab" />
                       : filteredEntries.length === 0
                         ? <EmptyState icon={Search} title="No matching records"
-                            action={<Btn variant="ghost" size="sm" onClick={() => { setDbSearch(""); setDbClass(""); setDbDate(""); }}>Clear filters</Btn>} />
+                          action={<Btn variant="ghost" size="sm" onClick={() => { setDbSearch(""); setDbClass(""); setDbDate(""); }}>Clear filters</Btn>} />
                         : (
                           <Card className="overflow-hidden">
                             <div className="overflow-x-auto">
                               <table className="w-full text-left">
                                 <thead className="bg-slate-50 border-b border-slate-100">
                                   <tr>
-                                    {["Student","Class","Subject","CA","Exam","Total","Grade","Logged"].map((h, i) => (
-                                      <th key={i} className={`px-4 py-3 text-xs font-black uppercase text-slate-400 ${[3,4,5,6].includes(i) ? "text-center" : ""}`}>{h}</th>
+                                    {["Student", "Class", "Subject", "CA", "Exam", "Total", "Grade", "Logged"].map((h, i) => (
+                                      <th key={i} className={`px-4 py-3 text-xs font-black uppercase text-slate-400 ${[3, 4, 5, 6].includes(i) ? "text-center" : ""}`}>{h}</th>
                                     ))}
                                     {canEdit && <th className="px-4 py-3" />}
                                   </tr>
@@ -6038,7 +6038,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                         </td>
                                         {canEdit && (
                                           <td className="px-4 py-3 text-center">
-                                            <button onClick={() => setDlg({ type:"delete", data:e })}
+                                            <button onClick={() => setDlg({ type: "delete", data: e })}
                                               className="p-1.5 rounded-lg text-red-400 hover:text-white hover:bg-red-500 transition-all">
                                               <Trash2 size={14} />
                                             </button>
@@ -6065,7 +6065,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                           <div className="overflow-x-auto">
                             <table className="w-full text-left">
                               <thead className="bg-slate-50 border-b border-slate-100">
-                                <tr>{["Student","Class","Subject","Total","Created","Deleted",""].map((h, i) => (
+                                <tr>{["Student", "Class", "Subject", "Total", "Created", "Deleted", ""].map((h, i) => (
                                   <th key={i} className="px-4 py-3 text-xs font-black uppercase text-slate-400">{h}</th>
                                 ))}</tr>
                               </thead>
@@ -6085,7 +6085,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                       <td className="px-4 py-3"><p className="text-xs font-bold text-slate-500">{cr.time}</p><p className="text-xs text-slate-400">{cr.date}</p></td>
                                       <td className="px-4 py-3"><p className="text-xs font-bold text-red-400">{dl.time}</p><p className="text-xs text-red-300">{dl.date}</p></td>
                                       <td className="px-4 py-3">
-                                        <button onClick={() => setDlg({ type:"restore", data:e })}
+                                        <button onClick={() => setDlg({ type: "restore", data: e })}
                                           className="p-1.5 rounded-lg text-emerald-500 hover:text-white hover:bg-emerald-500 transition-all">
                                           <RotateCcw size={14} />
                                         </button>
@@ -6159,7 +6159,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                     <p className="text-xs font-bold text-slate-400 mt-0.5">{s.class}</p>
                                   </div>
                                   {pct === 100
-                                    ? <CheckCircle size={18} className="text-emerald-500 flex-shrink-0"/>
+                                    ? <CheckCircle size={18} className="text-emerald-500 flex-shrink-0" />
                                     : <FileText size={18} className="text-slate-300 group-hover:text-blue-500 transition-colors flex-shrink-0" />}
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -6215,10 +6215,9 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                             </div>
                             <div className="flex flex-wrap gap-2">
                               {checks.map(c => (
-                                <span key={c.label} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase ${
-                                  c.done ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"
-                                }`}>
-                                  {c.done ? <Check size={10}/> : <X size={10}/>}
+                                <span key={c.label} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase ${c.done ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"
+                                  }`}>
+                                  {c.done ? <Check size={10} /> : <X size={10} />}
                                   {c.label}
                                 </span>
                               ))}
@@ -6234,9 +6233,9 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                           </div>
                           <div className="grid grid-cols-3 gap-4">
                             {([
-                              ["daysOpen",    "Days Opened",  "slate"],
+                              ["daysOpen", "Days Opened", "slate"],
                               ["daysPresent", "Days Present", "emerald"],
-                              ["daysAbsent",  "Days Absent",  "red"],
+                              ["daysAbsent", "Days Absent", "red"],
                             ] as const).map(([f, l, c]) => (
                               <div key={f}>
                                 <label className="block text-xs font-black uppercase text-slate-400 mb-2">{l}</label>
@@ -6246,9 +6245,9 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                   onChange={e => {
                                     const v = e.target.value;
                                     if (v === "" || (+v >= 0 && +v <= 365))
-                                      dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:f, value:v });
+                                      dispatch({ type: "SET_COMMENT", studentId: activeReport.id, field: f, value: v });
                                   }}
-                                  onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
+                                  onKeyDown={e => ["-", "e", "E", "+"].includes(e.key) && e.preventDefault()}
                                   className={`w-full px-4 py-4 rounded-xl border-2 font-black text-center text-xl outline-none transition-all shadow-sm ${c === "emerald" ? "bg-emerald-50 border-emerald-100 focus:border-emerald-400" : c === "red" ? "bg-red-50 border-red-100 focus:border-red-400" : "bg-slate-50 border-slate-100 focus:border-slate-400"}`}
                                 />
                               </div>
@@ -6267,8 +6266,8 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             {([
-                              ["teacher",   "Class Teacher's Remark", "teacherSig",   "Teacher Signature"],
-                              ["principal", "Principal's Remark",     "principalSig", "Principal's Signature"],
+                              ["teacher", "Class Teacher's Remark", "teacherSig", "Teacher Signature"],
+                              ["principal", "Principal's Remark", "principalSig", "Principal's Signature"],
                             ] as const).map(([f, l, sf, sl]) => {
                               const isPrincipalField = f === "principal";
                               const disabled = isPrincipalField && !canEdit;
@@ -6280,55 +6279,56 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                                     </div>
                                   )}
                                   <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{l}</label>
-                                <div className="flex gap-2">
-                                  <Sel
-                                    value={Object.keys(BUILTIN_REMARKS).find(key => BUILTIN_REMARKS[key as keyof typeof BUILTIN_REMARKS] === curC[f]) || "custom"}
-                                    onChange={(e: any) => {
-                                      const selected = e.target.value;
-                                      if (selected === "custom") {
-                                        // Keep current text
-                                      } else {
-                                        dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:f, value:BUILTIN_REMARKS[selected as keyof typeof BUILTIN_REMARKS] });
-                                      }
-                                    }}
-                                    className="flex-1"
-                                  >
-                                    <option value="custom">Custom Remark</option>
-                                    <option value="excellent">Excellent Performance</option>
-                                    <option value="veryGood">Very Good Performance</option>
-                                    <option value="good">Good Performance</option>
-                                    <option value="fair">Fair Performance</option>
-                                    <option value="poor">Below Average</option>
-                                  </Sel>
+                                  <div className="flex gap-2">
+                                    <Sel
+                                      value={Object.keys(BUILTIN_REMARKS).find(key => BUILTIN_REMARKS[key as keyof typeof BUILTIN_REMARKS] === curC[f]) || "custom"}
+                                      onChange={(e: any) => {
+                                        const selected = e.target.value;
+                                        if (selected === "custom") {
+                                          // Keep current text
+                                        } else {
+                                          dispatch({ type: "SET_COMMENT", studentId: activeReport.id, field: f, value: BUILTIN_REMARKS[selected as keyof typeof BUILTIN_REMARKS] });
+                                        }
+                                      }}
+                                      className="flex-1"
+                                    >
+                                      <option value="custom">Custom Remark</option>
+                                      <option value="excellent">Excellent Performance</option>
+                                      <option value="veryGood">Very Good Performance</option>
+                                      <option value="good">Good Performance</option>
+                                      <option value="fair">Fair Performance</option>
+                                      <option value="poor">Below Average</option>
+                                    </Sel>
+                                  </div>
+                                  <textarea
+                                    value={curC[f] || ""}
+                                    onChange={e => dispatch({ type: "SET_COMMENT", studentId: activeReport.id, field: f, value: e.target.value })}
+                                    rows={3} placeholder="Enter remark…"
+                                    className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-medium focus:border-blue-500 outline-none transition-all resize-none"
+                                  />
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{sl}</label>
+                                    {sf === "teacherSig" && schoolSettings.defaultTeacherSignature && !curC[sf] && (
+                                      <button onClick={() => dispatch({ type: "SET_COMMENT", studentId: activeReport.id, field: sf, value: schoolSettings.defaultTeacherSignature })}
+                                        className="text-[10px] text-blue-600 font-bold uppercase hover:underline">
+                                        Use Default
+                                      </button>
+                                    )}
+                                    {sf === "principalSig" && schoolSettings.defaultPrincipalSignature && !curC[sf] && (
+                                      <button onClick={() => dispatch({ type: "SET_COMMENT", studentId: activeReport.id, field: sf, value: schoolSettings.defaultPrincipalSignature })}
+                                        className="text-[10px] text-blue-600 font-bold uppercase hover:underline">
+                                        Use Default
+                                      </button>
+                                    )}
+                                  </div>
+                                  <SignaturePad
+                                    value={curC[sf] || ""}
+                                    onChange={(val) => dispatch({ type: "SET_COMMENT", studentId: activeReport.id, field: sf, value: val })}
+                                    onClear={() => dispatch({ type: "SET_COMMENT", studentId: activeReport.id, field: sf, value: "" })}
+                                  />
                                 </div>
-                                <textarea
-                                  value={curC[f] || ""}
-                                  onChange={e => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:f, value:e.target.value })}
-                                  rows={3} placeholder="Enter remark…"
-                                  className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-medium focus:border-blue-500 outline-none transition-all resize-none"
-                                />
-                                <div className="flex items-center justify-between mb-1">
-                                  <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{sl}</label>
-                                  {sf === "teacherSig" && schoolSettings.defaultTeacherSignature && !curC[sf] && (
-                                    <button onClick={() => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:schoolSettings.defaultTeacherSignature })}
-                                      className="text-[10px] text-blue-600 font-bold uppercase hover:underline">
-                                      Use Default
-                                    </button>
-                                  )}
-                                  {sf === "principalSig" && schoolSettings.defaultPrincipalSignature && !curC[sf] && (
-                                    <button onClick={() => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:schoolSettings.defaultPrincipalSignature })}
-                                      className="text-[10px] text-blue-600 font-bold uppercase hover:underline">
-                                      Use Default
-                                    </button>
-                                  )}
-                                </div>
-                                <SignaturePad
-                                  value={curC[sf] || ""}
-                                  onChange={(val) => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:val })}
-                                  onClear={() => dispatch({ type:"SET_COMMENT", studentId:activeReport.id, field:sf, value:"" })}
-                                />
-                              </div>
-                            )})}
+                              )
+                            })}
                           </div>
                         </Card>
                         <ReportCardSupabaseActions
@@ -6447,16 +6447,16 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                         </div>
                         {/* Actions */}
                         <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
-                          <Btn variant="outline" onClick={() => { setDlg({ type:"staffEdit", data:detailStaff }); setStaffDetailId(null); }}>
+                          <Btn variant="outline" onClick={() => { setDlg({ type: "staffEdit", data: detailStaff }); setStaffDetailId(null); }}>
                             <KeyRound size={14} />Edit Access
                           </Btn>
                           {detailStaff.status !== "revoked"
-                            ? <Btn variant="danger" onClick={() => setDlg({ type:"revoke", data:detailStaff })}>
-                                <UserX size={14} />Revoke Access
-                              </Btn>
-                            : <Btn variant="success" onClick={() => { dispatch({ type:"SET_STAFF_STATUS", id:detailStaff.id, status:"active" }); showToast(`${detailStaff.name} restored`); setStaffDetailId(null); }}>
-                                <UserCheck size={14} />Restore Access
-                              </Btn>
+                            ? <Btn variant="danger" onClick={() => setDlg({ type: "revoke", data: detailStaff })}>
+                              <UserX size={14} />Revoke Access
+                            </Btn>
+                            : <Btn variant="success" onClick={() => { dispatch({ type: "SET_STAFF_STATUS", id: detailStaff.id, status: "active" }); showToast(`${detailStaff.name} restored`); setStaffDetailId(null); }}>
+                              <UserCheck size={14} />Restore Access
+                            </Btn>
                           }
                         </div>
                       </div>
@@ -6476,7 +6476,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                           {staffList.filter(s => s.status === "revoked").length} revoked
                         </p>
                       </div>
-                      <Btn variant="primary" onClick={() => setDlg({ type:"staffAdd" })}><UserPlus size={15} />Add Staff</Btn>
+                      <Btn variant="primary" onClick={() => setDlg({ type: "staffAdd" })}><UserPlus size={15} />Add Staff</Btn>
                     </div>
                     {staffList.length === 0
                       ? <EmptyState icon={Users} title='No staff accounts yet' subtitle='Click "Add Staff" to create one' />
@@ -6486,9 +6486,9 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
                             <div key={s.id} onClick={() => setStaffDetailId(s.id)}
                               className="cursor-pointer group">
                               <StaffCard s={s}
-                                onEdit={s => { setDlg({ type:"staffEdit", data:s }); }}
-                                onRevoke={s => setDlg({ type:"revoke", data:s })}
-                                onRestore={s => { dispatch({ type:"SET_STAFF_STATUS", id:s.id, status:"active" }); showToast(`${s.name} restored`); }}
+                                onEdit={s => { setDlg({ type: "staffEdit", data: s }); }}
+                                onRevoke={s => setDlg({ type: "revoke", data: s })}
+                                onRestore={s => { dispatch({ type: "SET_STAFF_STATUS", id: s.id, status: "active" }); showToast(`${s.name} restored`); }}
                               />
                             </div>
                           ))}
@@ -6580,7 +6580,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
           confirmLabel={<><Trash2 size={13} />Delete</>}
           confirmVariant="danger"
           correctPin={adminPinRef.current}
-          onConfirm={() => { dispatch({ type:"DELETE_ENTRY", id:dlg.data.id }); showToast("Moved to recycle bin"); setDlg(null); }}
+          onConfirm={() => { dispatch({ type: "DELETE_ENTRY", id: dlg.data.id }); showToast("Moved to recycle bin"); setDlg(null); }}
           onCancel={() => setDlg(null)}
         >
           <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex gap-3">
@@ -6602,7 +6602,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
           confirmLabel={<><RotateCcw size={13} />Restore</>}
           confirmVariant="success"
           correctPin={adminPinRef.current}
-          onConfirm={() => { dispatch({ type:"RESTORE_ENTRY", id:dlg.data.id }); showToast("Record restored"); setDlg(null); }}
+          onConfirm={() => { dispatch({ type: "RESTORE_ENTRY", id: dlg.data.id }); showToast("Record restored"); setDlg(null); }}
           onCancel={() => setDlg(null)}
         >
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex gap-3">
@@ -6622,7 +6622,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
           confirmLabel={<><UserX size={13} />Revoke</>}
           confirmVariant="danger"
           correctPin={adminPinRef.current}
-          onConfirm={() => { dispatch({ type:"SET_STAFF_STATUS", id:dlg.data.id, status:"revoked" }); showToast(`${dlg.data.name}'s access revoked`); setDlg(null); }}
+          onConfirm={() => { dispatch({ type: "SET_STAFF_STATUS", id: dlg.data.id, status: "revoked" }); showToast(`${dlg.data.name}'s access revoked`); setDlg(null); }}
           onCancel={() => setDlg(null)}
         >
           <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex gap-3">
@@ -6642,9 +6642,9 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName: _tena
             <div className="grid grid-cols-2 gap-3">
               <Btn variant="ghost" size="lg" onClick={() => setShowLogout(false)}>Stay</Btn>
               <Btn variant="danger" size="lg" onClick={async () => {
-                await logAuthEvent({ authType: "staff", eventType: "logout", tenantId, staffId: auth.user?.id ?? "admin" }).catch(() => {});
+                await logAuthEvent({ authType: "staff", eventType: "logout", tenantId, staffId: auth.user?.id ?? "admin" }).catch(() => { });
                 await supabase.auth.signOut();
-                setAuth({ loggedIn:false, user:null });
+                setAuth({ loggedIn: false, user: null });
                 setLoginId("admin"); setLoginPass(""); setShowLogout(false);
                 setActiveTab("dashboard"); setActiveReport(null); setMenuOpen(false);
                 if (onTenantSignOut) onTenantSignOut();

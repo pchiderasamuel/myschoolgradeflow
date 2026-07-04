@@ -21,10 +21,13 @@ import ClassesPage from "./pages/admin/ClassesPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import FeesPage from "./pages/admin/FeesPage";
 import PaymentsPage from "./pages/admin/PaymentsPage";
+import ScoreEntryPage from "./pages/admin/ScoreEntryPage";
+import AdminAttendancePage from "./pages/admin/AttendancePage";
+import AdminResultsPage from "./pages/admin/ResultsPage";
 import TeacherPortal from "./pages/teacher/TeacherPortal";
 import MyClassesPage from "./pages/teacher/MyClassesPage";
-import AttendancePage from "./pages/teacher/AttendancePage";
-import ResultsPage from "./pages/teacher/ResultsPage";
+import TeacherAttendancePage from "./pages/teacher/AttendancePage";
+import TeacherResultsPage from "./pages/teacher/ResultsPage";
 import TimetablePage from "./pages/admin/TimetablePage";
 import TeacherTimetablePage from "./pages/teacher/TimetablePage";
 import TeacherProfilePage from "./pages/teacher/ProfilePage";
@@ -33,14 +36,13 @@ import TeacherSettingsPage from "./pages/teacher/SettingsPage";
 import StudentPortal from "./pages/student/StudentPortal";
 import StudentProfilePage from "./pages/student/ProfilePage";
 import StudentTimetablePage from "./pages/student/TimetablePage";
-import StudentFeesPage from "./pages/student/FeesPage";
 import SuperadminLayout from "./layouts/SuperadminLayout";
 import SchoolsListPage from "./pages/superadmin/SchoolsListPage";
 import SchoolDetailPage from "./pages/superadmin/SchoolDetailPage";
 import ProvisionSchoolPage from "./pages/superadmin/ProvisionSchoolPage";
 import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
-import BillingListPage from "./pages/superadmin/BillingListPage";
 import SuperadminDashboardPage from "./pages/superadmin/SuperadminDashboardPage";
+import BillingListPage from "./pages/superadmin/BillingListPage";
 
 const queryClient = new QueryClient();
 
@@ -166,6 +168,10 @@ const App = () => (
               <Route path="students"     element={<StudentsPage />} />
               <Route path="teachers"     element={<TeachersPage />} />
               <Route path="classes"      element={<ClassesPage />} />
+              <Route path="score-entry"  element={<ScoreEntryPage />} />
+              <Route path="attendance"   element={<AdminAttendancePage />} />
+              <Route path="reports"      element={<AdminResultsPage />} />
+              <Route path="results"      element={<AdminResultsPage />} />
               <Route path="fees"         element={<FeesPage />} />
               <Route path="payments"     element={<PaymentsPage />} />
               <Route path="timetable"    element={<TimetablePage />} />
@@ -182,8 +188,8 @@ const App = () => (
             >
               <Route index element={<Navigate to="classes" replace />} />
               <Route path="classes"    element={<MyClassesPage />} />
-              <Route path="attendance" element={<AttendancePage />} />
-              <Route path="results"    element={<ResultsPage />} />
+              <Route path="attendance" element={<TeacherAttendancePage />} />
+              <Route path="results"    element={<TeacherResultsPage />} />
               <Route path="timetable"  element={<TeacherTimetablePage />} />
               <Route path="resources"  element={<ResourcesPage />} />
               <Route path="profile"    element={<TeacherProfilePage />} />
@@ -200,7 +206,6 @@ const App = () => (
             >
               <Route index element={<Navigate to="timetable" replace />} />
               <Route path="timetable" element={<StudentTimetablePage />} />
-              <Route path="fees"      element={<StudentFeesPage />} />
               <Route path="profile"   element={<StudentProfilePage />} />
             </Route>
             {/* Superadmin panel (new school-layer panel) */}
@@ -212,13 +217,13 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard"        element={<SuperadminDashboardPage />} />
+              <Route index element={<Navigate to="schools" replace />} />
               <Route path="schools"          element={<SchoolsListPage />} />
               <Route path="schools/:schoolId" element={<SchoolDetailPage />} />
               <Route path="provision"        element={<ProvisionSchoolPage />} />
               <Route path="billing"          element={<BillingListPage />} />
               <Route path="activity"         element={<ActivityLogPage />} />
+              <Route path="stats"            element={<SuperadminDashboardPage />} />
             </Route>
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />

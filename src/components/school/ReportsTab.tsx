@@ -1,22 +1,44 @@
 import { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/lib/school-store";
 import { getGrade } from "@/lib/school-helpers";
-import { ALL_CLASSES, getSubjectsForClass } from "@/lib/school-constants";
-import { FileText, Search, Printer, AlertCircle } from "lucide-react";
+import { ALL_CLASSES } from "@/lib/school-constants";
+import { FileText, Search, Printer, AlertCircle, ImagePlus, PenTool, CalendarDays } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 
 export default function ReportsTab() {
-  const { state } = useApp();
+  const { state, dispatch, showToast } = useApp();
   const { entries, schoolSettings, staffList } = state;
   const { user, schoolId, profile } = useAuth();
 
   const [selectedClass, setSelectedClass] = useState("");
   const [search, setSearch] = useState("");
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [customization, setCustomization] = useState(schoolSettings.reportCustomization || {
+    signerName: "Class Teacher",
+    signerRole: "Class Teacher",
+    signatureType: "typed" as const,
+    signatureValue: "",
+    stampUrl: "",
+    showDate: true,
+    dateLabel: "Date",
+  });
   
   const [dbSignature, setDbSignature] = useState<string | null>(null);
   const [dbSignatureType, setDbSignatureType] = useState<"typed" | "drawn" | null>(null);
+
+  useEffect(() => {
+    setCustomization(schoolSettings.reportCustomization || {
+      signerName: "Class Teacher",
+      signerRole: "Class Teacher",
+      signatureType: "typed",
+      signatureValue: "",
+      stampUrl: "",
+      showDate: true,
+      dateLabel: "Date",
+    });
+  }, [schoolSettings.reportCustomization]);
 
   useEffect(() => {
     if (!user || !schoolId) return;
@@ -60,10 +82,76 @@ export default function ReportsTab() {
     return students.find((s) => s.name === selectedStudent) || null;
   }, [selectedStudent, students]);
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      setCustomization((prev) => ({ ...prev, stampUrl: result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveCustomization = () => {
+    dispatch({
+      type: "SET_SCHOOL_SETTINGS",
+      payload: {
+        reportCustomization: customization,
+      },
+    });
+    showToast("Report sheet updated", "success");
+    setShowCustomizer(false);
+  };
+
+  const reportSignatureValue = customization.signatureValue || dbSignature || studentDetail?.entries[0]?.enteredBy ? "" : "";
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 pb-2 space-y-3">
-        <h2 className="text-lg font-bold text-foreground">Reports</h2>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Reports</h2>
+            <p className="text-xs text-muted-foreground">Customize report sheets with name, signature, stamp, and date.</p>
+          </div>
+          <button onClick={() => setShowCustomizer((v) => !v)} className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[11px] font-semibold text-primary">
+            {showCustomizer ? "Hide" : "Customize"}
+          </button>
+        </div>
+
+        {showCustomizer && (
+          <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-white to-blue-50 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <PenTool className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Report sheet customization</p>
+            </div>
+            <div className="grid gap-3">
+              <input value={customization.signerName} onChange={(e) => setCustomization((prev) => ({ ...prev, signerName: e.target.value }))} placeholder="Signer name" className="input-field" />
+              <input value={customization.signerRole} onChange={(e) => setCustomization((prev) => ({ ...prev, signerRole: e.target.value }))} placeholder="Role" className="input-field" />
+              <div className="flex gap-2">
+                <label className="flex-1 rounded-xl border border-border bg-white px-3 py-2 text-sm font-medium text-foreground">
+                  <input type="radio" checked={customization.signatureType === "typed"} onChange={() => setCustomization((prev) => ({ ...prev, signatureType: "typed" }))} className="mr-2" /> Typed name
+                </label>
+                <label className="flex-1 rounded-xl border border-border bg-white px-3 py-2 text-sm font-medium text-foreground">
+                  <input type="radio" checked={customization.signatureType === "drawn"} onChange={() => setCustomization((prev) => ({ ...prev, signatureType: "drawn" }))} className="mr-2" /> Drawn sign
+                </label>
+              </div>
+              <input value={customization.signatureValue || ""} onChange={(e) => setCustomization((prev) => ({ ...prev, signatureValue: e.target.value }))} placeholder="Signature text or base64" className="input-field" />
+              <label className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-primary/30 bg-white px-3 py-3 text-sm font-semibold text-primary">
+                <ImagePlus className="w-4 h-4" />
+                Upload school stamp
+                <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+              </label>
+              {customization.stampUrl && <img src={customization.stampUrl} alt="Stamp preview" className="h-16 w-auto object-contain rounded-lg border border-border bg-white" />}
+              <label className="flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2 text-sm text-foreground">
+                <span className="flex items-center gap-2"><CalendarDays className="w-4 h-4" /> Show date on report</span>
+                <input type="checkbox" checked={customization.showDate} onChange={(e) => setCustomization((prev) => ({ ...prev, showDate: e.target.checked }))} />
+              </label>
+              <input value={customization.dateLabel} onChange={(e) => setCustomization((prev) => ({ ...prev, dateLabel: e.target.value }))} placeholder="Date label" className="input-field" />
+            </div>
+            <button onClick={saveCustomization} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">Save report settings</button>
+          </div>
+        )}
 
         <select value={selectedClass} onChange={(e) => { setSelectedClass(e.target.value); setSelectedStudent(null); }}
           className="input-field">
@@ -132,35 +220,27 @@ export default function ReportsTab() {
               {/* Staff Signature Section */}
               {(() => {
                 const staffMember = studentDetail.entries[0]?.enteredBy ? staffList.find((s) => s.name === studentDetail.entries[0].enteredBy) : null;
-                const signatureToUse = dbSignature || staffMember?.signature;
-                const staffName = profile?.firstName ? `${profile.firstName} ${profile.lastName || ""}` : (staffMember?.name || "Staff Member");
-                const staffRole = profile?.role || staffMember?.role || "Teacher";
+                const signatureToUse = customization.signatureValue || dbSignature || staffMember?.signature || "";
+                const staffName = customization.signerName || (profile?.firstName ? `${profile.firstName} ${profile.lastName || ""}` : (staffMember?.name || "Staff Member"));
+                const staffRole = customization.signerRole || (profile?.role || staffMember?.role || "Teacher");
+                const showSignature = customization.signatureType === "typed" ? (signatureToUse ? <span className="font-caveat text-4xl text-slate-800">{signatureToUse}</span> : <span className="font-caveat text-4xl text-slate-800">{staffName}</span>) : (signatureToUse ? <img src={signatureToUse} alt="Signature" className="h-16 object-contain" /> : <div className="h-16 w-40 rounded border border-dashed border-border" />);
                 
-                return signatureToUse ? (
+                return (
                   <div className="mt-6 pt-6 border-t border-border">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Staff Authorization</p>
-                    <div className="flex items-end justify-between">
+                    <div className="flex items-end justify-between gap-4">
                       <div>
-                        {dbSignatureType === "typed" ? (
-                           <span className="font-caveat text-4xl text-slate-800">{signatureToUse}</span>
-                        ) : (
-                           <img src={signatureToUse} alt="Signature" className="h-16 object-contain" />
-                        )}
+                        {showSignature}
                         <div className="mt-2">
                           <p className="text-xs font-semibold">{staffName}</p>
                           <p className="text-xs text-muted-foreground">{staffRole}</p>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString()}</p>
+                      <div className="text-right">
+                        {customization.stampUrl && <img src={customization.stampUrl} alt="Stamp" className="h-12 w-auto object-contain mb-2" />}
+                        {customization.showDate && <p className="text-xs text-muted-foreground">{customization.dateLabel}: {new Date().toLocaleDateString()}</p>}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="mt-6 pt-6 border-t border-border flex flex-col items-center justify-center p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <AlertCircle className="text-amber-500 w-8 h-8 mb-2" />
-                    <p className="text-sm font-semibold text-amber-800">Set your default signature in Settings</p>
-                    <Link to="/teacher/settings" className="text-xs text-indigo-600 font-bold hover:underline mt-1">
-                      Go to Settings →
-                    </Link>
                   </div>
                 );
               })()}

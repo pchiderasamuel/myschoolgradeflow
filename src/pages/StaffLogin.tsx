@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { logAuthEvent } from "@/lib/auth-logger";
-import { getUserRole } from "@/supabase/schoolService";
+import { normalizeRole } from "@/lib/auth-role";
+import { saveTenantSession, type TenantSession } from "@/lib/tenant-client";
+import { validateStaffInviteToken } from "@/lib/staff-invite";
 import { GraduationCap, Loader2 } from "lucide-react";
 
 interface TenantInfo {
@@ -26,6 +29,7 @@ function Spinner() {
 export default function StaffLogin() {
   const { schoolSlug } = useParams<{ schoolSlug: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, profile, loading: authLoading } = useAuth();
 
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
@@ -36,6 +40,7 @@ export default function StaffLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
 
   // Resolve slug → tenant info
   useEffect(() => {
@@ -65,18 +70,51 @@ export default function StaffLogin() {
     })();
   }, [schoolSlug]);
 
+  useEffect(() => {
+    const token = searchParams.get("invite_token");
+    if (token) {
+      setInviteToken(token);
+      (async () => {
+        try {
+          const data = await validateStaffInviteToken(token);
+          const sessionPayload: TenantSession = {
+            tenantId: data.tenantId,
+            schoolName: data.schoolName,
+            slug: schoolSlug ?? "",
+            sessionToken: data.sessionToken,
+            status: data.status as TenantSession["status"],
+            plan: data.plan as TenantSession["plan"],
+            subscriptionEndsAt: data.subscriptionEndsAt,
+            trialStartedAt: data.trialStartedAt,
+            isAdmin: true,
+            hasAdminPin: false,
+            role: "admin",
+            expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+          };
+          saveTenantSession(sessionPayload);
+          await logAuthEvent({ authType: "staff", eventType: "login", tenantId: data.tenantId, sessionToken: data.sessionToken });
+          navigate("/app", { replace: true });
+        } catch (error) {
+          toast({ title: "Invalid invite link", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+        }
+      })();
+    }
+  }, [navigate, schoolSlug, searchParams]);
+
   // If already authenticated, redirect to role-based dashboard
   useEffect(() => {
     if (authLoading || resolving || !user || !profile) return;
     redirectByRole(profile.role);
   }, [authLoading, resolving, user, profile]); // eslint-disable-line
 
-  const redirectByRole = (role: string) => {
-    if (role === "student") navigate("/student", { replace: true });
-    else if (["school_admin", "principal", "head_teacher", "teacher"].includes(role))
-      navigate(role === "teacher" ? "/teacher" : "/school", { replace: true });
-    else if (role === "super_admin") navigate("/superadmin", { replace: true });
-    else navigate("/school", { replace: true });
+  const redirectByRole = (role: string | null | undefined) => {
+    const normalized = normalizeRole(role);
+    if (normalized === "student") navigate("/student", { replace: true });
+    else if (["school_admin", "principal", "head_teacher", "authorised_staff"].includes(normalized ?? ""))
+      navigate("/school", { replace: true });
+    else if (normalized === "teacher") navigate("/teacher", { replace: true });
+    else if (normalized === "super_admin") navigate("/superadmin", { replace: true });
+    else navigate("/unauthorized", { replace: true }); // explicit: unassigned gets denied
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -87,18 +125,19 @@ export default function StaffLogin() {
       if (error) throw error;
 
       if (data.user) {
-        const role = await getUserRole(data.user.id);
+        // Do NOT redirect here. The useEffect above watches AuthContext.profile and
+        // will redirect once the role is fully resolved. Doing it here races against
+        // AuthContext.fetchProfile and can cause a second redirect with a stale role.
         await logAuthEvent({
           authType: "staff",
           eventType: "login",
           userId: data.user.id,
         });
-        redirectByRole(role ?? "unassigned");
+        // setLoading stays true — the spinner shows while AuthContext resolves
       }
     } catch (err) {
       toast({ title: "Sign-in failed", description: (err as Error).message, variant: "destructive" });
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only clear loading on error; success stays loading until redirect
     }
   };
 
@@ -187,13 +226,13 @@ export default function StaffLogin() {
 
       <div className="auth-float-card" style={{ top: "12%", left: "5%", animationDelay: "0s" }}>
         <div className="auth-float-card-icon" style={{ color: "#2563eb" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20v-6M6 20V10M18 20V4" /></svg>
         </div>
         <span>Grade Analytics</span>
       </div>
       <div className="auth-float-card" style={{ bottom: "15%", right: "4%", animationDelay: "1.5s" }}>
         <div className="auth-float-card-icon" style={{ color: "#059669" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
         </div>
         <span>End-to-End Secure</span>
       </div>

@@ -29,5 +29,5 @@ export default function StudentPortal() {
     );
   }
 
-  return <StudentLayout schoolName={school?.name} logoUrl={school?.logo} />;
+  return <StudentLayout schoolName={school?.name} />;
 }

@@ -1234,8 +1234,21 @@ export async function getUserRole(userId: string): Promise<string | null> {
     .select("role")
     .eq("id", userId)
     .maybeSingle();
-  if (error) return null;
-  return data?.role ?? null;
+    
+  let role = data?.role;
+
+  // Fallback to super_admin check for bootstrap accounts or accounts stuck in "unassigned"
+  if (!role || role === "unassigned" || role === "superadmin") {
+    const isSuperAdmin = await checkUserRole(userId, "super_admin");
+    if (isSuperAdmin) {
+      role = "super_admin";
+    } else if (role === "superadmin") {
+      // Normalise the legacy string format to the current format
+      role = "super_admin";
+    }
+  }
+  
+  return role ?? null;
 }
 
 export async function getUserProfile(userId: string): Promise<{

@@ -2,13 +2,13 @@ import { useState, useMemo } from "react";
 import { useApp } from "@/lib/school-store";
 import { uid } from "@/lib/school-helpers";
 import { getGrade } from "@/lib/school-helpers";
-import { ALL_CLASSES, TERMS, getSubjectsForClass } from "@/lib/school-constants";
-import { PlusCircle, Search, Trash2, RotateCcw } from "lucide-react";
+import { ALL_CLASSES, getSubjectsForClass } from "@/lib/school-constants";
+import { PlusCircle, Search, Trash2, RotateCcw, Users } from "lucide-react";
 import BottomSheet from "./BottomSheet";
 
 export default function ScoresTab() {
   const { state, dispatch, showToast } = useApp();
-  const { entries, bin, schoolSettings } = state;
+  const { entries, bin, schoolSettings, classRolls } = state;
 
   const [view, setView] = useState<"list" | "add" | "bin">("list");
   const [search, setSearch] = useState("");
@@ -20,6 +20,16 @@ export default function ScoresTab() {
   });
 
   const subjects = useMemo(() => getSubjectsForClass(form.studentClass), [form.studentClass]);
+
+  // ── Datalist: names from class roll for the selected class ──
+  const classSuggestions = useMemo(() => {
+    if (!form.studentClass) return [];
+    const fromRoll = (classRolls[form.studentClass] || []).map((s) => s.name);
+    const fromEntries = entries
+      .filter((e) => e.studentClass === form.studentClass)
+      .map((e) => e.studentName);
+    return [...new Set([...fromRoll, ...fromEntries])].sort();
+  }, [classRolls, entries, form.studentClass]);
 
   const filtered = useMemo(() => {
     return entries.filter((e) => {
@@ -60,8 +70,12 @@ export default function ScoresTab() {
       },
     });
     showToast("Score entry saved!");
-    setForm({ studentName: "", studentClass: "", subject: "", ca1: "", ca2: "", ca3: "", exam: "" });
-    setView("list");
+    // Keep class selected, clear student/scores for quick re-entry
+    setForm((f) => ({ ...f, studentName: "", subject: "", ca1: "", ca2: "", ca3: "", exam: "" }));
+  };
+
+  const handleClassChange = (cls: string) => {
+    setForm((f) => ({ ...f, studentClass: cls, studentName: "", subject: "" }));
   };
 
   return (
@@ -132,27 +146,54 @@ export default function ScoresTab() {
         <PlusCircle className="w-6 h-6" />
       </button>
 
-      {/* Add Sheet */}
+      {/* ── Add Sheet ─────────────────────────────────────────────── */}
       {view === "add" && (
         <BottomSheet onClose={() => setView("list")}>
-          <div className="p-5 space-y-4">
+          <div className="p-5 space-y-4 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-foreground">New Score Entry</h3>
 
-            <input value={form.studentName} onChange={(e) => setForm((f) => ({ ...f, studentName: e.target.value }))}
-              placeholder="Student name" className="input-field" />
+            {/* Class first so datalist can populate */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Class</label>
+              <select value={form.studentClass} onChange={(e) => handleClassChange(e.target.value)}
+                className="input-field">
+                <option value="">Select class</option>
+                {ALL_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
 
-            <select value={form.studentClass} onChange={(e) => setForm((f) => ({ ...f, studentClass: e.target.value, subject: "" }))}
-              className="input-field">
-              <option value="">Select class</option>
-              {ALL_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            {/* Student name with datalist autocomplete */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Student Name</label>
+              <input
+                list="score-student-suggestions"
+                value={form.studentName}
+                onChange={(e) => setForm((f) => ({ ...f, studentName: e.target.value }))}
+                placeholder="Type or pick from roll…"
+                className="input-field"
+              />
+              <datalist id="score-student-suggestions">
+                {classSuggestions.map((n) => <option key={n} value={n} />)}
+              </datalist>
+              {classSuggestions.length > 0 && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {classSuggestions.length} student{classSuggestions.length !== 1 ? "s" : ""} on roll — tap name to autofill
+                </p>
+              )}
+            </div>
 
-            <select value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
-              className="input-field" disabled={!form.studentClass}>
-              <option value="">Select subject</option>
-              {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            {/* Subject */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Subject</label>
+              <select value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
+                className="input-field" disabled={!form.studentClass}>
+                <option value="">Select subject</option>
+                {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
 
+            {/* Score inputs */}
             <div className="grid grid-cols-4 gap-2">
               {(["ca1", "ca2", "ca3", "exam"] as const).map((k) => (
                 <div key={k}>
@@ -161,19 +202,26 @@ export default function ScoresTab() {
                   </label>
                   <input type="number" value={form[k]}
                     onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
-                    className="input-field text-center" placeholder="0" />
+                    className="input-field text-center" placeholder="0"
+                    min={0} max={k === "exam" ? 60 : 20} />
                 </div>
               ))}
             </div>
 
-            {(Number(form.ca1) + Number(form.ca2) + Number(form.ca3) + Number(form.exam)) > 0 && (
-              <div className="mobile-card p-3 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="text-lg font-bold text-foreground">
-                  {Number(form.ca1) + Number(form.ca2) + Number(form.ca3) + Number(form.exam)}%
-                </span>
-              </div>
-            )}
+            {/* Live total preview */}
+            {(Number(form.ca1) + Number(form.ca2) + Number(form.ca3) + Number(form.exam)) > 0 && (() => {
+              const total = Number(form.ca1) + Number(form.ca2) + Number(form.ca3) + Number(form.exam);
+              const g = getGrade(total);
+              return (
+                <div className="mobile-card p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${g.bg} ${g.color}`}>{g.grade} — {g.remark}</span>
+                    <span className="text-lg font-bold text-foreground">{total}%</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="flex gap-3 pt-2">
               <button onClick={() => setView("list")}

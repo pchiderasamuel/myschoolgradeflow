@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { logAuthEvent } from "@/lib/auth-logger";
+import { normalizeRole } from "@/lib/auth-role";
 import { getUserRole } from "@/supabase/schoolService";
 import { Shield } from "lucide-react";
 
@@ -23,20 +24,25 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
+  const redirectByRole = (role: string | null | undefined) => {
+    const normalized = normalizeRole(role);
+    if (normalized === "student") navigate("/student", { replace: true });
+    else if (["school_admin", "principal", "head_teacher", "authorised_staff"].includes(normalized ?? ""))
+      navigate("/school", { replace: true });
+    else if (normalized === "teacher") navigate("/teacher", { replace: true });
+    else if (normalized === "super_admin") navigate("/superadmin", { replace: true });
+    else navigate("/unauthorized", { replace: true });
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) return;
       const userId = data.session.user.id;
       try {
         const role = await getUserRole(userId);
-        const userRole = role ?? "unassigned";
-        if (userRole === "super_admin") navigate("/superadmin", { replace: true });
-        else if (userRole === "student") navigate("/student", { replace: true });
-        else if (["school_admin", "principal", "head_teacher", "teacher"].includes(userRole))
-          navigate(userRole === "teacher" ? "/teacher" : "/school", { replace: true });
-        else navigate("/superadmin", { replace: true });
+        redirectByRole(role);
       } catch {
-        navigate("/superadmin", { replace: true });
+        navigate("/unauthorized", { replace: true });
       }
     });
   }, [navigate]);
@@ -47,7 +53,7 @@ export default function Auth() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      
+
       if (data.user) {
         await logAuthEvent({
           authType: "super_admin",
@@ -55,13 +61,9 @@ export default function Auth() {
           userId: data.user.id,
         });
         const role = await getUserRole(data.user.id);
-        const userRole = role ?? "unassigned";
-        if (userRole === "student") navigate("/student", { replace: true });
-        else if (["school_admin", "principal", "head_teacher", "teacher"].includes(userRole))
-          navigate(userRole === "teacher" ? "/teacher" : "/school", { replace: true });
-        else navigate("/superadmin", { replace: true });
+        redirectByRole(role);
       } else {
-        navigate("/superadmin", { replace: true });
+        navigate("/unauthorized", { replace: true });
       }
     } catch (err) {
       toast({ title: "Sign-in failed", description: (err as Error).message, variant: "destructive" });
@@ -80,13 +82,13 @@ export default function Auth() {
       {/* Ambient floating cards for Admin page */}
       <div className="auth-float-card" style={{ top: "15%", left: "6%", animationDelay: "0s" }}>
         <div className="auth-float-card-icon" style={{ color: "#7c3aed" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
         </div>
         <span>Manage Schools</span>
       </div>
       <div className="auth-float-card" style={{ bottom: "20%", right: "5%", animationDelay: "2s" }}>
         <div className="auth-float-card-icon" style={{ color: "#db2777" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>
         </div>
         <span>Record Payments</span>
       </div>

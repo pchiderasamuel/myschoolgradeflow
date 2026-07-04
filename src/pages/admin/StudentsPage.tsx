@@ -248,7 +248,7 @@ export default function StudentsPage() {
       {/* Table - Mobile optimized */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
         {isFetching && students.length === 0 ? (
-          <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-400" /></div>
+          <div className="flex justify-center py-12 text-xs text-slate-400">Loading students…</div>
         ) : isError ? (
           <p className="text-center text-red-400 py-12 text-xs sm:text-sm">Failed to load students</p>
         ) : students.length === 0 ? (

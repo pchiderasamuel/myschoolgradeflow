@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
+import { normalizeRole } from "@/lib/auth-role";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -21,13 +22,19 @@ function Spinner() {
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { session, role, loading } = useAuth();
 
+  // Still resolving auth state — show spinner regardless
   if (loading) return <Spinner />;
 
+  // No session at all — send to login
   if (!session) return <Navigate to="/auth" replace />;
 
+  // role === null means profile fetch is still in-flight or pending.
+  // We should NOT redirect here; the component above us controls loading.
+  // Only "unassigned" (explicitly resolved with no valid role) triggers a redirect.
   if (role === "unassigned") return <Navigate to="/unauthorized" replace />;
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  const normalizedRole = normalizeRole(role);
+  if (allowedRoles && normalizedRole && !allowedRoles.includes(normalizedRole as AppRole)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

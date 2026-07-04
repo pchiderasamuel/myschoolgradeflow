@@ -7,6 +7,8 @@ import { useAuth, AppRole } from "@/contexts/AuthContext";
 const TIMETABLE_EDIT_ROLES: AppRole[] = [
   "super_admin",
   "school_admin",
+  "principal",
+  "head_teacher",
   "authorised_staff",
 ];
 

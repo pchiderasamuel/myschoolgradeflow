@@ -12,6 +12,7 @@ import AttendanceWidget from "@/components/dashboard/AttendanceWidget";
 import SessionLog from "@/components/SessionLog";
 import StudentOverviewCard from "@/components/dashboard/StudentOverviewCard";
 import { supabase } from "@/integrations/supabase/client";
+import { buildStaffInviteLink, generateStaffInviteToken } from "@/lib/staff-invite";
 
 const TERM_LABELS = { first: "1st Term", second: "2nd Term", third: "3rd Term" };
 
@@ -78,10 +79,6 @@ export default function OverviewPage() {
     }
   };
 
-  if (schoolLoading) {
-    return <div className="flex items-center justify-center h-48"><Loader2 className="animate-spin text-slate-400" /></div>;
-  }
-
   const stats = [
     { label: "Total Students",  value: studentTotal ?? "—",           icon: Users,          color: "bg-blue-50 text-blue-600" },
     { label: "Total Teachers",  value: teacherCount ?? "—",           icon: GraduationCap,  color: "bg-emerald-50 text-emerald-600" },
@@ -102,14 +99,20 @@ export default function OverviewPage() {
             size="sm"
             className="gap-2 text-xs w-full sm:w-auto justify-center sm:justify-start"
             onClick={async () => {
-              const slug = localStorage.getItem("schoolapp_school_slug");
-              if (slug) {
-                const url = `${window.location.origin}/app/${slug}/login`;
+              const slug = localStorage.getItem("schoolapp_school_slug") || localStorage.getItem("school_slug");
+              if (!slug) {
+                toast({ title: "No link available", description: "School slug not found. Try logging in via the school PIN first.", variant: "destructive" });
+                return;
+              }
+
+              try {
+                const { token } = await generateStaffInviteToken(slug);
+                const url = buildStaffInviteLink(window.location.origin, slug, token);
                 await navigator.clipboard.writeText(url);
                 setLinkCopied(true);
                 setTimeout(() => setLinkCopied(false), 2500);
-              } else {
-                toast({ title: "No link available", description: "School slug not found. Try logging in via the school PIN first.", variant: "destructive" });
+              } catch (error) {
+                toast({ title: "Could not create invite link", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
               }
             }}
           >
@@ -143,7 +146,7 @@ export default function OverviewPage() {
                 <div>
                   <p className="text-xs text-slate-500">{s.label}</p>
                   <p className="text-2xl font-bold text-slate-800">
-                    {loadingStats && s.label !== "Current Term" ? <Loader2 size={16} className="animate-spin inline" /> : s.value}
+                    {loadingStats && s.label !== "Current Term" ? <span className="text-sm text-slate-400">Loading…</span> : s.value}
                   </p>
                 </div>
               </div>

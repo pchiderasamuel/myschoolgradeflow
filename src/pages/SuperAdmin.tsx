@@ -209,9 +209,9 @@ export default function SuperAdmin() {
         <div className="mt-6">
           <SuperAdminSessionActivity />
         </div>
-        
+
         <SuperAdminSessionHistory />
-        
+
         {userId && (
           <div className="space-y-2">
             <h2 className="font-semibold">Your Login Activity</h2>
@@ -249,10 +249,10 @@ export default function SuperAdmin() {
 function StatCard({ label, value, tone }: { label: string; value: number; tone?: "success" | "info" | "warn" | "danger" }) {
   const cls =
     tone === "success" ? "text-green-600 dark:text-green-400"
-    : tone === "warn" ? "text-amber-600 dark:text-amber-400"
-    : tone === "danger" ? "text-destructive"
-    : tone === "info" ? "text-primary"
-    : "";
+      : tone === "warn" ? "text-amber-600 dark:text-amber-400"
+        : tone === "danger" ? "text-destructive"
+          : tone === "info" ? "text-primary"
+            : "";
   return (
     <Card className="p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
@@ -266,8 +266,8 @@ function TenantRow({ tenant, onChanged, onRecordPayment }: { tenant: Tenant; onC
   const d = daysLeft(tenant.subscription_ends_at);
   const statusColor =
     tenant.status === "active" ? "default"
-    : tenant.status === "trial" ? "secondary"
-    : "destructive";
+      : tenant.status === "trial" ? "secondary"
+        : "destructive";
 
   const setStatus = async (status: Tenant["status"]) => {
     try {
@@ -295,7 +295,7 @@ function TenantRow({ tenant, onChanged, onRecordPayment }: { tenant: Tenant; onC
     const newPin = generatePin();
     try {
       await resetSchoolPin(tenant.id, newPin);
-      await navigator.clipboard.writeText(newPin).catch(() => {});
+      await navigator.clipboard.writeText(newPin).catch(() => { });
       toast({
         title: "School PIN reset",
         description: `New PIN: ${newPin} (copied to clipboard)`,
@@ -450,7 +450,7 @@ function PaymentDialog({ tenant, onClose, onRecorded }: { tenant: Tenant; onClos
       const newEnd = new Date(startFrom.getTime() + days * 86400_000);
 
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       // Record the payment
       await recordSubscriptionPayment({
         tenant_id: tenant.id,
@@ -849,7 +849,7 @@ function PinRevealDialog({ pin, onClose }: { pin: string; onClose: () => void })
             variant="ghost"
             disabled={!revealed}
             onClick={async () => {
-              await navigator.clipboard.writeText(pin).catch(() => {});
+              await navigator.clipboard.writeText(pin).catch(() => { });
               setCopied(true);
               toast({ title: "Copied" });
             }}

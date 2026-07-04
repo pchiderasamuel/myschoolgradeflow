@@ -96,7 +96,7 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 className="animate-spin text-slate-400" /></div>;
+    return <div className="flex justify-center py-16 text-sm text-slate-400">Loading settings…</div>;
   }
 
   return (

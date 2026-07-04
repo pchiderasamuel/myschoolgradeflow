@@ -99,7 +99,7 @@ export default function ClassesPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-slate-400" /></div>
+        <div className="flex justify-center py-16 text-sm text-slate-400">Loading classes…</div>
       ) : classes.length === 0 ? (
         <p className="text-center text-slate-400 py-12 text-sm">No classes yet. Create one to get started.</p>
       ) : (

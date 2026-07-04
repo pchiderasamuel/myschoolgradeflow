@@ -7,7 +7,7 @@ export interface StaffMember {
   name: string;
   role: string;
   pin: string;
-  status: "active" | "restricted" | "revoked";
+  status: "active" | "restricted" | "revoked" | "resigned";
   assignedClasses: string[];
   permissions: Record<string, boolean>;
   signature?: string; // Base64 encoded signature
@@ -68,6 +68,16 @@ export interface EmailJSConfig {
   publicKey: string;
 }
 
+export interface ReportCustomization {
+  signerName: string;
+  signerRole: string;
+  signatureType: "typed" | "drawn";
+  signatureValue?: string;
+  stampUrl?: string;
+  showDate: boolean;
+  dateLabel: string;
+}
+
 export interface SchoolSettings {
   name: string;
   motto: string;
@@ -75,6 +85,7 @@ export interface SchoolSettings {
   term: string;
   resumptionDate: string;
   emailjs?: EmailJSConfig;
+  reportCustomization?: ReportCustomization;
 }
 
 export interface AppState {
@@ -129,6 +140,15 @@ export const initialState: AppState = {
     session: "2024/2025",
     term: "First Term",
     resumptionDate: "January 8th, 2025",
+    reportCustomization: {
+      signerName: "Class Teacher",
+      signerRole: "Class Teacher",
+      signatureType: "typed",
+      signatureValue: "",
+      stampUrl: "",
+      showDate: true,
+      dateLabel: "Date",
+    },
   },
   adminPin: "1234",
 };
@@ -140,7 +160,7 @@ export type AppAction =
   | { type: "DELETE_ENTRY"; id: string }
   | { type: "RESTORE_ENTRY"; id: string }
   | { type: "SAVE_STAFF"; payload: StaffMember }
-  | { type: "SET_STAFF_STATUS"; id: string; status: "active" | "restricted" | "revoked" }
+  | { type: "SET_STAFF_STATUS"; id: string; status: "active" | "restricted" | "revoked" | "resigned" }
   | { type: "SAVE_ATTENDANCE"; payload: AttendanceRecord }
   | { type: "BULK_SAVE_ATTENDANCE"; payload: AttendanceRecord[] }
   | { type: "DELETE_ATTENDANCE"; id: string }

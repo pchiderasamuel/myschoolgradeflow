@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useRef, useState, useCallback } from "react";
+import { useReducer, useEffect, useRef, useState } from "react";
 import { appReducer, loadFromStorage, saveToStorage, AppCtx } from "@/lib/school-store";
 import { useToastHook } from "@/hooks/use-app-toast";
 import { logAuthEvent } from "@/lib/auth-logger";
@@ -48,6 +48,9 @@ export default function SchoolApp() {
           staffId: session.staffId,
           staffName: session.staffName,
           staffRole: session.staffRole,
+          // Extended fields required for DB write in auth-logger
+          userId: session.userId ?? session.staffId,
+          schoolId: session.schoolId ?? localStorage.getItem("schoolapp_school_id"),
         };
       } catch {
         return null;
@@ -73,6 +76,10 @@ export default function SchoolApp() {
         authType: "staff",
         eventType: "login",
         staffId: sessionInfo.staffId,
+        userId: sessionInfo.userId,
+        userName: sessionInfo.staffName,
+        schoolId: sessionInfo.schoolId ?? undefined,
+        role: sessionInfo.staffRole,
       }).catch(err => console.warn("Failed to log staff login:", err));
 
       // Track logout on unmount
@@ -93,6 +100,10 @@ export default function SchoolApp() {
           authType: "staff",
           eventType: "logout",
           staffId: sessionInfo.staffId,
+          userId: sessionInfo.userId,
+          userName: sessionInfo.staffName,
+          schoolId: sessionInfo.schoolId ?? undefined,
+          role: sessionInfo.staffRole,
         }).catch(err => console.warn("Failed to log staff logout:", err));
       };
     }
