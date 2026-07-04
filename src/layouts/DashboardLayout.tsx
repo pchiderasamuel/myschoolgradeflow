@@ -113,6 +113,7 @@ export default function DashboardLayout({ schoolName, plan, features }: {
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
         <div>
           <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">SchoolGradeFlow</p>
+          <p className="text-sm font-semibold text-white truncate max-w-[160px]">
             {schoolName ?? "Loading…"}
           </p>
         </div>
