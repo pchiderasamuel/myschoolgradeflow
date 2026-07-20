@@ -20,34 +20,58 @@ Deno.serve(async (req) => {
 
     // ── 1. Auth: verify caller has allowed role ──────────────────────────────
     const authHeader = req.headers.get("Authorization");
+    const tenantSessionToken = req.headers.get("x-tenant-session") ?? "";
 
-    // Support both Supabase auth and tenant session token
-    const isTenantCall = !authHeader?.startsWith("Bearer eyJ");
     let callerUserId: string | null = null;
+    let callerSchoolId: string | null = null;
+    const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    if (authHeader && !isTenantCall) {
+    if (tenantSessionToken) {
+      // PIN-based tenant session — verify server-side
+      const { data: session } = await admin
+        .from("tenant_sessions")
+        .select("school_id, expires_at")
+        .eq("session_token", tenantSessionToken)
+        .maybeSingle();
+      if (!session || (session.expires_at && new Date(session.expires_at) < new Date())) {
+        return Response.json(
+          { error: "Invalid or expired tenant session" },
+          { status: 401, headers: corsHeaders }
+        );
+      }
+      callerSchoolId = session.school_id;
+    } else {
+      // Supabase-auth path — REQUIRED, no silent fallthrough
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return Response.json(
+          { error: "Authentication required" },
+          { status: 401, headers: corsHeaders }
+        );
+      }
       const callerClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
       });
       const { data: { user }, error: userError } = await callerClient.auth.getUser();
-      if (!userError && user) {
-        callerUserId = user.id;
-        // Check profile role
-        const adminClient = createClient(supabaseUrl, serviceRoleKey);
-        const { data: profile } = await adminClient
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-          return Response.json(
-            { error: "Insufficient permissions" },
-            { status: 403, headers: corsHeaders }
-          );
-        }
+      if (userError || !user) {
+        return Response.json(
+          { error: "Authentication required" },
+          { status: 401, headers: corsHeaders }
+        );
       }
+      callerUserId = user.id;
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("role, school_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+        return Response.json(
+          { error: "Insufficient permissions" },
+          { status: 403, headers: corsHeaders }
+        );
+      }
+      callerSchoolId = profile.school_id ?? null;
     }
-    // Tenant session calls (PIN-based app) — allowed without Supabase auth
 
     // ── 2. Parse request body ─────────────────────────────────────────────────
     const { reportCardId, schoolId } = await req.json();
