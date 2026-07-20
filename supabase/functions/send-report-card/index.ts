@@ -82,13 +82,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+    // Enforce that caller's school matches the target school
+    if (!callerSchoolId || callerSchoolId !== schoolId) {
+      return Response.json(
+        { error: "Forbidden: school mismatch" },
+        { status: 403, headers: corsHeaders }
+      );
+    }
 
-    // ── 3. Fetch report card ──────────────────────────────────────────────────
+    // ── 3. Fetch report card (must belong to caller's school) ────────────────
     const { data: rc, error: rcErr } = await admin
       .from("report_cards")
       .select("*")
       .eq("id", reportCardId)
+      .eq("school_id", schoolId)
       .single();
     if (rcErr || !rc) {
       return Response.json({ error: "Report card not found" }, { status: 404, headers: corsHeaders });
