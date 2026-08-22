@@ -7530,7 +7530,7 @@ function VirtualHubView({
 
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
-export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenantPlan, polledData, onLocalEdit, onStateChange }: { onTenantSignOut?: () => void; tenantId?: string; tenantSchoolName?: string; tenantPlan?: string; polledData?: any; onLocalEdit?: (state: any) => void; onStateChange?: (state: any) => void } = {}) {
+export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenantSchoolCode, tenantPlan, polledData, onLocalEdit, onStateChange }: { onTenantSignOut?: () => void; tenantId?: string; tenantSchoolName?: string; tenantSchoolCode?: string; tenantPlan?: string; polledData?: any; onLocalEdit?: (state: any) => void; onStateChange?: (state: any) => void } = {}) {
   const [appState, dispatchRaw] = useReducer(appReducer, initialState);
 
   // Protect against stale data bleed across tenants on the same browser
@@ -9688,6 +9688,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
       </AppCtx.Provider>
   );
 }
+
 
 
 
