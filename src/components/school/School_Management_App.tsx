@@ -20,7 +20,7 @@ import {
   Menu, BookOpen, MoreVertical, ChevronRight, ChevronLeft,
   CalendarDays, ClipboardList, BookMarked, Edit2, ArrowLeft,
   Bell, CalendarClock, Send, Inbox, MessageSquare, Wallet, CheckCircle,
-  FileSpreadsheet, Lock, Info, DollarSign, Loader2, Trophy, Download, UserCircle, HelpCircle, Calculator, Copy, Video
+  FileSpreadsheet, Lock, Info, DollarSign, Loader2, Trophy, Download, UserCircle, HelpCircle, Calculator, Copy, Video, Share2
 } from "lucide-react";
 import { verifyAdminPin, setAdminPin, loadTenantSession, requestCloudDeletion as rpcRequestCloudDeletion, cancelCloudDeletion as rpcCancelCloudDeletion, fetchCloudDeletionStatus as rpcFetchCloudDeletionStatus } from "@/lib/tenant-client";
 import { exportToCSV } from "@/lib/exportUtils";
@@ -7374,6 +7374,41 @@ function VirtualHubView({
 }) {
   const [form, setForm] = useState({ topic: "", subject: "", targetClass: "SS 3", scheduledTime: "", meetingLink: "", description: "" });
   const [showForm, setShowForm] = useState(false);
+  const [schoolCode, setSchoolCode] = useState<string>("YOUR-SCHOOL-CODE");
+
+  useEffect(() => {
+    try {
+      const sessionStr = sessionStorage.getItem('schoolapp_tenant_session_v2');
+      if (sessionStr) {
+        const session = JSON.parse(sessionStr);
+        if (session.tenantId) {
+          import('@/integrations/supabase/client').then(({ supabase }) => {
+            supabase.from('tenants').select('school_code').eq('id', session.tenantId).single().then(({ data }) => {
+              if (data?.school_code) setSchoolCode(data.school_code);
+            });
+          });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const handleCopyPublicHubLink = () => {
+    const hubUrl = `https://${window.location.host}/check/${schoolCode}/virtual`;
+    navigator.clipboard.writeText(hubUrl)
+      .then(() => showToast("Public Virtual Hub link copied!", "success"))
+      .catch(() => showToast("Failed to copy link", "error"));
+  };
+
+  const handleCopyInvite = (vc: VirtualClass) => {
+    const hubUrl = `https://${window.location.host}/check/${schoolCode}/virtual`;
+    const inviteText = `📚 *Virtual Class Invitation*\n\n📌 *Topic:* ${vc.topic}\n📖 *Subject:* ${vc.subject}\n🎓 *Class:* ${vc.targetClass}\n⏰ *Time:* ${new Date(vc.scheduledTime).toLocaleString()}\n\n👉 *Join Class via Student Portal:* ${hubUrl}\n*(Enter your Admission Number to log attendance and access the live meeting)*\n${vc.description ? `\n📝 *Notes:* ${vc.description}` : ""}`;
+    
+    navigator.clipboard.writeText(inviteText)
+      .then(() => showToast("Class invitation copied to clipboard!", "success"))
+      .catch(() => showToast("Failed to copy invite", "error"));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -7398,12 +7433,17 @@ function VirtualHubView({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
         <div>
           <h2 className="text-xl font-black text-slate-900 flex items-center gap-2"><Video className="text-indigo-600" /> Virtual Revision Hub</h2>
-          <p className="text-sm text-slate-500 mt-1">Schedule and manage online revision classes for your students.</p>
+          <p className="text-sm text-slate-500 mt-1">Schedule online revision classes & share direct links with parents.</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-colors">
-          {showForm ? <X size={16} /> : <PlusCircle size={16} />}
-          {showForm ? "Cancel" : "Schedule Class"}
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button onClick={handleCopyPublicHubLink} className="flex-1 sm:flex-none bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors border border-slate-200">
+            <Share2 size={16} /> Copy Hub Link
+          </button>
+          <button onClick={() => setShowForm(!showForm)} className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors">
+            {showForm ? <X size={16} /> : <PlusCircle size={16} />}
+            {showForm ? "Cancel" : "Schedule Class"}
+          </button>
+        </div>
       </div>
 
       {showForm && (
