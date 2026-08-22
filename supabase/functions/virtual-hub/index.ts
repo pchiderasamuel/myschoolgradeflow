@@ -18,23 +18,50 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, school_code, admission_no, class_name, class_id, student_name } = body;
 
-    // 1. Resolve school code to tenant_id
+    // 1. Resolve school code to tenant_id (supports UUID, tenants.school_code, schools.code)
     if (!school_code) throw new Error("Missing school code");
     
-    const { data: tenantData, error: tenantErr } = await admin
-      .from("tenants")
-      .select("id")
-      .ilike("school_code", school_code)
-      .single();
-      
-    if (tenantErr || !tenantData) {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = UUID_RE.test(school_code);
+
+    let tenantId: string | null = null;
+
+    if (isUuid) {
+      // Check if school_code is a tenant_id UUID
+      const { data: t } = await admin
+        .from("tenants")
+        .select("id")
+        .eq("id", school_code)
+        .maybeSingle();
+      if (t) tenantId = t.id;
+    }
+
+    if (!tenantId) {
+      // Check tenants table by school_code
+      const { data: t } = await admin
+        .from("tenants")
+        .select("id")
+        .ilike("school_code", school_code)
+        .maybeSingle();
+      if (t) tenantId = t.id;
+    }
+
+    if (!tenantId) {
+      // Check schools table by code
+      const { data: s } = await admin
+        .from("schools")
+        .select("tenant_id")
+        .eq("code", school_code.toUpperCase())
+        .maybeSingle();
+      if (s?.tenant_id) tenantId = s.tenant_id;
+    }
+
+    if (!tenantId) {
       return new Response(JSON.stringify({ error: "Invalid school code." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 404,
       });
     }
-    
-    const tenantId = tenantData.id;
 
     // 2. Fetch App State / Tenant Data
     const { data: stateRow, error: stateErr } = await admin
