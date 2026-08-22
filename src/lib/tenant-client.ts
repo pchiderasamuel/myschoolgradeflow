@@ -8,6 +8,7 @@ const SESSION_KEY = "schoolapp_tenant_session_v2";
 
 export interface TenantSession {
   tenantId: string;
+  schoolCode: string;
   schoolName: string;
   sessionToken: string;
   status: "trial" | "active" | "expired" | "suspended";
@@ -44,6 +45,7 @@ export async function verifySchoolPin(tenantCode: string, pin: string): Promise<
   const row = data[0];
   const session = {
     tenantId: row.tenant_id,
+    schoolCode: tenantCode.toUpperCase(),
     schoolName: row.school_name,
     sessionToken: row.session_token,
     status: row.status,
