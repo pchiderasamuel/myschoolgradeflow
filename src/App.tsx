@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound.tsx";
 import ResultChecker from "./pages/ResultChecker";
+import PublicVirtualHub from "./pages/PublicVirtualHub";
 import TeacherPortal from "./pages/teacher/TeacherPortal";
 import MyClassesPage from "./pages/teacher/MyClassesPage";
 import AttendancePage from "./pages/teacher/AttendancePage";
@@ -122,6 +123,7 @@ const App = () => (
             </Route>
             {/* Public result checker — no auth required */}
             <Route path="/check/:schoolCode" element={<ResultChecker />} />
+              <Route path="/check/:schoolCode/virtual" element={<PublicVirtualHub />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -132,3 +134,4 @@ const App = () => (
 );
 
 export default App;
+
