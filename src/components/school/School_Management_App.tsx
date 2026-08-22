@@ -7374,20 +7374,45 @@ function VirtualHubView({
 }) {
   const [form, setForm] = useState({ topic: "", subject: "", targetClass: "SS 3", scheduledTime: "", meetingLink: "", description: "" });
   const [showForm, setShowForm] = useState(false);
-  const [schoolCode, setSchoolCode] = useState<string>("YOUR-SCHOOL-CODE");
+  const [schoolCode, setSchoolCode] = useState<string>(() => {
+    return localStorage.getItem("gm_last_tenant_code") || localStorage.getItem("gm_last_tenant_id") || "";
+  });
 
   useEffect(() => {
     try {
-      const sessionStr = sessionStorage.getItem('schoolapp_tenant_session_v2');
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        if (session.tenantId) {
-          import('@/integrations/supabase/client').then(({ supabase }) => {
-            supabase.from('tenants').select('school_code').eq('id', session.tenantId).single().then(({ data }) => {
-              if (data?.school_code) setSchoolCode(data.school_code);
-            });
+      const storedCode = localStorage.getItem("gm_last_tenant_code");
+      const sessionStr = sessionStorage.getItem("schoolapp_tenant_session_v2");
+      const sessionTenantId = sessionStr ? JSON.parse(sessionStr)?.tenantId : null;
+      const tenantId = localStorage.getItem("gm_last_tenant_id") || sessionTenantId;
+
+      if (storedCode) setSchoolCode(storedCode);
+
+      const targetId = tenantId || storedCode;
+      if (targetId) {
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        fetch(`${SUPABASE_URL}/functions/v1/get-school-branding`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ school_code: targetId }),
+        })
+          .then(r => r.json())
+          .then(d => {
+            if (d.code) {
+              setSchoolCode(d.code);
+              localStorage.setItem("gm_last_tenant_code", d.code);
+            } else if (targetId) {
+              setSchoolCode(targetId);
+            }
+          })
+          .catch(() => {
+            if (targetId) setSchoolCode(targetId);
           });
-        }
       }
     } catch (e) {
       console.error(e);
@@ -9688,6 +9713,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
       </AppCtx.Provider>
   );
 }
+
 
 
 

@@ -24,34 +24,56 @@ Deno.serve(async (req) => {
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isUuid = UUID_RE.test(school_code);
 
-    let school: { name: string; logo: string | null } | null = null;
+    let school: { code?: string | null; name: string; logo: string | null } | null = null;
 
     if (isUuid) {
       const { data } = await admin
         .from("schools")
-        .select("name, logo")
+        .select("code, name, logo")
         .eq("tenant_id", school_code)
         .maybeSingle();
       school = data;
+
+      if (!school) {
+        const { data: t } = await admin
+          .from("tenants")
+          .select("school_code, school_name")
+          .eq("id", school_code)
+          .maybeSingle();
+        if (t) {
+          school = { code: t.school_code, name: t.school_name, logo: null };
+        }
+      }
     }
 
     if (!school) {
       const { data } = await admin
         .from("schools")
-        .select("name, logo")
+        .select("code, name, logo")
         .eq("code", school_code.toUpperCase())
         .maybeSingle();
       school = data;
     }
 
     if (!school) {
-      return Response.json({ name: null, logo: null }, { status: 200, headers: corsHeaders });
+      const { data: t } = await admin
+        .from("tenants")
+        .select("school_code, school_name")
+        .ilike("school_code", school_code)
+        .maybeSingle();
+      if (t) {
+        school = { code: t.school_code, name: t.school_name, logo: null };
+      }
     }
 
-    return Response.json({ name: school.name, logo: school.logo }, { status: 200, headers: corsHeaders });
+    if (!school) {
+      return Response.json({ name: null, logo: null, code: null }, { status: 200, headers: corsHeaders });
+    }
+
+    return Response.json({ name: school.name, logo: school.logo, code: school.code || school_code }, { status: 200, headers: corsHeaders });
 
   } catch (err) {
     console.error("get-school-branding error:", err);
-    return Response.json({ name: null, logo: null }, { status: 200, headers: corsHeaders });
+    return Response.json({ name: null, logo: null, code: null }, { status: 200, headers: corsHeaders });
   }
 });
