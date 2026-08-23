@@ -7488,6 +7488,25 @@ function VirtualHubView({
 
   const myClasses = isAdmin ? virtualClasses : virtualClasses.filter(c => c.createdBy === currentActor);
 
+  const filteredClasses = useMemo(() => {
+    return myClasses.filter(vc => {
+      const matchesClass = filterClass === "ALL" || vc.targetClass === filterClass;
+      const isPast = new Date(vc.scheduledTime).getTime() < Date.now();
+      const matchesStatus = 
+        filterStatus === "ALL" ? true :
+        filterStatus === "UPCOMING" ? !isPast :
+        filterStatus === "COMPLETED" ? isPast : true;
+
+      const q = searchQuery.toLowerCase().trim();
+      const matchesQuery = !q || 
+        vc.topic.toLowerCase().includes(q) || 
+        vc.subject.toLowerCase().includes(q) ||
+        (vc.description && vc.description.toLowerCase().includes(q));
+
+      return matchesClass && matchesStatus && matchesQuery;
+    }).sort((a,b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime());
+  }, [myClasses, filterClass, filterStatus, searchQuery]);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
@@ -7504,6 +7523,55 @@ function VirtualHubView({
             {showForm ? "Cancel" : "Schedule Class"}
           </button>
         </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+        <div className="flex-1 flex flex-col sm:flex-row gap-2.5">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search topic or subject..."
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-indigo-500 outline-none transition-all"
+            />
+          </div>
+
+          {/* Class Filter Dropdown */}
+          <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
+            <Filter className="text-slate-400 hidden sm:block flex-shrink-0" size={15} />
+            <select
+              value={filterClass}
+              onChange={e => setFilterClass(e.target.value)}
+              className="w-full sm:w-40 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-indigo-500 outline-none transition-all"
+            >
+              <option value="ALL">All Classes ({ALL_CLASSES.length})</option>
+              {ALL_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Status Filter Dropdown */}
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="w-full sm:w-36 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-indigo-500 outline-none transition-all"
+          >
+            <option value="ALL">All Status</option>
+            <option value="UPCOMING">Upcoming Only</option>
+            <option value="COMPLETED">Completed Only</option>
+          </select>
+        </div>
+
+        {(filterClass !== "ALL" || filterStatus !== "ALL" || searchQuery) && (
+          <button
+            onClick={() => { setFilterClass("ALL"); setFilterStatus("ALL"); setSearchQuery(""); }}
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center justify-center gap-1 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100 transition-colors flex-shrink-0"
+          >
+            <RotateCcw size={13} /> Reset Filters
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -7539,13 +7607,23 @@ function VirtualHubView({
       )}
 
       <div className="space-y-3">
-        {myClasses.length === 0 ? (
+        {filteredClasses.length === 0 ? (
           <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
             <Video className="mx-auto text-slate-300 mb-3" size={32} />
-            <p className="text-sm font-bold text-slate-500">No virtual classes scheduled</p>
+            <p className="text-sm font-bold text-slate-500">
+              {myClasses.length === 0 ? "No virtual classes scheduled" : "No classes match your filter criteria"}
+            </p>
+            {myClasses.length > 0 && (
+              <button
+                onClick={() => { setFilterClass("ALL"); setFilterStatus("ALL"); setSearchQuery(""); }}
+                className="mt-3 text-xs font-bold text-indigo-600 underline"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
-          [...myClasses].sort((a,b)=>new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime()).map(vc => {
+          filteredClasses.map(vc => {
             const isPast = new Date(vc.scheduledTime).getTime() < Date.now();
             const attendanceList = virtualAttendance[vc.id] || [];
             return (
@@ -7559,20 +7637,22 @@ function VirtualHubView({
                   <p className="text-sm font-bold text-indigo-600">{vc.subject} <span className="text-slate-400">({vc.targetClass})</span></p>
                   {vc.description && <p className="text-sm text-slate-600 mt-2">{vc.description}</p>}
                   
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700 text-sm">Attendance:</span>
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-slate-700 text-xs sm:text-sm">Attendance:</span>
                       <button 
                         onClick={() => setSelectedAttendees({ topic: vc.topic, list: attendanceList })}
-                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
                         title="Click to view full list of attendees"
                       >
-                        <Users size={13} className="text-indigo-600" />
+                        <Users size={14} className="text-indigo-600 flex-shrink-0" />
                         <span>{attendanceList.length} {attendanceList.length === 1 ? "student" : "students"}</span>
-                        <span className="text-[10px] text-indigo-500 font-extrabold uppercase bg-indigo-100 px-1.5 py-0.5 rounded ml-0.5">View List ➔</span>
+                        <span className="text-[10px] text-indigo-600 font-extrabold uppercase bg-indigo-100 px-2 py-0.5 rounded ml-0.5 flex items-center gap-0.5">
+                          View List ➔
+                        </span>
                       </button>
                     </div>
-                    {isAdmin && <span className="text-xs text-slate-400 font-bold">By {vc.createdBy}</span>}
+                    {isAdmin && <span className="text-xs text-slate-400 font-bold self-start sm:self-auto">By {vc.createdBy}</span>}
                   </div>
                 </div>
                 
@@ -7596,6 +7676,55 @@ function VirtualHubView({
           })
         )}
       </div>
+
+      {/* Attendees Modal (Fully Mobile Responsive) */}
+      {selectedAttendees && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 w-[95vw] sm:max-w-md max-h-[85vh] flex flex-col shadow-2xl border border-slate-100 animate-in zoom-in-95">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="font-black text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                  <Users className="text-indigo-600 flex-shrink-0" size={20} /> Class Attendees
+                </h3>
+                <p className="text-xs text-slate-500 font-bold mt-0.5 break-words">{selectedAttendees.topic}</p>
+              </div>
+              <button onClick={() => setSelectedAttendees(null)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {selectedAttendees.list.length === 0 ? (
+              <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 my-auto">
+                <Users className="mx-auto text-slate-300 mb-2" size={32} />
+                <p className="text-xs font-bold text-slate-500">No students have joined this class yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 overflow-y-auto pr-1 flex-1 my-2">
+                {selectedAttendees.list.map((name, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-100 transition-colors">
+                    <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0">
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-black text-slate-900 truncate">{name}</p>
+                      <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
+                        <CheckCircle size={10} /> Joined Live Class
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center flex-shrink-0">
+              <span className="text-xs font-bold text-slate-500">Total: {selectedAttendees.list.length} attendees</span>
+              <button onClick={() => setSelectedAttendees(null)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
