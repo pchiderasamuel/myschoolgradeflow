@@ -3757,7 +3757,9 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
   const [genLoading, setGenLoading] = useState(false);
 
   const isEnabled = schoolSettings?.features?.result_checker === true;
-    const classes = ALL_CLASSES;
+  const classes = ALL_CLASSES;
+  const classRolls = appState?.classRolls || {};
+  const entries = appState?.entries || [];
   
   const fetchTokens = useCallback(async () => {
     try {
