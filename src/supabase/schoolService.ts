@@ -219,17 +219,27 @@ function throwIfError(error: unknown, context: string): void {
 // ─── School Profile ────────────────────────────────────────────────────
 
 export async function getSchoolProfile(schoolId: string | null): Promise<School> {
-  const sid = requireSchoolId(schoolId);
-  const { data: sRow } = await db().from("schools").select("id").eq("tenant_id", sid).maybeSingle();
-  const actualId = sRow?.id || sid;
+  if (!schoolId) return {} as School;
+  try {
+    const sid = requireSchoolId(schoolId);
+    let actualId = sid;
+    const { data: sRow } = await db().from("schools").select("id").eq("tenant_id", sid).maybeSingle();
+    if (sRow?.id) {
+      actualId = sRow.id;
+    } else if (!isUUID(sid)) {
+      return {} as School;
+    }
 
-  const { data, error } = await db()
-    .from("schools")
-    .select("*")
-    .eq("id", actualId)
-    .single();
-  throwIfError(error, "getSchoolProfile");
-  return data as unknown as School;
+    const { data, error } = await db()
+      .from("schools")
+      .select("*")
+      .eq("id", actualId)
+      .maybeSingle();
+    if (error) return {} as School;
+    return (data ?? {}) as unknown as School;
+  } catch (e) {
+    return {} as School;
+  }
 }
 
 export async function updateSchoolProfile(

@@ -534,6 +534,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
             <input 
               id="directory-search-input"
               name="directorySearch"
+              aria-label="Search students by name or admission number"
               type="text" 
               placeholder="Search by name or admission no..." 
               value={searchQuery}
@@ -546,6 +547,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
             <select
               id="directory-class-filter-select"
               name="directoryClassFilter"
+              aria-label="Filter students by class"
               value={classFilter}
               onChange={(e) => { setClassFilter(e.target.value); setPage(0); }}
               className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 appearance-none min-w-[140px]"
@@ -562,6 +564,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
             <select
               id="directory-term-filter-select"
               name="directoryTermFilter"
+              aria-label="Filter students by academic term"
               value={termFilter}
               onChange={(e) => { setTermFilter(e.target.value); setPage(0); }}
               className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 appearance-none min-w-[130px]"
