@@ -7559,16 +7559,27 @@ function VirtualHubView({
                   <p className="text-sm font-bold text-indigo-600">{vc.subject} <span className="text-slate-400">({vc.targetClass})</span></p>
                   {vc.description && <p className="text-sm text-slate-600 mt-2">{vc.description}</p>}
                   
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-4">
-                    <div className="text-sm">
-                      <span className="font-bold text-slate-700">Attendance:</span> <span className="text-indigo-600 font-black bg-indigo-50 px-2 py-0.5 rounded-md"></span>
-                      <button onClick={() => setSelectedAttendees({ topic: vc.topic, list: attendanceList })} className="text-indigo-600 hover:text-indigo-800 font-black bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md text-xs transition-colors underline cursor-pointer ml-1" title="Click to see list of attendees">({attendanceList.length} students - View List)</button>
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-700 text-sm">Attendance:</span>
+                      <button 
+                        onClick={() => setSelectedAttendees({ topic: vc.topic, list: attendanceList })}
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                        title="Click to view full list of attendees"
+                      >
+                        <Users size={13} className="text-indigo-600" />
+                        <span>{attendanceList.length} {attendanceList.length === 1 ? "student" : "students"}</span>
+                        <span className="text-[10px] text-indigo-500 font-extrabold uppercase bg-indigo-100 px-1.5 py-0.5 rounded ml-0.5">View List ➔</span>
+                      </button>
                     </div>
-                    {isAdmin && <span className="text-xs text-slate-400 font-bold ml-auto">By {vc.createdBy}</span>}
+                    {isAdmin && <span className="text-xs text-slate-400 font-bold">By {vc.createdBy}</span>}
                   </div>
                 </div>
                 
                 <div className="flex sm:flex-col justify-end sm:justify-start gap-2 border-t sm:border-t-0 sm:border-l border-slate-100 pt-4 sm:pt-0 sm:pl-5">
+                  <button onClick={() => handleCopyInvite(vc)} className="flex-1 sm:flex-none text-center bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-indigo-200 flex items-center justify-center gap-1.5">
+                    <Share2 size={14} /> Copy Invite
+                  </button>
                   <a href={vc.meetingLink} target="_blank" rel="noreferrer" className="flex-1 sm:flex-none text-center bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-emerald-200">
                     Open Link
                   </a>
