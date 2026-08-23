@@ -267,7 +267,13 @@ export async function getStudentSummary(
     .eq("school_id", sid)
     .eq("status", "active");
 
-  if (classId) query = query.eq("class_id", classId);
+  if (classId) {
+    if (isUUID(classId)) {
+      query = query.eq("class_id", classId);
+    } else {
+      query = query.eq("class_name", classId);
+    }
+  }
 
   const { data, error } = await query;
   throwIfError(error, "getStudentSummary");
@@ -303,7 +309,13 @@ export async function getStudents(
     .eq("school_id", actualSchoolId)
     .order("last_name", { ascending: true });
 
-  if (filters?.class_id) query = query.eq("class_id", filters.class_id);
+  if (filters?.class_id) {
+    if (isUUID(filters.class_id)) {
+      query = query.eq("class_id", filters.class_id);
+    } else {
+      query = query.eq("class_name", filters.class_id);
+    }
+  }
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.search) {
     const s = filters.search.trim();
@@ -343,7 +355,13 @@ export async function getStudentsPaged(
     .order("last_name")
     .range(from, to);
 
-  if (filters?.class_id) query = query.eq("class_id", filters.class_id);
+  if (filters?.class_id) {
+    if (isUUID(filters.class_id)) {
+      query = query.eq("class_id", filters.class_id);
+    } else {
+      query = query.eq("class_name", filters.class_id);
+    }
+  }
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.search) {
     const s = filters.search.trim();
