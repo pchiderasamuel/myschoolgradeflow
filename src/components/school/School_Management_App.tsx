@@ -7017,16 +7017,22 @@ function TimetableView({
                     const startDate = new Date(s.startTime);
                     const startMins = startDate.getHours() * 60 + startDate.getMinutes();
                     
-                    let punctualityBadge = <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">Tracked</span>;
-                    if (s.scheduledStart) {
-                      const parts = s.scheduledStart.split(":");
+                    const matchedPeriod = timetable.periods.find(p => p.id === s.periodId);
+                    const schedStartStr = s.scheduledStart || matchedPeriod?.start || null;
+                    const schedEndStr = s.scheduledEnd || matchedPeriod?.end || null;
+
+                    let punctualityBadge = <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-200 flex items-center gap-1 w-fit">🟢 Tracked & Verified</span>;
+                    if (schedStartStr) {
+                      const parts = schedStartStr.split(":");
                       if (parts.length >= 2) {
                         const schedMins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
                         const diffMins = startMins - schedMins;
-                        if (diffMins <= 5) {
-                          punctualityBadge = <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-fit">🟢 On Time</span>;
+                        if (diffMins > 5) {
+                          punctualityBadge = <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-300 flex items-center gap-1 w-fit">⚠️ {diffMins} mins Late</span>;
+                        } else if (diffMins < -5) {
+                          punctualityBadge = <span className="bg-blue-100 text-blue-900 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-300 flex items-center gap-1 w-fit">⚡ {Math.abs(diffMins)} mins Early</span>;
                         } else {
-                          punctualityBadge = <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-fit">⚠️ {diffMins} mins Late</span>;
+                          punctualityBadge = <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-300 flex items-center gap-1 w-fit">🟢 On Time</span>;
                         }
                       }
                     }
@@ -7036,8 +7042,8 @@ function TimetableView({
                         <td className="px-3 py-2 font-bold text-slate-600">
                           {new Date(s.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           {s.endTime && " - " + new Date(s.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          {(s.scheduledStart || s.scheduledEnd) && (
-                            <span className="block text-[9px] uppercase text-indigo-500 font-bold">Slot: {s.scheduledStart || "—"} - {s.scheduledEnd || "—"}</span>
+                          {(schedStartStr || schedEndStr) && (
+                            <span className="block text-[9px] uppercase text-indigo-500 font-bold">Slot: {schedStartStr || "—"} - {schedEndStr || "—"}</span>
                           )}
                         </td>
                         <td className="px-3 py-2 font-bold text-slate-700">{s.className}</td>
