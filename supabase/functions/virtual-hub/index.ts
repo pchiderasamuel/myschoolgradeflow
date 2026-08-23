@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, school_code, admission_no, class_name, class_id, student_name } = body;
 
-    // 1. Resolve school code to tenant_id (supports UUID, tenants.school_code, schools.code)
+    // 1. Resolve school code to tenant_id (supports UUID, tenants.school_code, schools.code, schools.tenant_id)
     if (!school_code) throw new Error("Missing school code");
     
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,17 +27,27 @@ Deno.serve(async (req) => {
     let tenantId: string | null = null;
 
     if (isUuid) {
-      // Check if school_code is a tenant_id UUID
+      // 1a. Check tenants table by id
       const { data: t } = await admin
         .from("tenants")
         .select("id")
         .eq("id", school_code)
         .maybeSingle();
       if (t) tenantId = t.id;
+
+      // 1b. Check schools table by tenant_id
+      if (!tenantId) {
+        const { data: s } = await admin
+          .from("schools")
+          .select("tenant_id")
+          .eq("tenant_id", school_code)
+          .maybeSingle();
+        if (s) tenantId = s.tenant_id;
+      }
     }
 
     if (!tenantId) {
-      // Check tenants table by school_code
+      // 2. Check tenants table by school_code
       const { data: t } = await admin
         .from("tenants")
         .select("id")
@@ -47,7 +57,7 @@ Deno.serve(async (req) => {
     }
 
     if (!tenantId) {
-      // Check schools table by code
+      // 3. Check schools table by code
       const { data: s } = await admin
         .from("schools")
         .select("tenant_id")
@@ -59,7 +69,7 @@ Deno.serve(async (req) => {
     if (!tenantId) {
       return new Response(JSON.stringify({ error: "Invalid school code." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 404,
+        status: 200,
       });
     }
 
@@ -68,12 +78,12 @@ Deno.serve(async (req) => {
       .from("tenant_data")
       .select("data")
       .eq("tenant_id", tenantId)
-      .single();
+      .maybeSingle();
       
     if (stateErr || !stateRow) {
       return new Response(JSON.stringify({ error: "School data not initialized." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
+        status: 200,
       });
     }
 
@@ -84,7 +94,7 @@ Deno.serve(async (req) => {
       if (!class_name || !admission_no) {
         return new Response(JSON.stringify({ error: "Missing class or admission number." }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
+          status: 200,
         });
       }
 
@@ -96,7 +106,7 @@ Deno.serve(async (req) => {
       if (!student) {
         return new Response(JSON.stringify({ error: "Admission number not found in this class." }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 404,
+          status: 200,
         });
       }
 
@@ -122,7 +132,7 @@ Deno.serve(async (req) => {
       if (!class_id || !student_name) {
         return new Response(JSON.stringify({ error: "Missing required fields to log attendance." }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
+          status: 200,
         });
       }
 
@@ -133,13 +143,21 @@ Deno.serve(async (req) => {
         currentAtt[class_id].push(student_name);
         
         // Update database
-        await admin
+        const { error: updateErr } = await admin
           .from("tenant_data")
           .update({ data: { ...appData, virtualAttendance: currentAtt } })
           .eq("tenant_id", tenantId);
+
+        if (updateErr) {
+          console.error("Attendance update error:", updateErr);
+          return new Response(JSON.stringify({ error: updateErr.message }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
       }
 
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, attendance: currentAtt }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -147,14 +165,14 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ error: "Invalid action." }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
+      status: 200,
     });
 
   } catch (err: any) {
     console.error("Function error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 200,
     });
   }
 });

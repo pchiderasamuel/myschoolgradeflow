@@ -86,7 +86,7 @@ export default function PublicVirtualHub() {
     setJoiningClass(vc.id);
 
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/virtual-hub`, {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/virtual-hub`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -95,11 +95,19 @@ export default function PublicVirtualHub() {
         },
         body: JSON.stringify({
           action: "join",
-          school_code: schoolCode.toUpperCase(),
+          school_code: schoolCode,
           class_id: vc.id,
           student_name: studentInfo.name,
         }),
       });
+
+      const resData = await resp.json();
+
+      if (resData.error) {
+        toast.error(`Attendance notice: ${resData.error}`);
+      } else {
+        toast.success("Joined class. Attendance logged!");
+      }
 
       // Update local state so button says "Re-join"
       setAttendance(prev => {
@@ -110,11 +118,10 @@ export default function PublicVirtualHub() {
         return prev;
       });
 
-      toast.success("Joined class. Attendance logged!");
       window.open(vc.meetingLink, "_blank");
 
     } catch (e) {
-      toast.error("Failed to log attendance. Opening class anyway.");
+      toast.error("Opening class link...");
       window.open(vc.meetingLink, "_blank");
     } finally {
       setJoiningClass(null);
