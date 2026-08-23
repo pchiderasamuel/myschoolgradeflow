@@ -7763,7 +7763,26 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
   const [appState, dispatchRaw] = useReducer(appReducer, initialState);
 
   // Protect against stale data bleed across tenants on the same browser
-  useEffect(() => { if (tenantId) localStorage.setItem("gm_last_tenant_id", tenantId); }, [tenantId]);
+  useEffect(() => {
+    if (tenantId) {
+      const lastTenant = localStorage.getItem("gm_last_tenant_id");
+      if (lastTenant && lastTenant !== tenantId) {
+        // Tenant switched on same browser: isolate state so previous tenant's JSON blob does NOT bleed!
+        const tenantKey = `greatmind_school_db_v2_${tenantId}`;
+        const rawTenant = localStorage.getItem(tenantKey);
+        if (rawTenant) {
+          try {
+            const parsed = JSON.parse(rawTenant);
+            dispatchRaw({ type: "REPLACE_ALL", payload: { ...EMPTY_STATE, ...parsed } });
+          } catch {}
+        } else {
+          // Brand new tenant -> Start with a 100% clean, fresh slate!
+          dispatchRaw({ type: "REPLACE_ALL", payload: EMPTY_STATE });
+        }
+      }
+      localStorage.setItem("gm_last_tenant_id", tenantId);
+    }
+  }, [tenantId]);
 
   const dispatch = useCallback((action: any) => {
     dispatchRaw(action);
