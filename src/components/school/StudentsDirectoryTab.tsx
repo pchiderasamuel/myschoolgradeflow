@@ -532,6 +532,8 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
+              id="directory-search-input"
+              name="directorySearch"
               type="text" 
               placeholder="Search by name or admission no..." 
               value={searchQuery}
@@ -542,6 +544,8 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <select
+              id="directory-class-filter-select"
+              name="directoryClassFilter"
               value={classFilter}
               onChange={(e) => { setClassFilter(e.target.value); setPage(0); }}
               className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 appearance-none min-w-[140px]"
@@ -556,6 +560,8 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <select
+              id="directory-term-filter-select"
+              name="directoryTermFilter"
               value={termFilter}
               onChange={(e) => { setTermFilter(e.target.value); setPage(0); }}
               className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 appearance-none min-w-[130px]"
