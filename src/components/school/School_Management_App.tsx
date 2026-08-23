@@ -3979,13 +3979,45 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [retained, setRetained] = useState<Record<string, string[]>>({});
   
-  // Calculate unique classes
+  const [dbClasses, setDbClasses] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (tenantId) {
+      import("@/integrations/supabase/client").then(async ({ supabase }) => {
+        try {
+          const { data } = await supabase.from("students").select("class_name").eq("school_id", tenantId).eq("status", "active");
+          if (data) {
+            const unique = Array.from(new Set(data.map(s => s.class_name).filter(Boolean)));
+            setDbClasses(unique);
+          }
+        } catch (e) {}
+      });
+    }
+  }, [tenantId]);
+
+  // Calculate unique classes in curriculum order
   const classesList = useMemo(() => {
     const rollsKeys = Object.keys(state?.classRolls || {});
     const entriesClasses = (state?.entries || []).map(e => e.studentClass);
     const attendanceClasses = (state?.attendance || []).map(a => a.studentClass);
-    return Array.from(new Set([...rollsKeys, ...entriesClasses, ...attendanceClasses])).filter(Boolean).sort();
-  }, [state?.classRolls, state?.entries, state?.attendance]);
+    const allRaw = Array.from(new Set([...rollsKeys, ...entriesClasses, ...attendanceClasses, ...dbClasses])).filter(Boolean);
+
+    const progression = [
+      "creche", "pre-nursery", "nursery 1", "nursery 2", 
+      "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
+      "jss 1", "jss 2", "jss 3", "ss 1", "ss 2", "ss 3"
+    ];
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/jss(\d)/, 'jss $1').replace(/ss(\d)/, 'ss $1').trim();
+
+    return allRaw.sort((a, b) => {
+      const idxA = progression.indexOf(normalize(a));
+      const idxB = progression.indexOf(normalize(b));
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [state?.classRolls, state?.entries, state?.attendance, dbClasses]);
 
   const allTargetClasses = useMemo(() => {
     const progressionClasses = [
@@ -3996,9 +4028,9 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     return Array.from(new Set([...classesList, ...progressionClasses]));
   }, [classesList]);
 
-  // Auto-map based on standard Nigerian progression
+  // Auto-map based on standard Nigerian curriculum progression
   useEffect(() => {
-    if (classesList.length === 0 || Object.keys(mappings).length > 0) return;
+    if (classesList.length === 0) return;
     
     const progression = [
       "creche", "pre-nursery", "nursery 1", "nursery 2", 
@@ -4023,15 +4055,22 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         if (idx === progression.length - 1) {
           newMap[c] = "GRADUATE";
         } else {
-          const nextTarget = progression[idx + 1];
-          const match = classesList.find(tc => normalize(tc) === nextTarget);
-          newMap[c] = match || displayNames[idx + 1];
+          newMap[c] = displayNames[idx + 1];
         }
       } else {
-          newMap[c] = "DO_NOT_PROMOTE";
+        newMap[c] = "DO_NOT_PROMOTE";
       }
     });
-    setMappings(newMap);
+
+    setMappings(prev => {
+      const merged = { ...newMap };
+      Object.keys(prev).forEach(k => {
+        if (prev[k] && prev[k] !== "DO_NOT_PROMOTE") {
+          merged[k] = prev[k];
+        }
+      });
+      return merged;
+    });
   }, [classesList]);
 
   // Load students for retention selection
