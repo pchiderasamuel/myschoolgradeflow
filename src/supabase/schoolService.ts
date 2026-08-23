@@ -263,30 +263,48 @@ export async function getStudentSummary(
   schoolId: string | null,
   classId?: string
 ): Promise<StudentSummary> {
-  const sid = requireSchoolId(schoolId);
-  let query = db()
-    .from("students")
-    .select("id, gender")
-    .eq("school_id", sid)
-    .eq("status", "active");
+  if (!schoolId) return { total: 0, male: 0, female: 0, unspecified: 0 };
+  try {
+    const sid = requireSchoolId(schoolId);
+    let actualSchoolId = sid;
+    const { data: sRow } = await db()
+      .from("schools")
+      .select("id")
+      .eq("tenant_id", sid)
+      .maybeSingle();
 
-  if (classId) {
-    if (isUUID(classId)) {
-      query = query.eq("class_id", classId);
-    } else {
-      query = query.eq("class_name", classId);
+    if (sRow?.id) {
+      actualSchoolId = sRow.id;
+    } else if (!isUUID(sid)) {
+      return { total: 0, male: 0, female: 0, unspecified: 0 };
     }
+
+    let query = db()
+      .from("students")
+      .select("id, gender")
+      .eq("school_id", actualSchoolId)
+      .eq("status", "active");
+
+    if (classId) {
+      if (isUUID(classId)) {
+        query = query.eq("class_id", classId);
+      } else {
+        query = query.eq("class_name", classId);
+      }
+    }
+
+    const { data, error } = await query;
+    if (error) return { total: 0, male: 0, female: 0, unspecified: 0 };
+
+    const rows = (data ?? []) as { id: string; gender: string | null }[];
+    const total       = rows.length;
+    const male        = rows.filter((s) => s.gender === "male").length;
+    const female      = rows.filter((s) => s.gender === "female").length;
+    const unspecified = total - male - female;
+    return { total, male, female, unspecified };
+  } catch (e) {
+    return { total: 0, male: 0, female: 0, unspecified: 0 };
   }
-
-  const { data, error } = await query;
-  throwIfError(error, "getStudentSummary");
-
-  const rows = (data ?? []) as { id: string; gender: string | null }[];
-  const total       = rows.length;
-  const male        = rows.filter((s) => s.gender === "male").length;
-  const female      = rows.filter((s) => s.gender === "female").length;
-  const unspecified = total - male - female;
-  return { total, male, female, unspecified };
 }
 
 export async function getStudents(
@@ -556,26 +574,35 @@ export async function updateTeacher(
 // ─── Classes ──────────────────────────────────────────────────────────
 
 export async function getClasses(schoolId: string | null): Promise<Class[]> {
-  const sid = requireSchoolId(schoolId);
-  
-  // Resolve tenantId to actual schools.id if necessary
-  let actualSchoolId = sid;
-  const { data: sRow } = await db()
-    .from("schools")
-    .select("id")
-    .eq("tenant_id", sid)
-    .maybeSingle();
-  if (sRow?.id) {
-    actualSchoolId = sRow.id;
-  }
+  if (!schoolId) return [];
+  try {
+    const sid = requireSchoolId(schoolId);
+    
+    // Resolve tenantId to actual schools.id if necessary
+    let actualSchoolId = sid;
+    const { data: sRow } = await db()
+      .from("schools")
+      .select("id")
+      .eq("tenant_id", sid)
+      .maybeSingle();
 
-  const { data, error } = await db()
-    .from("classes")
-    .select("*")
-    .eq("school_id", actualSchoolId)
-    .order("name", { ascending: true });
-  throwIfError(error, "getClasses");
-  return (data ?? []) as Class[];
+    if (sRow?.id) {
+      actualSchoolId = sRow.id;
+    } else if (!isUUID(sid)) {
+      return [];
+    }
+
+    const { data, error } = await db()
+      .from("classes")
+      .select("*")
+      .eq("school_id", actualSchoolId)
+      .order("name", { ascending: true });
+
+    if (error) return [];
+    return (data ?? []) as Class[];
+  } catch (e) {
+    return [];
+  }
 }
 
 export async function createClass(
