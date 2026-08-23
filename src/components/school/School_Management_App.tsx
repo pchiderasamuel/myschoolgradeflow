@@ -6888,7 +6888,82 @@ function TimetableView({
                               if (cs && !cs.endTime) {
                                 return <button onClick={() => dispatch({ type: "END_CLASS_SESSION", payload: { id: cs.id, endTime: new Date().toISOString() } })} className="mt-1 text-[9px] font-bold text-center text-white bg-red-500 py-1 rounded-md w-full hover:bg-red-600 transition-colors animate-pulse">End Class</button>;
                               }
-                              return <button onClick={() => dispatch({ type: "START_CLASS_SESSION", payload: { id: uid(), subject: c.subject, className: activeClass, day: d, periodId: p.id, teacherName: (c.teacherName || currentActor), date: today(), startTime: new Date().toISOString(), endTime: null } })} className="mt-1 text-[9px] font-bold text-center text-white bg-blue-500 py-1 rounded-md w-full hover:bg-blue-600 transition-colors">Start Class</button>;
+
+                              // Strict School Day & Timetable Period Time Validation
+                              const now = new Date();
+                              const dayOfWeek = now.getDay(); // 0 = Sun, 6 = Sat
+                              const isSchoolDay = dayOfWeek >= 1 && dayOfWeek <= 5;
+                              const todayStr = now.toLocaleDateString('en-US', { weekday: 'short' });
+                              const isMatchingDay = d.toLowerCase().startsWith(todayStr.toLowerCase().slice(0, 3));
+
+                              // Parse Period Time Range (e.g. p.start = "08:00", p.end = "08:40")
+                              const parseMinutes = (timeStr?: string) => {
+                                if (!timeStr) return null;
+                                const parts = timeStr.trim().split(":");
+                                if (parts.length < 2) return null;
+                                let hh = parseInt(parts[0], 10);
+                                const mm = parseInt(parts[1], 10);
+                                if (isNaN(hh) || isNaN(mm)) return null;
+                                return hh * 60 + mm;
+                              };
+
+                              const startMins = parseMinutes(p.start);
+                              const endMins = parseMinutes(p.end);
+                              const currentMins = now.getHours() * 60 + now.getMinutes();
+
+                              // Allowed period window: 10 mins before start up to 15 mins after end
+                              const isWithinPeriodTime = (() => {
+                                if (startMins === null || endMins === null) return true;
+                                const windowStart = startMins - 10;
+                                const windowEnd = endMins + 15;
+                                return currentMins >= windowStart && currentMins <= windowEnd;
+                              })();
+
+                              if (!isSchoolDay || !isMatchingDay) {
+                                return (
+                                  <div 
+                                    className="mt-1 text-[9px] font-bold text-center text-slate-400 bg-slate-100 py-1 rounded-md border border-slate-200 cursor-not-allowed select-none"
+                                    title="Start Class tracker is operational only on scheduled school days"
+                                  >
+                                    {!isSchoolDay ? "Weekend Off" : `Scheduled ${d}`}
+                                  </div>
+                                );
+                              }
+
+                              if (!isWithinPeriodTime) {
+                                return (
+                                  <div 
+                                    className="mt-1 text-[9px] font-bold text-center text-amber-700 bg-amber-50 py-1 rounded-md border border-amber-200 cursor-not-allowed select-none"
+                                    title={`Class tracking strictly adheres to its timetable slot (${p.start || ''} - ${p.end || ''})`}
+                                  >
+                                    {startMins !== null && currentMins < startMins - 10 ? `Starts ${p.start}` : `Slot Passed`}
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <button 
+                                  onClick={() => dispatch({ 
+                                    type: "START_CLASS_SESSION", 
+                                    payload: { 
+                                      id: uid(), 
+                                      subject: c.subject, 
+                                      className: activeClass, 
+                                      day: d, 
+                                      periodId: p.id, 
+                                      teacherName: (c.teacherName || currentActor), 
+                                      date: today(), 
+                                      startTime: new Date().toISOString(), 
+                                      scheduledStart: p.start || null,
+                                      scheduledEnd: p.end || null,
+                                      endTime: null 
+                                    } 
+                                  })} 
+                                  className="mt-1 text-[9px] font-bold text-center text-white bg-blue-600 py-1 rounded-md w-full hover:bg-blue-700 shadow-sm transition-colors flex items-center justify-center gap-1"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Start Class
+                                </button>
+                              );
                             })()}
                           </div>
                         </td>
@@ -6905,7 +6980,7 @@ function TimetableView({
         {isAdmin && classSessions && classSessions.length > 0 && (
           <Card className="p-4 mt-6">
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                <h3 className="font-black text-slate-800">Today's Class Sessions Activity Log</h3>
+                <h3 className="font-black text-slate-800">Today's Class Sessions Activity Log (Punctuality Checkmate)</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-500 uppercase">Filter:</span>
                   <select 
@@ -6922,10 +6997,11 @@ function TimetableView({
               <table className="w-full text-xs text-left">
                 <thead className="text-slate-400 bg-slate-50 uppercase font-black">
                   <tr>
-                    <th className="px-3 py-2 rounded-l-lg">Time</th>
+                    <th className="px-3 py-2 rounded-l-lg">Time & Slot</th>
                     <th className="px-3 py-2">Class</th>
                     <th className="px-3 py-2">Subject</th>
                     <th className="px-3 py-2">Teacher</th>
+                    <th className="px-3 py-2">Punctuality Checkmate</th>
                     <th className="px-3 py-2 rounded-r-lg">Duration</th>
                   </tr>
                 </thead>
@@ -6936,16 +7012,38 @@ function TimetableView({
                       const diff = new Date(s.endTime).getTime() - new Date(s.startTime).getTime();
                       duration = Math.round(diff / 60000) + " mins";
                     }
+
+                    // Punctuality Checkmate Logic
+                    const startDate = new Date(s.startTime);
+                    const startMins = startDate.getHours() * 60 + startDate.getMinutes();
+                    
+                    let punctualityBadge = <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">Tracked</span>;
+                    if (s.scheduledStart) {
+                      const parts = s.scheduledStart.split(":");
+                      if (parts.length >= 2) {
+                        const schedMins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+                        const diffMins = startMins - schedMins;
+                        if (diffMins <= 5) {
+                          punctualityBadge = <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-fit">🟢 On Time</span>;
+                        } else {
+                          punctualityBadge = <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-fit">⚠️ {diffMins} mins Late</span>;
+                        }
+                      }
+                    }
+
                     return (
                       <tr key={s.id} className="hover:bg-slate-50">
                         <td className="px-3 py-2 font-bold text-slate-600">
                           {new Date(s.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           {s.endTime && " - " + new Date(s.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          {s.day && s.periodId && <span className="block text-[9px] uppercase text-slate-400">{s.day} / {s.periodId}</span>}
+                          {(s.scheduledStart || s.scheduledEnd) && (
+                            <span className="block text-[9px] uppercase text-indigo-500 font-bold">Slot: {s.scheduledStart || "—"} - {s.scheduledEnd || "—"}</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 font-bold text-slate-700">{s.className}</td>
                         <td className="px-3 py-2 text-indigo-600 font-bold">{s.subject}</td>
                         <td className="px-3 py-2 text-slate-600">{s.teacherName}</td>
+                        <td className="px-3 py-2">{punctualityBadge}</td>
                         <td className="px-3 py-2">
                           {s.endTime ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold">{duration}</span> : <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-bold animate-pulse">Live</span>}
                         </td>
