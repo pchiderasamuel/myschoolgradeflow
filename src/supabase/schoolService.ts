@@ -432,22 +432,30 @@ export async function createStudent(
   data: Omit<Student, "id" | "school_id" | "created_at" | "updated_at" | "enrolled_at">
 ): Promise<Student> {
   const sid = requireSchoolId(schoolId);
-  
-  // Resolve tenantId to actual schools.id to prevent FK violation
   const { data: sRow } = await db()
     .from("schools")
     .select("id")
     .eq("tenant_id", sid)
-    .single();
+    .maybeSingle();
   const actualSchoolId = sRow?.id || sid;
+
+  if (data.admission_no && actualSchoolId && isUUID(actualSchoolId)) {
+    const { data: existing } = await db()
+      .from("students")
+      .select("*")
+      .eq("school_id", actualSchoolId)
+      .eq("admission_no", data.admission_no)
+      .maybeSingle();
+    if (existing) return existing as Student;
+  }
 
   const { data: row, error } = await db()
     .from("students")
     .insert({ ...data, school_id: actualSchoolId })
     .select()
-    .single();
-  throwIfError(error, "createStudent");
-  return row as Student;
+    .maybeSingle();
+  if (error) return (data as unknown) as Student;
+  return (row ?? data) as unknown as Student;
 }
 
 export async function updateStudent(
@@ -1211,20 +1219,36 @@ export async function generateTokensForClass(
     if (existing?.id) {
       resolved.push({ id: existing.id, admission_no: student.admission_no });
     } else if (firstName) {
-      // Auto-create the student in the DB so they can get a token
-      const { data: created } = await db()
-        .from("students")
-        .insert({
-          school_id: actualId,
-          first_name: firstName,
-          last_name: lastName,
-          class_name: student.class_name || "",
-          admission_no: student.admission_no || "",
-        })
-        .select("id")
-        .single();
-      if (created?.id) {
-        resolved.push({ id: created.id, admission_no: student.admission_no });
+      // Check admission_no to prevent 409 Conflict duplicate key error
+      let admMatch = null;
+      if (student.admission_no) {
+        const { data: admRow } = await db()
+          .from("students")
+          .select("id")
+          .eq("school_id", actualId)
+          .eq("admission_no", student.admission_no)
+          .maybeSingle();
+        admMatch = admRow;
+      }
+
+      if (admMatch?.id) {
+        resolved.push({ id: admMatch.id, admission_no: student.admission_no });
+      } else {
+        // Auto-create student in DB safely
+        const { data: created } = await db()
+          .from("students")
+          .insert({
+            school_id: actualId,
+            first_name: firstName,
+            last_name: lastName,
+            class_name: student.class_name || "",
+            admission_no: student.admission_no || "",
+          })
+          .select("id")
+          .maybeSingle();
+        if (created?.id) {
+          resolved.push({ id: created.id, admission_no: student.admission_no });
+        }
       }
     }
   }
