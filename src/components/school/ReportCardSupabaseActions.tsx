@@ -109,26 +109,71 @@ export default function ReportCardSupabaseActions({
           studentDbId = "";
         }
 
-        if (!studentDbId) {
-          // Fallback: try to find the student by name and class in the database
-          const { data: foundStudents } = await db()
+        if (!studentDbId && activeReport?.name) {
+          // Robust Fallback: Search candidates in school and match by full name / class
+          const nameParts = activeReport.name.trim().split(/\s+/);
+          const firstName = nameParts[0] || "";
+          const targetNorm = activeReport.name.toLowerCase().replace(/\s+/g, ' ').trim();
+
+          const { data: candidates } = await db()
             .from("students")
-            .select("id, admission_no")
-            .eq("school_id", schoolId)
-            .ilike("first_name", `%${activeReport.name.split(" ")[0]}%`);
-          
-          // simple heuristic: if we find exactly one match, use it.
-          if (foundStudents && foundStudents.length === 1) {
-            studentDbId = foundStudents[0].id;
-            studentAdmissionNo = foundStudents[0].admission_no;
+            .select("id, guardian_email, first_name, last_name, other_names, admission_no, class_id, class_name")
+            .eq("school_id", schoolId);
+
+          if (candidates && candidates.length > 0) {
+            // Priority 1: Exact full name match (first + last OR first + other + last)
+            let match = candidates.find((s: any) => {
+              const first = (s.first_name || "").toLowerCase().trim();
+              const last = (s.last_name || "").toLowerCase().trim();
+              const other = (s.other_names || "").toLowerCase().trim();
+              const f1 = `${first} ${last}`.trim();
+              const f2 = `${first} ${other} ${last}`.replace(/\s+/g, ' ').trim();
+              return f1 === targetNorm || f2 === targetNorm;
+            });
+
+            // Priority 2: Matches first name & last name
+            if (!match && nameParts.length > 1) {
+              const lastName = nameParts.slice(1).join(" ").toLowerCase().trim();
+              match = candidates.find((s: any) => {
+                const first = (s.first_name || "").toLowerCase();
+                const last = (s.last_name || "").toLowerCase();
+                return (first.includes(firstName.toLowerCase()) || targetNorm.includes(first)) && 
+                       (last.includes(lastName) || targetNorm.includes(last));
+              });
+            }
+
+            // Priority 3: Matches first name in same class
+            if (!match && activeReport.class) {
+              match = candidates.find((s: any) => {
+                const first = (s.first_name || "").toLowerCase();
+                return s.class_name === activeReport.class && (first.includes(firstName.toLowerCase()) || targetNorm.includes(first));
+              });
+            }
+
+            // Priority 4: Fallback to student matching first_name
+            if (!match) {
+              match = candidates.find((s: any) => {
+                const first = (s.first_name || "").toLowerCase();
+                return first && targetNorm.includes(first);
+              });
+            }
+
+            if (match) {
+              studentDbId = match.id;
+              studentAdmissionNo = match.admission_no || "";
+              setGuardianEmail(match.guardian_email ?? null);
+              setStudentDbId(match.id);
+              setStudentAdmissionNo(match.admission_no ?? null);
+              foundClassId = match.class_id ?? null;
+            }
           }
         }
 
         let data: any = null;
         
         if (!studentDbId) {
-          console.warn(`Could not link report to a student database record for "${activeReport.name}".`);
-        } else {
+          console.info(`Report for "${activeReport.name}" is operating in local mode until synced to cloud.`);
+        } else if (!foundClassId) {
           const res = await db()
             .from("students")
             .select("id, guardian_email, first_name, last_name, other_names, admission_no, class_id")
@@ -137,8 +182,6 @@ export default function ReportCardSupabaseActions({
           data = res.data;
         }
           
-        let foundClassId: string | null = null;
-
         if (data && data.length > 0) {
           const target = (activeReport.name || "").toLowerCase().trim();
           const match = data.find((s: any) => {
@@ -153,10 +196,6 @@ export default function ReportCardSupabaseActions({
           setStudentDbId(match?.id ?? null);
           setStudentAdmissionNo(match?.admission_no ?? null);
           foundClassId = match?.class_id ?? null;
-        } else {
-          setGuardianEmail(null);
-          setStudentDbId(null);
-          setStudentAdmissionNo(null);
         }
 
         if (!foundClassId) {
