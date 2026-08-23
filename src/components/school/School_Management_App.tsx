@@ -3981,7 +3981,7 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
   // Calculate unique classes
   const classesList = useMemo(() => {
     return Array.from(new Set([
-      ...Object.keys(appState.classRolls),
+      ...Object.keys(state.classRolls || {}),
       ...state.entries.map(e => e.studentClass),
       ...state.attendance.map(a => a.studentClass)
     ])).filter(Boolean).sort();
@@ -4054,8 +4054,8 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
           }
         } catch (e) {
           const grouped: Record<string, any[]> = {};
-          Object.keys(appState.classRolls).forEach(c => {
-            grouped[c] = (appState.classRolls[c] || []).map(s => ({
+          Object.keys(state.classRolls || {}).forEach(c => {
+            grouped[c] = ((state.classRolls || {})[c] || []).map(s => ({
               id: s.id,
               first_name: s.name.split(" ")[0] || "",
               last_name: s.name.split(" ").slice(1).join(" ") || "",
