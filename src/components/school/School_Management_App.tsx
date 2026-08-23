@@ -4120,6 +4120,12 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         const retainedStudents = currentStudents.filter(s => retainedIds.includes(s.id));
 
         if (targetClass === "GRADUATE") {
+          // Update Supabase relational students table
+          await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
+            .eq("school_id", tenantId)
+            .eq("class_name", currentClass)
+            .eq("status", "active");
+
           if (movingStudents.length > 0) {
             const movingIds = movingStudents.map(s => s.id);
             await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
@@ -4130,48 +4136,54 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
           // Update local state: remove moving students (graduating)
           newClassRolls[currentClass] = retainedStudents;
         } else {
-            if (movingStudents.length > 0) {
-              // RESOLVE CLASS ID FOR NEW TERM/SESSION to prevent schema logic bleed
-              const termRaw = state.schoolSettings?.term || "First Term";
-              const normTerm = termRaw.toLowerCase().includes("first") ? "first" : termRaw.toLowerCase().includes("second") ? "second" : "third";
-              const session = state.schoolSettings?.session || "2025/2026";
-              
-              let classId = null;
-              const { data: existingClass } = await sdb.from("classes")
-                .select("id")
-                .eq("school_id", tenantId)
-                .eq("name", targetClass)
-                .eq("academic_year", session)
-                .eq("term", normTerm)
-                .maybeSingle();
-                
-              if (existingClass?.id) {
-                classId = existingClass.id;
-              } else {
-                const { data: newClass, error: cErr } = await sdb.from("classes")
-                  .insert({
-                    school_id: tenantId,
-                    name: targetClass,
-                    academic_year: session,
-                    term: normTerm
-                  })
-                  .select("id")
-                  .maybeSingle();
-                if (!cErr && newClass?.id) classId = newClass.id;
-              }
+          // RESOLVE CLASS ID FOR NEW TERM/SESSION to prevent schema logic bleed
+          const termRaw = state.schoolSettings?.term || "First Term";
+          const normTerm = termRaw.toLowerCase().includes("first") ? "first" : termRaw.toLowerCase().includes("second") ? "second" : "third";
+          const session = state.schoolSettings?.session || "2025/2026";
+          
+          let classId = null;
+          const { data: existingClass } = await sdb.from("classes")
+            .select("id")
+            .eq("school_id", tenantId)
+            .eq("name", targetClass)
+            .eq("academic_year", session)
+            .eq("term", normTerm)
+            .maybeSingle();
+            
+          if (existingClass?.id) {
+            classId = existingClass.id;
+          } else {
+            const { data: newClass, error: cErr } = await sdb.from("classes")
+              .insert({
+                school_id: tenantId,
+                name: targetClass,
+                academic_year: session,
+                term: normTerm
+              })
+              .select("id")
+              .maybeSingle();
+            if (!cErr && newClass?.id) classId = newClass.id;
+          }
 
-              const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
-              if (classId) payload.class_id = classId;
+          const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
+          if (classId) payload.class_id = classId;
 
-              const movingIds = movingStudents.map(s => s.id);
-              await sdb.from("students").update(payload)
-                .eq("school_id", tenantId)
-                .in("id", movingIds);
-            }
+          // Update ALL active relational students in Supabase for this class
+          await sdb.from("students").update(payload)
+            .eq("school_id", tenantId)
+            .eq("class_name", currentClass)
+            .eq("status", "active");
 
-            // Update local state: move students
-            newClassRolls[currentClass] = retainedStudents;
-            newClassRolls[targetClass] = [...(newClassRolls[targetClass] || []), ...movingStudents];
+          if (movingStudents.length > 0) {
+            const movingIds = movingStudents.map(s => s.id);
+            await sdb.from("students").update(payload)
+              .eq("school_id", tenantId)
+              .in("id", movingIds);
+          }
+
+          // Update local state: move students
+          newClassRolls[currentClass] = retainedStudents;
+          newClassRolls[targetClass] = [...(newClassRolls[targetClass] || []), ...movingStudents];
         }
       }
       
@@ -4186,20 +4198,19 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         await setAppState(json);
         const s = loadTenantSession();
         if (s) {
-          // Attempt to push immediately to cloud so reload gets fresh data
           const localRev = newState._rev || 0;
           await saveTenantDataV3(s, localRev, newState);
         }
       } catch (e) {
-        console.warn("Failed to save local state immediately before reload", e);
+        console.warn("Failed to save local state immediately", e);
       }
       
-      alert("Promotion completed successfully! The page will now reload.");
-      window.location.reload();
+      showToast("Promotion completed successfully! Students moved to their new classes.", "success");
+      onClose();
       
     } catch (err: any) {
       console.error(err);
-      alert("Error during promotion: " + err.message);
+      showToast("Error during promotion: " + err.message, "error");
       setLoading(false);
     }
   };
