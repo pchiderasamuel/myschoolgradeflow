@@ -449,7 +449,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
 
   const tabs = [
     { id: "active", label: "Active", icon: Users, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { id: "graduated", label: "Graduated", icon: GraduationCap, color: "text-blue-600", bg: "bg-blue-50" },
+    { id: "graduated", label: "Graduated / Alumni", icon: GraduationCap, color: "text-blue-600", bg: "bg-blue-50" },
     { id: "withdrawn", label: "Withdrawn", icon: DoorOpen, color: "text-amber-600", bg: "bg-amber-50" },
     { id: "suspended", label: "Suspended", icon: Ban, color: "text-red-600", bg: "bg-red-50" }
   ] as const;
