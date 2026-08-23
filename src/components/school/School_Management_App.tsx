@@ -3973,6 +3973,7 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
 // 🏆🏆🏆 Promotion Wizard 🏆🏆🏆
 const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tenantId?: string }) => {
   const { state, dispatch } = useApp();
+  const appState = state;
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -3980,12 +3981,11 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
   
   // Calculate unique classes
   const classesList = useMemo(() => {
-    return Array.from(new Set([
-      ...Object.keys(state.classRolls || {}),
-      ...state.entries.map(e => e.studentClass),
-      ...state.attendance.map(a => a.studentClass)
-    ])).filter(Boolean).sort();
-  }, [state.classRolls, state.entries, state.attendance]);
+    const rollsKeys = Object.keys(state?.classRolls || {});
+    const entriesClasses = (state?.entries || []).map(e => e.studentClass);
+    const attendanceClasses = (state?.attendance || []).map(a => a.studentClass);
+    return Array.from(new Set([...rollsKeys, ...entriesClasses, ...attendanceClasses])).filter(Boolean).sort();
+  }, [state?.classRolls, state?.entries, state?.attendance]);
 
   const allTargetClasses = useMemo(() => {
     const progressionClasses = [
