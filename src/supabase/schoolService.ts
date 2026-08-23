@@ -18,6 +18,9 @@ import type { Database } from "@/integrations/supabase/types";
 let _tenantDb: SupabaseClient<Database> | null = null;
 let _lastToken: string | null = null;
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUUID = (val?: string | null): boolean => !!val && UUID_REGEX.test(val);
+
 export const db = (): SupabaseClient<Database> => {
   try {
     const raw = sessionStorage.getItem("schoolapp_tenant_session_v2");
