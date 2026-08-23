@@ -1154,19 +1154,42 @@ export async function generateTokensForClass(
   schoolId: string | null,
   academicYear: string,
   term: string,
-  studentsToTokenize: { id: string; admission_no: string; name?: string; class_name?: string }[]
+  studentsToTokenize: { id: string; admission_no: string; name?: string; class_name?: string }[],
+  targetClassName?: string
 ): Promise<void> {
   const sid = requireSchoolId(schoolId);
-  if (!studentsToTokenize.length) return;
-
   const { data: sRow } = await db().from("schools").select("id").eq("tenant_id", sid).maybeSingle();
   const actualId = sRow?.id || sid;
+
+  let candidates = [...studentsToTokenize];
+
+  // Dynamic DB fallback if local roll passed is empty
+  if (!candidates.length && targetClassName) {
+    const { data: dbStudents } = await db()
+      .from("students")
+      .select("id, admission_no, first_name, last_name, class_name")
+      .eq("school_id", actualId)
+      .ilike("class_name", targetClassName);
+
+    if (dbStudents && dbStudents.length > 0) {
+      candidates = dbStudents.map(s => ({
+        id: s.id,
+        admission_no: s.admission_no || "",
+        name: `${s.first_name || ""} ${s.last_name || ""}`.trim(),
+        class_name: s.class_name,
+      }));
+    }
+  }
+
+  if (!candidates.length) {
+    throw new Error(`No students found for ${targetClassName || "this class"}. Please ensure students are enrolled.`);
+  }
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   // ── Step 1: Separate students into those with real UUIDs and those with local IDs ──
-  const withRealId = studentsToTokenize.filter(s => UUID_RE.test(s.id));
-  const needsLookup = studentsToTokenize.filter(s => !UUID_RE.test(s.id) && s.name);
+  const withRealId = candidates.filter(s => UUID_RE.test(s.id));
+  const needsLookup = candidates.filter(s => !UUID_RE.test(s.id) && s.name);
 
   // ── Step 2: For students with local IDs, look them up or create them in the DB ──
   const resolved: { id: string; admission_no: string }[] = [...withRealId];

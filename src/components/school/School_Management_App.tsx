@@ -3794,8 +3794,32 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
 
   const handleGenerate = async () => {
     if (!genClass) return showToast("Select a class first", "error");
-    const roll = appState.classRolls[genClass] || [];
-    if (!roll.length) return showToast("No students in this class", "error");
+    
+    // Case-insensitive class roll lookup
+    const targetLower = genClass.trim().toLowerCase();
+    let roll = appState.classRolls[genClass] || [];
+    
+    if (!roll.length) {
+      const matchedKey = Object.keys(appState.classRolls).find(k => k.trim().toLowerCase() === targetLower);
+      if (matchedKey && appState.classRolls[matchedKey]?.length) {
+        roll = appState.classRolls[matchedKey];
+      }
+    }
+    
+    if (!roll.length) {
+      // Fallback: collect students from entries matching this class
+      const fromEntries = entries
+        .filter(e => e.studentClass.trim().toLowerCase() === targetLower)
+        .map(e => ({ id: e.id, name: e.studentName, admNo: "" }));
+      
+      const seen = new Set();
+      for (const s of fromEntries) {
+        if (!seen.has(s.name.toLowerCase())) {
+          seen.add(s.name.toLowerCase());
+          roll.push(s);
+        }
+      }
+    }
     
     try {
       setGenLoading(true);
@@ -3806,7 +3830,7 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
         name: s.name || "",
         class_name: genClass,
       }));
-      await generateTokensForClass(tenantId, schoolSettings.session || "2026/2027", genTerm, studentsToTokenize);
+      await generateTokensForClass(tenantId, schoolSettings.session || "2026/2027", genTerm, studentsToTokenize, genClass);
       showToast(`Generated tokens for ${genClass}!`);
       fetchTokens();
     } catch (e: any) {

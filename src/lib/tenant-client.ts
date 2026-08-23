@@ -163,11 +163,15 @@ export async function cancelCloudDeletion(session: TenantSession): Promise<{ suc
 }
 
 export async function fetchCloudDeletionStatus(session: TenantSession): Promise<{ status: string | null; requestedAt: string | null }> {
-  const { data, error } = await (supabase as any).rpc("fetch_deletion_request_status", {
-    _session_token: session.sessionToken,
-  });
-  if (error || !data || data.length === 0) return { status: null, requestedAt: null };
-  return { status: data[0]?.status ?? null, requestedAt: data[0]?.requested_at ?? null };
+  try {
+    const { data, error } = await (supabase as any).rpc("fetch_deletion_request_status", {
+      _session_token: session.sessionToken,
+    });
+    if (error || !data || data.length === 0) return { status: null, requestedAt: null };
+    return { status: data[0]?.status ?? null, requestedAt: data[0]?.requested_at ?? null };
+  } catch {
+    return { status: null, requestedAt: null };
+  }
 }
 
 export async function acceptNdprConsent(sessionToken: string): Promise<boolean> {
