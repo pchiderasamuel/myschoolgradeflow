@@ -1203,20 +1203,29 @@ export async function generateTokensForClass(
   const resolved: { id: string; admission_no: string }[] = [...withRealId];
 
   for (const student of needsLookup) {
-    const nameParts = (student.name || "").trim().split(" ");
+    const nameParts = (student.name || "").trim().split(/\s+/);
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
 
-    // Try to find existing student by name and class
-    let { data: existing } = await db()
+    if (!firstName) continue;
+
+    // 1. Try to find existing student by name and class
+    let query = db()
       .from("students")
       .select("id")
       .eq("school_id", actualId)
-      .ilike("first_name", firstName)
-      .ilike("last_name", lastName)
-      .ilike("class_name", student.class_name || "")
-      .maybeSingle();
+      .ilike("first_name", firstName);
 
+    if (lastName) {
+      query = query.ilike("last_name", lastName);
+    }
+    if (student.class_name) {
+      query = query.ilike("class_name", student.class_name.trim());
+    }
+
+    let { data: existing } = await query.maybeSingle();
+
+    // 2. Fallback match by admission_no
     if (!existing && student.admission_no && student.admission_no.trim()) {
       const { data: admMatch } = await db()
         .from("students")
@@ -1227,21 +1236,31 @@ export async function generateTokensForClass(
       existing = admMatch;
     }
 
+    // 3. Fallback match by first_name alone
+    if (!existing) {
+      const { data: nameMatch } = await db()
+        .from("students")
+        .select("id")
+        .eq("school_id", actualId)
+        .ilike("first_name", firstName)
+        .maybeSingle();
+      existing = nameMatch;
+    }
+
     if (existing?.id) {
       resolved.push({ id: existing.id, admission_no: student.admission_no });
-    } else if (firstName) {
+    } else {
       try {
         const studentPayload: any = {
           school_id: actualId,
           first_name: firstName,
-          last_name: lastName,
+          last_name: lastName || firstName,
           class_name: student.class_name || "",
           status: "active"
         };
         if (student.admission_no && student.admission_no.trim()) {
           studentPayload.admission_no = student.admission_no.trim();
         } else {
-          // Generate clean unique admission_no to prevent 409 Conflict on empty strings
           studentPayload.admission_no = `ADM-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
         }
 
@@ -1259,14 +1278,13 @@ export async function generateTokensForClass(
             .select("id")
             .eq("school_id", actualId)
             .ilike("first_name", firstName)
-            .ilike("last_name", lastName)
             .maybeSingle();
           if (refetched?.id) {
             resolved.push({ id: refetched.id, admission_no: student.admission_no });
           }
         }
       } catch (e) {
-        // Silently skip duplicate errors
+        console.error("Student resolution error:", e);
       }
     }
   }
