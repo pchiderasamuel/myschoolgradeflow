@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState } from "react";
-import { Users, GraduationCap, DoorOpen, Ban, RotateCcw, Loader2, Search, Filter, Printer, Download, FileText, ChevronDown } from "lucide-react";
+import { Users, GraduationCap, DoorOpen, Ban, RotateCcw, Loader2, Search, Filter, Printer, Download, FileText, ChevronDown, Calendar } from "lucide-react";
 import { useStudentsPaged, useChangeStudentStatus, useClasses, STUDENT_PAGE_SIZE } from "@/hooks/useSchoolQuery";
 import { getStudents } from "@/supabase/schoolService";
 import { useApp } from "./School_Management_App";
@@ -13,6 +13,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
+  const [termFilter, setTermFilter] = useState("all");
   const [isExporting, setIsExporting] = useState(false);
   
   const { data, isLoading, error } = useStudentsPaged(page, { 
@@ -515,6 +516,20 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
               {classesList.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
+            </select>
+          </div>
+
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <select
+              value={termFilter}
+              onChange={(e) => { setTermFilter(e.target.value); setPage(0); }}
+              className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 appearance-none min-w-[130px]"
+            >
+              <option value="all">All Terms</option>
+              <option value="First Term">First Term</option>
+              <option value="Second Term">Second Term</option>
+              <option value="Third Term">Third Term</option>
             </select>
           </div>
         </div>
