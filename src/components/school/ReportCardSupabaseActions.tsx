@@ -110,10 +110,11 @@ export default function ReportCardSupabaseActions({
         }
 
         if (!studentDbId && activeReport?.name) {
-          // Robust Fallback: Search candidates in school and match by full name / class
+          // Robust Fallback: Search candidates in school and match by Admission No / full name / class
           const nameParts = activeReport.name.trim().split(/\s+/);
           const firstName = nameParts[0] || "";
           const targetNorm = activeReport.name.toLowerCase().replace(/\s+/g, ' ').trim();
+          const targetAdmNo = (activeReport.admissionNo || activeReport.admNo || "").trim().toLowerCase();
 
           const { data: candidates } = await db()
             .from("students")
@@ -121,28 +122,52 @@ export default function ReportCardSupabaseActions({
             .eq("school_id", schoolId);
 
           if (candidates && candidates.length > 0) {
-            // Priority 1: Exact full name match (first + last OR first + other + last)
-            let match = candidates.find((s: any) => {
-              const first = (s.first_name || "").toLowerCase().trim();
-              const last = (s.last_name || "").toLowerCase().trim();
-              const other = (s.other_names || "").toLowerCase().trim();
-              const f1 = `${first} ${last}`.trim();
-              const f2 = `${first} ${other} ${last}`.replace(/\s+/g, ' ').trim();
-              return f1 === targetNorm || f2 === targetNorm;
-            });
+            let match: any = null;
 
-            // Priority 2: Matches first name & last name
+            // Priority 0: Unique Admission Number Match (Highest precision for duplicate names in same class)
+            if (targetAdmNo) {
+              match = candidates.find((s: any) => 
+                (s.admission_no || "").trim().toLowerCase() === targetAdmNo
+              );
+            }
+
+            // Priority 1: Exact full name match in the same class
+            if (!match && activeReport.class) {
+              match = candidates.find((s: any) => {
+                const first = (s.first_name || "").toLowerCase().trim();
+                const last = (s.last_name || "").toLowerCase().trim();
+                const other = (s.other_names || "").toLowerCase().trim();
+                const f1 = `${first} ${last}`.trim();
+                const f2 = `${first} ${other} ${last}`.replace(/\s+/g, ' ').trim();
+                return s.class_name === activeReport.class && (f1 === targetNorm || f2 === targetNorm);
+              });
+            }
+
+            // Priority 2: Exact full name match (first + last OR first + other + last)
+            if (!match) {
+              match = candidates.find((s: any) => {
+                const first = (s.first_name || "").toLowerCase().trim();
+                const last = (s.last_name || "").toLowerCase().trim();
+                const other = (s.other_names || "").toLowerCase().trim();
+                const f1 = `${first} ${last}`.trim();
+                const f2 = `${first} ${other} ${last}`.replace(/\s+/g, ' ').trim();
+                return f1 === targetNorm || f2 === targetNorm;
+              });
+            }
+
+            // Priority 3: Matches first name & last name in same class
             if (!match && nameParts.length > 1) {
               const lastName = nameParts.slice(1).join(" ").toLowerCase().trim();
               match = candidates.find((s: any) => {
                 const first = (s.first_name || "").toLowerCase();
                 const last = (s.last_name || "").toLowerCase();
-                return (first.includes(firstName.toLowerCase()) || targetNorm.includes(first)) && 
+                const sameClass = !activeReport.class || s.class_name === activeReport.class;
+                return sameClass && (first.includes(firstName.toLowerCase()) || targetNorm.includes(first)) && 
                        (last.includes(lastName) || targetNorm.includes(last));
               });
             }
 
-            // Priority 3: Matches first name in same class
+            // Priority 4: Matches first name in same class
             if (!match && activeReport.class) {
               match = candidates.find((s: any) => {
                 const first = (s.first_name || "").toLowerCase();
@@ -150,7 +175,7 @@ export default function ReportCardSupabaseActions({
               });
             }
 
-            // Priority 4: Fallback to student matching first_name
+            // Priority 5: Fallback to student matching first_name
             if (!match) {
               match = candidates.find((s: any) => {
                 const first = (s.first_name || "").toLowerCase();
