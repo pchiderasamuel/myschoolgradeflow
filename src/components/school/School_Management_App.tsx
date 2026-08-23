@@ -7377,6 +7377,9 @@ function VirtualHubView({
   const [form, setForm] = useState({ topic: "", subject: "", targetClass: "SS 3", scheduledTime: "", meetingLink: "", description: "" });
   const [showForm, setShowForm] = useState(false);
   const [selectedAttendees, setSelectedAttendees] = useState<{ topic: string; list: string[] } | null>(null);
+  const [filterClass, setFilterClass] = useState<string>("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Live poll virtual attendance from Supabase DB every 5 seconds
   useEffect(() => {
