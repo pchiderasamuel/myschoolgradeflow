@@ -7376,6 +7376,7 @@ function VirtualHubView({
 }) {
   const [form, setForm] = useState({ topic: "", subject: "", targetClass: "SS 3", scheduledTime: "", meetingLink: "", description: "" });
   const [showForm, setShowForm] = useState(false);
+  const [selectedAttendees, setSelectedAttendees] = useState<{ topic: string; list: string[] } | null>(null);
 
   // Live poll virtual attendance from Supabase DB every 5 seconds
   useEffect(() => {
@@ -7560,7 +7561,8 @@ function VirtualHubView({
                   
                   <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-4">
                     <div className="text-sm">
-                      <span className="font-bold text-slate-700">Attendance:</span> <span className="text-indigo-600 font-black bg-indigo-50 px-2 py-0.5 rounded-md">{attendanceList.length} students</span>
+                      <span className="font-bold text-slate-700">Attendance:</span> <span className="text-indigo-600 font-black bg-indigo-50 px-2 py-0.5 rounded-md"></span>
+                      <button onClick={() => setSelectedAttendees({ topic: vc.topic, list: attendanceList })} className="text-indigo-600 hover:text-indigo-800 font-black bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md text-xs transition-colors underline cursor-pointer ml-1" title="Click to see list of attendees">({attendanceList.length} students - View List)</button>
                     </div>
                     {isAdmin && <span className="text-xs text-slate-400 font-bold ml-auto">By {vc.createdBy}</span>}
                   </div>
