@@ -20,7 +20,7 @@ import {
   Menu, BookOpen, MoreVertical, ChevronRight, ChevronLeft,
   CalendarDays, ClipboardList, BookMarked, Edit2, ArrowLeft,
   Bell, CalendarClock, Send, Inbox, MessageSquare, Wallet, CheckCircle,
-  FileSpreadsheet, Lock, Info, DollarSign, Loader2, Trophy, Download, UserCircle, HelpCircle, Calculator, Copy, Video, Share2, Filter
+  FileSpreadsheet, Lock, Info, DollarSign, Loader2, Trophy, Download, UserCircle, HelpCircle, Calculator, Copy, Video, Share2, SlidersHorizontal
 } from "lucide-react";
 import { verifyAdminPin, setAdminPin, loadTenantSession, requestCloudDeletion as rpcRequestCloudDeletion, cancelCloudDeletion as rpcCancelCloudDeletion, fetchCloudDeletionStatus as rpcFetchCloudDeletionStatus } from "@/lib/tenant-client";
 import { exportToCSV } from "@/lib/exportUtils";
@@ -7554,7 +7554,7 @@ function VirtualHubView({
 
           {/* Class Filter Dropdown */}
           <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
-            <Filter className="text-slate-400 hidden sm:block flex-shrink-0" size={15} />
+            <SlidersHorizontal className="text-slate-400 hidden sm:block flex-shrink-0" size={15} />
             <select
               value={filterClass}
               onChange={e => setFilterClass(e.target.value)}
