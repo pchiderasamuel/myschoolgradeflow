@@ -89,6 +89,14 @@ Deno.serve(async (req) => {
 
     const appData = stateRow.data as any;
 
+    if (action === "get-attendance") {
+      const attendance = appData.virtualAttendance || {};
+      return new Response(JSON.stringify({ success: true, attendance }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     if (action === "fetch") {
       // Find the student based on admission number and class
       if (!class_name || !admission_no) {

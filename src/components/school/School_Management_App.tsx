@@ -7382,23 +7382,33 @@ function VirtualHubView({
   useEffect(() => {
     const fetchLiveAttendance = () => {
       try {
-        const sessionStr = sessionStorage.getItem('schoolapp_tenant_session_v2');
+        const sessionStr = sessionStorage.getItem("schoolapp_tenant_session_v2");
         const sessionTenantId = sessionStr ? JSON.parse(sessionStr)?.tenantId : null;
         const tenantId = localStorage.getItem("gm_last_tenant_id") || sessionTenantId;
 
         if (tenantId) {
-          import('@/integrations/supabase/client').then(({ supabase }) => {
-            supabase
-              .from('tenant_data')
-              .select('data')
-              .eq('tenant_id', tenantId)
-              .maybeSingle()
-              .then(({ data: row }) => {
-                if (row?.data?.virtualAttendance) {
-                  dispatch({ type: "SYNC_VIRTUAL_ATTENDANCE", payload: row.data.virtualAttendance });
-                }
-              });
-          });
+          const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+          const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+          fetch(`${SUPABASE_URL}/functions/v1/virtual-hub`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPABASE_ANON_KEY,
+              "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              action: "get-attendance",
+              school_code: tenantId,
+            }),
+          })
+            .then(r => r.json())
+            .then(d => {
+              if (d.attendance) {
+                dispatch({ type: "SYNC_VIRTUAL_ATTENDANCE", payload: d.attendance });
+              }
+            })
+            .catch(err => console.error(err));
         }
       } catch (e) {
         console.error(e);
