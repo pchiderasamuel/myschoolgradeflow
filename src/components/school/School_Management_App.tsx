@@ -3972,7 +3972,7 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
 
 // 🏆🏆🏆 Promotion Wizard 🏆🏆🏆
 const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tenantId?: string }) => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, showToast } = useApp();
   const appState = state;
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -4074,6 +4074,7 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     setLoading(true);
     const { db: schoolDb } = await import("@/supabase/schoolService");
     const sdb = schoolDb();
+    const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
     try {
       // 1. Filter out DO_NOT_PROMOTE
@@ -4118,6 +4119,7 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         const currentStudents = newClassRolls[currentClass] || [];
         const movingStudents = currentStudents.filter(s => !retainedIds.includes(s.id));
         const retainedStudents = currentStudents.filter(s => retainedIds.includes(s.id));
+        const validUuidMovingIds = movingStudents.map(s => s.id).filter(isUUID);
 
         if (targetClass === "GRADUATE") {
           // Update Supabase relational students table
@@ -4126,43 +4128,46 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
             .eq("class_name", currentClass)
             .eq("status", "active");
 
-          if (movingStudents.length > 0) {
-            const movingIds = movingStudents.map(s => s.id);
+          if (validUuidMovingIds.length > 0) {
             await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
               .eq("school_id", tenantId)
-              .in("id", movingIds);
+              .in("id", validUuidMovingIds);
           }
 
           // Update local state: remove moving students (graduating)
           newClassRolls[currentClass] = retainedStudents;
         } else {
-          // RESOLVE CLASS ID FOR NEW TERM/SESSION to prevent schema logic bleed
+          // RESOLVE CLASS ID FOR NEW TERM/SESSION with RLS protection
           const termRaw = state.schoolSettings?.term || "First Term";
           const normTerm = termRaw.toLowerCase().includes("first") ? "first" : termRaw.toLowerCase().includes("second") ? "second" : "third";
           const session = state.schoolSettings?.session || "2025/2026";
           
           let classId = null;
-          const { data: existingClass } = await sdb.from("classes")
-            .select("id")
-            .eq("school_id", tenantId)
-            .eq("name", targetClass)
-            .eq("academic_year", session)
-            .eq("term", normTerm)
-            .maybeSingle();
-            
-          if (existingClass?.id) {
-            classId = existingClass.id;
-          } else {
-            const { data: newClass, error: cErr } = await sdb.from("classes")
-              .insert({
-                school_id: tenantId,
-                name: targetClass,
-                academic_year: session,
-                term: normTerm
-              })
+          try {
+            const { data: existingClass } = await sdb.from("classes")
               .select("id")
+              .eq("school_id", tenantId)
+              .eq("name", targetClass)
+              .eq("academic_year", session)
+              .eq("term", normTerm)
               .maybeSingle();
-            if (!cErr && newClass?.id) classId = newClass.id;
+              
+            if (existingClass?.id) {
+              classId = existingClass.id;
+            } else {
+              const { data: newClass, error: cErr } = await sdb.from("classes")
+                .insert({
+                  school_id: tenantId,
+                  name: targetClass,
+                  academic_year: session,
+                  term: normTerm
+                })
+                .select("id")
+                .maybeSingle();
+              if (!cErr && newClass?.id) classId = newClass.id;
+            }
+          } catch (e) {
+            console.warn("Class table RLS lookup/insert bypassed", e);
           }
 
           const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
@@ -4174,11 +4179,10 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
             .eq("class_name", currentClass)
             .eq("status", "active");
 
-          if (movingStudents.length > 0) {
-            const movingIds = movingStudents.map(s => s.id);
+          if (validUuidMovingIds.length > 0) {
             await sdb.from("students").update(payload)
               .eq("school_id", tenantId)
-              .in("id", movingIds);
+              .in("id", validUuidMovingIds);
           }
 
           // Update local state: move students
