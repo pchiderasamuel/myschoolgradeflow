@@ -3807,14 +3807,14 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
     }
     
     if (!roll.length) {
-      // Fallback: collect students from entries matching this class
-      const fromEntries = entries
-        .filter(e => e.studentClass.trim().toLowerCase() === targetLower)
+      // Fallback: collect students from appState.entries matching this class
+      const fromEntries = (appState.entries || [])
+        .filter(e => e.studentClass && e.studentClass.trim().toLowerCase() === targetLower)
         .map(e => ({ id: e.id, name: e.studentName, admNo: "" }));
       
       const seen = new Set();
       for (const s of fromEntries) {
-        if (!seen.has(s.name.toLowerCase())) {
+        if (s.name && !seen.has(s.name.toLowerCase())) {
           seen.add(s.name.toLowerCase());
           roll.push(s);
         }
