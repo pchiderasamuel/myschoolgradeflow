@@ -4116,6 +4116,15 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
     try {
+      // 0. Resolve actualSchoolId (tenant_id -> schools.id)
+      let actualSchoolId: string | null = isUUID(tenantId) ? tenantId : null;
+      if (!actualSchoolId) {
+        try {
+          const { data: sRow } = await sdb.from("schools").select("id").eq("tenant_id", tenantId).maybeSingle();
+          if (sRow?.id) actualSchoolId = sRow.id;
+        } catch {}
+      }
+
       // 1. Filter out DO_NOT_PROMOTE
       const activeMappings = Object.entries(mappings).filter(([_, target]) => target !== "DO_NOT_PROMOTE");
       
@@ -4161,16 +4170,22 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         const validUuidMovingIds = movingStudents.map(s => s.id).filter(isUUID);
 
         if (targetClass === "GRADUATE") {
-          // Update Supabase relational students table
-          await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
-            .eq("school_id", tenantId)
-            .eq("class_name", currentClass)
-            .eq("status", "active");
+          if (actualSchoolId && isUUID(actualSchoolId)) {
+            try {
+              // Update Supabase relational students table
+              await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
+                .eq("school_id", actualSchoolId)
+                .eq("class_name", currentClass)
+                .eq("status", "active");
 
-          if (validUuidMovingIds.length > 0) {
-            await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
-              .eq("school_id", tenantId)
-              .in("id", validUuidMovingIds);
+              if (validUuidMovingIds.length > 0) {
+                await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
+                  .eq("school_id", actualSchoolId)
+                  .in("id", validUuidMovingIds);
+              }
+            } catch (e) {
+              console.warn("Graduate update bypassed", e);
+            }
           }
 
           // Update local state: remove moving students (graduating)
@@ -4182,46 +4197,54 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
           const session = state.schoolSettings?.session || "2025/2026";
           
           let classId = null;
-          try {
-            const { data: existingClass } = await sdb.from("classes")
-              .select("id")
-              .eq("school_id", tenantId)
-              .eq("name", targetClass)
-              .eq("academic_year", session)
-              .eq("term", normTerm)
-              .maybeSingle();
-              
-            if (existingClass?.id) {
-              classId = existingClass.id;
-            } else {
-              const { data: newClass, error: cErr } = await sdb.from("classes")
-                .insert({
-                  school_id: tenantId,
-                  name: targetClass,
-                  academic_year: session,
-                  term: normTerm
-                })
+          if (actualSchoolId && isUUID(actualSchoolId)) {
+            try {
+              const { data: existingClass } = await sdb.from("classes")
                 .select("id")
+                .eq("school_id", actualSchoolId)
+                .eq("name", targetClass)
+                .eq("academic_year", session)
+                .eq("term", normTerm)
                 .maybeSingle();
-              if (!cErr && newClass?.id) classId = newClass.id;
+                
+              if (existingClass?.id) {
+                classId = existingClass.id;
+              } else {
+                const { data: newClass, error: cErr } = await sdb.from("classes")
+                  .insert({
+                    school_id: actualSchoolId,
+                    name: targetClass,
+                    academic_year: session,
+                    term: normTerm
+                  })
+                  .select("id")
+                  .maybeSingle();
+                if (!cErr && newClass?.id) classId = newClass.id;
+              }
+            } catch (e) {
+              console.warn("Class lookup bypassed", e);
             }
-          } catch (e) {
-            console.warn("Class table RLS lookup/insert bypassed", e);
           }
 
-          const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
-          if (classId) payload.class_id = classId;
+          if (actualSchoolId && isUUID(actualSchoolId)) {
+            try {
+              const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
+              if (classId) payload.class_id = classId;
 
-          // Update ALL active relational students in Supabase for this class
-          await sdb.from("students").update(payload)
-            .eq("school_id", tenantId)
-            .eq("class_name", currentClass)
-            .eq("status", "active");
+              // Update ALL active relational students in Supabase for this class
+              await sdb.from("students").update(payload)
+                .eq("school_id", actualSchoolId)
+                .eq("class_name", currentClass)
+                .eq("status", "active");
 
-          if (validUuidMovingIds.length > 0) {
-            await sdb.from("students").update(payload)
-              .eq("school_id", tenantId)
-              .in("id", validUuidMovingIds);
+              if (validUuidMovingIds.length > 0) {
+                await sdb.from("students").update(payload)
+                  .eq("school_id", actualSchoolId)
+                  .in("id", validUuidMovingIds);
+              }
+            } catch (e) {
+              console.warn("Student promotion update bypassed", e);
+            }
           }
 
           // Update local state: move students
