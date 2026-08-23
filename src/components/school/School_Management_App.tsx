@@ -1258,7 +1258,9 @@ function appReducer(state: AppState, action: any): AppState {
         return { ...state, virtualClasses: [...(state.virtualClasses || []), action.payload] };
       case "DELETE_VIRTUAL_CLASS":
         return { ...state, virtualClasses: (state.virtualClasses || []).filter(c => c.id !== action.payload) };
-      case "LOG_VIRTUAL_ATTENDANCE": {
+      case "SYNC_VIRTUAL_ATTENDANCE":
+          return { ...state, virtualAttendance: action.payload };
+        case "LOG_VIRTUAL_ATTENDANCE": {
         const currentAtt = state.virtualAttendance || {};
         return { 
           ...state, 
@@ -7374,6 +7376,38 @@ function VirtualHubView({
 }) {
   const [form, setForm] = useState({ topic: "", subject: "", targetClass: "SS 3", scheduledTime: "", meetingLink: "", description: "" });
   const [showForm, setShowForm] = useState(false);
+
+  // Live poll virtual attendance from Supabase DB every 5 seconds
+  useEffect(() => {
+    const fetchLiveAttendance = () => {
+      try {
+        const sessionStr = sessionStorage.getItem('schoolapp_tenant_session_v2');
+        const sessionTenantId = sessionStr ? JSON.parse(sessionStr)?.tenantId : null;
+        const tenantId = localStorage.getItem("gm_last_tenant_id") || sessionTenantId;
+
+        if (tenantId) {
+          import('@/integrations/supabase/client').then(({ supabase }) => {
+            supabase
+              .from('tenant_data')
+              .select('data')
+              .eq('tenant_id', tenantId)
+              .maybeSingle()
+              .then(({ data: row }) => {
+                if (row?.data?.virtualAttendance) {
+                  dispatch({ type: "SYNC_VIRTUAL_ATTENDANCE", payload: row.data.virtualAttendance });
+                }
+              });
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    fetchLiveAttendance();
+    const interval = setInterval(fetchLiveAttendance, 5000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
   const [schoolCode, setSchoolCode] = useState<string>(() => {
     return localStorage.getItem("gm_last_tenant_code") || localStorage.getItem("gm_last_tenant_id") || "";
   });
