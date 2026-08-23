@@ -290,41 +290,46 @@ export async function getStudents(
   schoolId: string | null,
   filters?: { class_id?: string; status?: string; search?: string }
 ): Promise<Student[]> {
-  const sid = requireSchoolId(schoolId);
-  
-  // Resolve tenantId to actual schools.id if necessary
-  let actualSchoolId = sid;
-  const { data: sRow } = await db()
-    .from("schools")
-    .select("id")
-    .eq("tenant_id", sid)
-    .maybeSingle();
-  if (sRow?.id) {
-    actualSchoolId = sRow.id;
-  }
-
-  let query = db()
-    .from("students")
-    .select("*")
-    .eq("school_id", actualSchoolId)
-    .order("last_name", { ascending: true });
-
-  if (filters?.class_id) {
-    if (isUUID(filters.class_id)) {
-      query = query.eq("class_id", filters.class_id);
-    } else {
-      query = query.eq("class_name", filters.class_id);
+  if (!schoolId) return [];
+  try {
+    const sid = requireSchoolId(schoolId);
+    let actualSchoolId = sid;
+    const { data: sRow } = await db()
+      .from("schools")
+      .select("id")
+      .eq("tenant_id", sid)
+      .maybeSingle();
+    if (sRow?.id) {
+      actualSchoolId = sRow.id;
+    } else if (!isUUID(sid)) {
+      return [];
     }
-  }
-  if (filters?.status) query = query.eq("status", filters.status);
-  if (filters?.search) {
-    const s = filters.search.trim();
-    query = query.or(`first_name.ilike.%${s}%,last_name.ilike.%${s}%,admission_no.ilike.%${s}%`);
-  }
 
-  const { data, error } = await query;
-  throwIfError(error, "getStudents");
-  return (data ?? []) as Student[];
+    let query = db()
+      .from("students")
+      .select("*")
+      .eq("school_id", actualSchoolId)
+      .order("last_name", { ascending: true });
+
+    if (filters?.class_id) {
+      if (isUUID(filters.class_id)) {
+        query = query.eq("class_id", filters.class_id);
+      } else {
+        query = query.eq("class_name", filters.class_id);
+      }
+    }
+    if (filters?.status) query = query.eq("status", filters.status);
+    if (filters?.search) {
+      const s = filters.search.trim();
+      query = query.or(`first_name.ilike.%${s}%,last_name.ilike.%${s}%,admission_no.ilike.%${s}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) return [];
+    return (data ?? []) as Student[];
+  } catch (e) {
+    return [];
+  }
 }
 
 export async function getStudentsPaged(
@@ -333,44 +338,50 @@ export async function getStudentsPaged(
   pageSize: number,
   filters?: { class_id?: string; status?: string; search?: string }
 ): Promise<{ students: Student[]; total: number }> {
-  const sid = requireSchoolId(schoolId);
-  
-  let actualSchoolId = sid;
-  const { data: sRow } = await db()
-    .from("schools")
-    .select("id")
-    .eq("tenant_id", sid)
-    .maybeSingle();
-  if (sRow?.id) {
-    actualSchoolId = sRow.id;
-  }
-
-  const from = page * pageSize;
-  const to   = from + pageSize - 1;
-
-  let query = db()
-    .from("students")
-    .select("*", { count: "exact" })
-    .eq("school_id", actualSchoolId)
-    .order("last_name")
-    .range(from, to);
-
-  if (filters?.class_id) {
-    if (isUUID(filters.class_id)) {
-      query = query.eq("class_id", filters.class_id);
-    } else {
-      query = query.eq("class_name", filters.class_id);
+  if (!schoolId) return { students: [], total: 0 };
+  try {
+    const sid = requireSchoolId(schoolId);
+    let actualSchoolId = sid;
+    const { data: sRow } = await db()
+      .from("schools")
+      .select("id")
+      .eq("tenant_id", sid)
+      .maybeSingle();
+    if (sRow?.id) {
+      actualSchoolId = sRow.id;
+    } else if (!isUUID(sid)) {
+      return { students: [], total: 0 };
     }
-  }
-  if (filters?.status) query = query.eq("status", filters.status);
-  if (filters?.search) {
-    const s = filters.search.trim();
-    query = query.or(`first_name.ilike.%${s}%,last_name.ilike.%${s}%,admission_no.ilike.%${s}%`);
-  }
 
-  const { data, error, count } = await query;
-  throwIfError(error, "getStudentsPaged");
-  return { students: (data ?? []) as Student[], total: count ?? 0 };
+    const from = page * pageSize;
+    const to   = from + pageSize - 1;
+
+    let query = db()
+      .from("students")
+      .select("*", { count: "exact" })
+      .eq("school_id", actualSchoolId)
+      .order("last_name")
+      .range(from, to);
+
+    if (filters?.class_id) {
+      if (isUUID(filters.class_id)) {
+        query = query.eq("class_id", filters.class_id);
+      } else {
+        query = query.eq("class_name", filters.class_id);
+      }
+    }
+    if (filters?.status) query = query.eq("status", filters.status);
+    if (filters?.search) {
+      const s = filters.search.trim();
+      query = query.or(`first_name.ilike.%${s}%,last_name.ilike.%${s}%,admission_no.ilike.%${s}%`);
+    }
+
+    const { data, error, count } = await query;
+    if (error) return { students: [], total: 0 };
+    return { students: (data ?? []) as Student[], total: count ?? 0 };
+  } catch (e) {
+    return { students: [], total: 0 };
+  }
 }
 
 export async function getStudent(schoolId: string | null, studentId: string): Promise<Student> {

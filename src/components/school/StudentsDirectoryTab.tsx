@@ -117,8 +117,27 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
       }
     }
     
-    // 3. Sort and Paginate Local Memory
-    const sorted = all.sort((a, b) => (a.first_name + a.last_name).localeCompare(b.first_name + b.last_name));
+    // 3. Filter by Term
+    let filtered = all;
+    if (termFilter !== "all") {
+      const normTerm = termFilter.toLowerCase().replace(" term", "").trim();
+      filtered = all.filter(s => {
+        const fullName = `${s.first_name} ${s.last_name}`.toLowerCase().trim();
+        const hasTermEntry = (appCtx?.state?.entries || []).some(e => 
+          e.studentName && e.studentName.toLowerCase().trim() === fullName && 
+          (e.term || "").toLowerCase().includes(normTerm)
+        );
+        const hasTermAttendance = (appCtx?.state?.attendance || []).some(a => 
+          a.studentName && a.studentName.toLowerCase().trim() === fullName && 
+          (a.term || "").toLowerCase().includes(normTerm)
+        );
+        const isCurrentTerm = (appCtx?.state?.schoolSettings?.term || "").toLowerCase().includes(normTerm);
+        return hasTermEntry || hasTermAttendance || isCurrentTerm;
+      });
+    }
+
+    // 4. Sort and Paginate Local Memory
+    const sorted = filtered.sort((a, b) => (a.first_name + a.last_name).localeCompare(b.first_name + b.last_name));
     return sorted.slice(page * STUDENT_PAGE_SIZE, (page + 1) * STUDENT_PAGE_SIZE);
   })();
 
@@ -140,8 +159,23 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         const fullName = `${first} ${last}`.toLowerCase();
         
         const matchesSearch = !searchQuery || fullName.includes(searchQuery.toLowerCase()) || (s.admNo && s.admNo.toLowerCase().includes(searchQuery.toLowerCase()));
+        
+        let matchesTerm = true;
+        if (termFilter !== "all") {
+          const normTerm = termFilter.toLowerCase().replace(" term", "").trim();
+          const hasTermEntry = (appCtx?.state?.entries || []).some(e => 
+            e.studentName && e.studentName.toLowerCase().trim() === fullName && 
+            (e.term || "").toLowerCase().includes(normTerm)
+          );
+          const hasTermAttendance = (appCtx?.state?.attendance || []).some(a => 
+            a.studentName && a.studentName.toLowerCase().trim() === fullName && 
+            (a.term || "").toLowerCase().includes(normTerm)
+          );
+          const isCurrentTerm = (appCtx?.state?.schoolSettings?.term || "").toLowerCase().includes(normTerm);
+          matchesTerm = hasTermEntry || hasTermAttendance || isCurrentTerm;
+        }
 
-        if (matchesSearch && !relationalNames.has(fullName)) {
+        if (matchesSearch && matchesTerm && !relationalNames.has(fullName)) {
           legacyCount++;
         }
       }
