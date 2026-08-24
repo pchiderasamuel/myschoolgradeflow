@@ -4187,61 +4187,121 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
 
         {step === 2 && (
           <div className="space-y-4">
-            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl">
-              <h3 className="font-bold text-amber-900 text-sm">Step 2: Retain Repeating Students (Optional)</h3>
-              <p className="text-xs text-amber-700 mt-0.5">Check any specific students who should be retained in their current class.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/90 border border-amber-200/80 p-4 rounded-2xl shadow-2xs">
+              <div>
+                <h3 className="font-bold text-amber-950 text-sm">Step 2: Retain Repeating Students (Optional)</h3>
+                <p className="text-xs text-amber-800 mt-0.5">Select specific students who will repeat their current grade instead of promoting.</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button 
+                  onClick={() => setRetained({})}
+                  className="px-3 py-1.5 bg-white border border-amber-300 text-amber-900 text-xs font-extrabold rounded-xl hover:bg-amber-100 transition-all shadow-2xs"
+                >
+                  ⚡ Promote All (0 Retained)
+                </button>
+              </div>
             </div>
             
             {loading ? (
-              <div className="p-8 text-center text-slate-400 font-bold">Loading student rosters...</div>
+              <div className="p-12 text-center text-slate-400 font-bold flex flex-col items-center justify-center">
+                <Loader2 className="animate-spin mb-2 text-indigo-600" size={24} />
+                Loading student rosters...
+              </div>
             ) : (
-              <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1">
-                {classesList.filter(c => mappings[c] && mappings[c] !== "DO_NOT_PROMOTE").map(c => (
-                  <div key={c} className="space-y-2">
-                    <h4 className="font-bold text-slate-800 text-xs flex items-center justify-between border-b border-slate-200 pb-1.5">
-                      <span>{c} <span className="font-semibold text-slate-500">({studentsByClass[c]?.length || 0} enrolled)</span></span>
-                      <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Promoting to: {mappings[c] === "GRADUATE" ? "Graduation" : mappings[c]}</span>
-                    </h4>
-                    {(!studentsByClass[c] || studentsByClass[c].length === 0) ? (
-                      <p className="text-xs text-slate-400 italic">No active students found in this class.</p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {studentsByClass[c].map(s => {
-                          const isRetained = retained[c]?.includes(s.id);
-                          return (
-                            <label key={s.id} className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${isRetained ? 'bg-red-50 border-red-200 text-red-700 shadow-sm' : 'bg-slate-50 border-slate-200/90 text-slate-700 hover:bg-white'}`}>
-                              <input 
-                                type="checkbox" 
-                                checked={isRetained || false}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setRetained(prev => {
-                                    const current = prev[c] || [];
-                                    if (checked) return { ...prev, [c]: [...current, s.id] };
-                                    return { ...prev, [c]: current.filter(id => id !== s.id) };
-                                  });
-                                }}
-                                className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
-                              />
-                              <span className="text-xs font-bold truncate">
-                                {s.first_name} {s.last_name}
-                              </span>
-                              {isRetained && <span className="ml-auto text-[10px] font-black text-red-600 bg-red-100/80 px-1.5 py-0.5 rounded uppercase">Retained</span>}
-                            </label>
-                          );
-                        })}
+              <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1.5 scrollbar-thin">
+                {classesList.filter(c => mappings[c] && mappings[c] !== "DO_NOT_PROMOTE").map(c => {
+                  const classStudents = studentsByClass[c] || [];
+                  const retainedInClass = retained[c] || [];
+                  const isAllRetained = classStudents.length > 0 && retainedInClass.length === classStudents.length;
+
+                  return (
+                    <div key={c} className="space-y-2 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80">
+                      <div className="flex items-center justify-between border-b border-slate-200/90 pb-2">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-extrabold text-slate-900 text-xs">{c}</h4>
+                          <span className="text-[11px] font-semibold text-slate-500">({classStudents.length} enrolled)</span>
+                          <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                            ➔ {mappings[c] === "GRADUATE" ? "Graduation" : mappings[c]}
+                          </span>
+                        </div>
+                        
+                        {classStudents.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRetained(prev => {
+                                if (isAllRetained) {
+                                  return { ...prev, [c]: [] };
+                                } else {
+                                  return { ...prev, [c]: classStudents.map(s => s.id) };
+                                }
+                              });
+                            }}
+                            className="text-[11px] font-bold text-slate-600 hover:text-indigo-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs transition-all hover:border-indigo-200"
+                          >
+                            {isAllRetained ? "Clear All in Class" : "Retain All in Class"}
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {classStudents.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic p-2">No active students found in this class.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          {classStudents.map(s => {
+                            const isRetained = retainedInClass.includes(s.id);
+                            return (
+                              <label key={s.id} className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${isRetained ? 'bg-red-50 border-red-200 text-red-700 shadow-2xs' : 'bg-white border-slate-200/80 text-slate-700 hover:border-slate-300'}`}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={isRetained}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setRetained(prev => {
+                                      const current = prev[c] || [];
+                                      if (checked) return { ...prev, [c]: [...current, s.id] };
+                                      return { ...prev, [c]: current.filter(id => id !== s.id) };
+                                    });
+                                  }}
+                                  className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
+                                />
+                                <span className="text-xs font-bold truncate">
+                                  {s.first_name} {s.last_name}
+                                </span>
+                                {isRetained && <span className="ml-auto text-[10px] font-black text-red-600 bg-red-100/80 px-1.5 py-0.5 rounded uppercase">Retained</span>}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
               <Btn variant="ghost" onClick={() => setStep(1)}>← Back to Class Mapping</Btn>
-              <Btn variant="primary" onClick={() => setStep(3)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-500/20 active:scale-95">
-                Next Step: Final Review ➔
-              </Btn>
+              
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                {Object.values(retained).flat().length > 0 ? (
+                  <span className="text-xs font-extrabold text-red-700 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
+                    ⚠️ {Object.values(retained).flat().length} student(s) set as Retained
+                  </span>
+                ) : (
+                  <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                    ✅ All enrolled students set to promote
+                  </span>
+                )}
+
+                <Btn 
+                  variant="primary" 
+                  onClick={() => setStep(3)} 
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-extrabold shadow-md shadow-indigo-500/20 active:scale-95 shrink-0"
+                >
+                  Next Step: Final Review ➔
+                </Btn>
+              </div>
             </div>
           </div>
         )}
