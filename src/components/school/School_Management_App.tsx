@@ -4070,10 +4070,30 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
       "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
     ];
 
-    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/jss(\d)/, 'jss $1').replace(/ss(\d)/, 'ss $1').trim();
+  // Auto-map based on standard curriculum progression
+  const handleAutoMap = () => {
+    const progression = [
+      "creche", "pre-nursery", "nursery 1", "nursery 2", 
+      "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
+      "jss 1", "jss 2", "jss 3", "ss 1", "ss 2", "ss 3"
+    ];
     
+    const displayNames = [
+      "Creche", "Pre-Nursery", "Nursery 1", "Nursery 2", 
+      "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+      "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
+    ];
+
+    const normalize = (s: string) => {
+      let str = s.toLowerCase().trim();
+      str = str.replace(/class/g, '').replace(/grade/g, '').replace(/basic/g, 'primary');
+      str = str.replace(/one/g, '1').replace(/two/g, '2').replace(/three/g, '3').replace(/four/g, '4').replace(/five/g, '5').replace(/six/g, '6');
+      str = str.replace(/jss(\d)/, 'jss $1').replace(/ss(\d)/, 'ss $1');
+      return str.replace(/\s+/g, ' ').trim();
+    };
+
     const newMap: Record<string, string> = {};
-    classesList.forEach(c => {
+    classesList.forEach((c, i) => {
       const normC = normalize(c);
       const idx = progression.indexOf(normC);
       
@@ -4083,238 +4103,20 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         } else {
           newMap[c] = displayNames[idx + 1];
         }
+      } else if (i < classesList.length - 1) {
+        // Fallback: map to the next class in sequential list
+        newMap[c] = classesList[i + 1];
       } else {
-        newMap[c] = "DO_NOT_PROMOTE";
+        newMap[c] = "GRADUATE";
       }
     });
 
-    setMappings(prev => {
-      const merged = { ...newMap };
-      Object.keys(prev).forEach(k => {
-        if (prev[k] && prev[k] !== "DO_NOT_PROMOTE") {
-          merged[k] = prev[k];
-        }
-      });
-      return merged;
-    });
-  }, [classesList]);
-
-  // Load students for retention selection
-  const [studentsByClass, setStudentsByClass] = useState<Record<string, any[]>>({});
-  useEffect(() => {
-    if (step === 2 && tenantId) {
-      setLoading(true);
-      import("@/integrations/supabase/client").then(async ({ supabase }) => {
-        try {
-          const { data } = await supabase.from("students").select("id, first_name, last_name, class_name").eq("school_id", tenantId).eq("status", "active");
-          if (data && data.length > 0) {
-            const grouped: Record<string, any[]> = {};
-            data.forEach(s => {
-              if (!grouped[s.class_name]) grouped[s.class_name] = [];
-              grouped[s.class_name].push(s);
-            });
-            setStudentsByClass(grouped);
-          } else {
-            throw new Error("No data");
-          }
-        } catch (e) {
-          const grouped: Record<string, any[]> = {};
-          Object.keys(state.classRolls || {}).forEach(c => {
-            grouped[c] = ((state.classRolls || {})[c] || []).map(s => ({
-              id: s.id,
-              first_name: s.name.split(" ")[0] || "",
-              last_name: s.name.split(" ").slice(1).join(" ") || "",
-              class_name: c
-            }));
-          });
-          setStudentsByClass(grouped);
-        }
-        setLoading(false);
-      });
-    }
-  }, [step, tenantId]);
-
-  const handleExecute = async () => {
-    if (!tenantId) return;
-    setLoading(true);
-    const { db: schoolDb } = await import("@/supabase/schoolService");
-    const sdb = schoolDb();
-    const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-    try {
-      // 0. Resolve actualSchoolId (tenant_id -> schools.id)
-      let actualSchoolId: string | null = isUUID(tenantId) ? tenantId : null;
-      if (!actualSchoolId) {
-        try {
-          const { data: sRow } = await sdb.from("schools").select("id").eq("tenant_id", tenantId).maybeSingle();
-          if (sRow?.id) actualSchoolId = sRow.id;
-        } catch {}
-      }
-
-      // 1. Filter out DO_NOT_PROMOTE
-      const activeMappings = Object.entries(mappings).filter(([_, target]) => target !== "DO_NOT_PROMOTE");
-      
-      // 2. Topological sort to avoid overlap
-      const graph: Record<string, string> = {};
-      const inDegree: Record<string, number> = {};
-      activeMappings.forEach(([src, tgt]) => {
-        if (tgt !== "GRADUATE") {
-          graph[src] = tgt;
-          if (inDegree[tgt] === undefined) inDegree[tgt] = 0;
-          inDegree[tgt]++;
-        }
-        if (inDegree[src] === undefined) inDegree[src] = 0;
-      });
-
-      const queue: string[] = Object.keys(inDegree).filter(k => inDegree[k] === 0);
-      const order: string[] = [];
-      
-      while (queue.length > 0) {
-        const u = queue.shift()!;
-        order.push(u);
-        const v = graph[u];
-        if (v) {
-          inDegree[v]--;
-          if (inDegree[v] === 0) queue.push(v);
-        }
-      }
-      
-      // Execute from end of topological sort to beginning (i.e. highest class first)
-      const executionOrder = order.reverse();
-      const newClassRolls = { ...state.classRolls };
-      
-      for (const currentClass of executionOrder) {
-        const targetClass = mappings[currentClass];
-        if (!targetClass) continue;
-        
-        const retainedIds = retained[currentClass] || [];
-
-        // Modify local class rolls array
-        const currentStudents = newClassRolls[currentClass] || [];
-        const movingStudents = currentStudents.filter(s => !retainedIds.includes(s.id));
-        const retainedStudents = currentStudents.filter(s => retainedIds.includes(s.id));
-        const validUuidMovingIds = movingStudents.map(s => s.id).filter(isUUID);
-        const validUuidRetainedIds = retainedIds.filter(isUUID);
-
-        if (targetClass === "GRADUATE") {
-          if (actualSchoolId && isUUID(actualSchoolId)) {
-            try {
-              if (validUuidMovingIds.length > 0) {
-                await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
-                  .eq("school_id", actualSchoolId)
-                  .in("id", validUuidMovingIds);
-              } else {
-                let query = sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
-                  .eq("school_id", actualSchoolId)
-                  .eq("class_name", currentClass)
-                  .eq("status", "active");
-
-                if (validUuidRetainedIds.length > 0) {
-                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
-                }
-                await query;
-              }
-            } catch (e) {
-              console.warn("Graduate update bypassed", e);
-            }
-          }
-
-          // Update local state: remove moving students (graduating)
-          newClassRolls[currentClass] = retainedStudents;
-        } else {
-          // RESOLVE CLASS ID FOR NEW TERM/SESSION with RLS protection
-          const termRaw = state.schoolSettings?.term || "First Term";
-          const normTerm = termRaw.toLowerCase().includes("first") ? "first" : termRaw.toLowerCase().includes("second") ? "second" : "third";
-          const session = state.schoolSettings?.session || "2025/2026";
-          
-          let classId = null;
-          if (actualSchoolId && isUUID(actualSchoolId)) {
-            try {
-              const { data: existingClass } = await sdb.from("classes")
-                .select("id")
-                .eq("school_id", actualSchoolId)
-                .eq("name", targetClass)
-                .eq("academic_year", session)
-                .eq("term", normTerm)
-                .maybeSingle();
-                
-              if (existingClass?.id) {
-                classId = existingClass.id;
-              } else {
-                const { data: newClass, error: cErr } = await sdb.from("classes")
-                  .insert({
-                    school_id: actualSchoolId,
-                    name: targetClass,
-                    academic_year: session,
-                    term: normTerm
-                  })
-                  .select("id")
-                  .maybeSingle();
-                if (!cErr && newClass?.id) classId = newClass.id;
-              }
-            } catch (e) {
-              console.warn("Class lookup bypassed", e);
-            }
-          }
-
-          if (actualSchoolId && isUUID(actualSchoolId)) {
-            try {
-              const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
-              if (classId) payload.class_id = classId;
-
-              if (validUuidMovingIds.length > 0) {
-                await sdb.from("students").update(payload)
-                  .eq("school_id", actualSchoolId)
-                  .in("id", validUuidMovingIds);
-              } else {
-                let query = sdb.from("students").update(payload)
-                  .eq("school_id", actualSchoolId)
-                  .eq("class_name", currentClass)
-                  .eq("status", "active");
-
-                if (validUuidRetainedIds.length > 0) {
-                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
-                }
-                await query;
-              }
-            } catch (e) {
-              console.warn("Student promotion update bypassed", e);
-            }
-          }
-
-          // Update local state: move students
-          newClassRolls[currentClass] = retainedStudents;
-          newClassRolls[targetClass] = [...(newClassRolls[targetClass] || []), ...movingStudents];
-        }
-      }
-      
-      // Save offline state back to IndexedDB and Cloud
-      const newState = { ...state, classRolls: newClassRolls };
-      dispatch({ type: "REPLACE_ALL", payload: newState });
-      
-      try {
-        const { setAppState } = await import("@/lib/app-storage");
-        const { saveTenantDataV3, loadTenantSession } = await import("@/lib/tenant-client");
-        const json = JSON.stringify(newState);
-        await setAppState(json);
-        const s = loadTenantSession();
-        if (s) {
-          const localRev = newState._rev || 0;
-          await saveTenantDataV3(s, localRev, newState);
-        }
-      } catch (e) {
-        console.warn("Failed to save local state immediately", e);
-      }
-      
-      showToast("Promotion completed successfully! Students moved to their new classes.", "success");
-      onClose();
-      
-    } catch (err: any) {
-      console.error(err);
-      showToast("Error during promotion: " + err.message, "error");
-      setLoading(false);
-    }
+    setMappings(newMap);
   };
+
+  useEffect(() => {
+    if (classesList.length > 0) handleAutoMap();
+  }, [classesList]);
 
   const hasPromotions = Object.values(mappings).some(v => v !== "DO_NOT_PROMOTE");
 
@@ -4322,23 +4124,49 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     <Modal maxW="max-w-2xl" onBgClick={onClose} zIndex={400}>
       <MHead icon={AlertTriangle} title="Smart Promotion Wizard" subtitle="Move students to their next classes for the new session" color="bg-indigo-600" onClose={onClose} />
       
-      <div className="p-6">
+      <div className="p-6 space-y-5">
+        {/* 3-Step Wizard Breadcrumbs */}
+        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step === 1 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-emerald-600 text-white'}`}>1</span>
+            <span className={`text-xs font-extrabold ${step === 1 ? 'text-indigo-700' : 'text-slate-700'}`}>Map Classes</span>
+          </div>
+          <ChevronRight size={14} className="text-slate-400" />
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step === 2 ? 'bg-indigo-600 text-white shadow-sm' : step > 2 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>2</span>
+            <span className={`text-xs font-extrabold ${step === 2 ? 'text-indigo-700' : 'text-slate-700'}`}>Retain Repeaters</span>
+          </div>
+          <ChevronRight size={14} className="text-slate-400" />
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step === 3 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 text-slate-600'}`}>3</span>
+            <span className={`text-xs font-extrabold ${step === 3 ? 'text-indigo-700' : 'text-slate-700'}`}>Review & Execute</span>
+          </div>
+        </div>
+
         {step === 1 && (
           <div className="space-y-4">
-            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
-              <h3 className="font-bold text-indigo-800">Step 1: Map Classes</h3>
-              <p className="text-sm text-indigo-600">Where should students in each current class go next?</p>
+            <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+              <div>
+                <h3 className="font-bold text-indigo-900 text-sm">Step 1: Map Class Progression</h3>
+                <p className="text-xs text-indigo-700 mt-0.5">Select target destination classes for each active class.</p>
+              </div>
+              <button 
+                onClick={handleAutoMap}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-sm shrink-0"
+              >
+                ⚡ Auto-Map All
+              </button>
             </div>
             
-            <div className="max-h-[60vh] overflow-y-auto space-y-2">
+            <div className="max-h-[55vh] overflow-y-auto space-y-2 pr-1">
               {classesList.map(c => (
-                <div key={c} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                  <div className="flex-1 font-bold text-slate-700">{c}</div>
+                <div key={c} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 bg-slate-50 border border-slate-200/90 rounded-xl hover:bg-white transition-colors">
+                  <div className="flex-1 font-bold text-slate-800 text-sm">{c}</div>
                   <ChevronRight className="text-slate-400 shrink-0 hidden sm:block" size={16} />
                   <select 
                     value={mappings[c] || "DO_NOT_PROMOTE"}
                     onChange={e => setMappings(prev => ({ ...prev, [c]: e.target.value }))}
-                    className="flex-1 p-2 bg-white border border-slate-200 rounded-md font-medium text-sm"
+                    className="flex-1 p-2 bg-white border border-slate-200 rounded-lg font-semibold text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer"
                   >
                     <option value="DO_NOT_PROMOTE">Do not promote (Retain all)</option>
                     <option value="GRADUATE">🎓 Graduate / Leave School</option>
@@ -4350,11 +4178,26 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
                   </select>
                 </div>
               ))}
-              {classesList.length === 0 && <p className="text-slate-500 text-sm italic">No classes found in this school yet.</p>}
+              {classesList.length === 0 && <p className="text-slate-500 text-sm italic text-center p-4">No classes found in this school yet.</p>}
             </div>
 
-            <div className="flex justify-end pt-4">
-              <Btn variant="primary" onClick={() => setStep(2)} disabled={!hasPromotions}>Next Step: Retain Students</Btn>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
+              <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                {!hasPromotions && (
+                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                    ⚠️ Select a target class for at least 1 class
+                  </span>
+                )}
+                <Btn 
+                  variant="primary" 
+                  onClick={() => setStep(2)} 
+                  disabled={!hasPromotions}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-500/20 active:scale-95"
+                >
+                  Next Step: Retain Students ➔
+                </Btn>
+              </div>
             </div>
           </div>
         )}
@@ -4362,19 +4205,19 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         {step === 2 && (
           <div className="space-y-4">
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl">
-              <h3 className="font-bold text-amber-800">Step 2: Retain Students</h3>
-              <p className="text-sm text-amber-600">Select any specific students who should NOT be promoted with their class.</p>
+              <h3 className="font-bold text-amber-900 text-sm">Step 2: Retain Repeating Students (Optional)</h3>
+              <p className="text-xs text-amber-700 mt-0.5">Check any specific students who should be retained in their current class.</p>
             </div>
             
             {loading ? (
-              <div className="p-8 text-center text-slate-400">Loading student lists...</div>
+              <div className="p-8 text-center text-slate-400 font-bold">Loading student rosters...</div>
             ) : (
-              <div className="max-h-[50vh] overflow-y-auto space-y-6">
+              <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1">
                 {classesList.filter(c => mappings[c] && mappings[c] !== "DO_NOT_PROMOTE").map(c => (
                   <div key={c} className="space-y-2">
-                    <h4 className="font-bold text-slate-700 flex justify-between border-b pb-1">
-                      <span>{c} <span className="text-sm font-normal text-slate-500">({studentsByClass[c]?.length || 0} students)</span></span>
-                      <span className="text-sm text-indigo-600">Going to: {mappings[c] === "GRADUATE" ? "Graduation" : mappings[c]}</span>
+                    <h4 className="font-bold text-slate-800 text-xs flex items-center justify-between border-b border-slate-200 pb-1.5">
+                      <span>{c} <span className="font-semibold text-slate-500">({studentsByClass[c]?.length || 0} enrolled)</span></span>
+                      <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Promoting to: {mappings[c] === "GRADUATE" ? "Graduation" : mappings[c]}</span>
                     </h4>
                     {(!studentsByClass[c] || studentsByClass[c].length === 0) ? (
                       <p className="text-xs text-slate-400 italic">No active students found in this class.</p>
@@ -4383,7 +4226,7 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
                         {studentsByClass[c].map(s => {
                           const isRetained = retained[c]?.includes(s.id);
                           return (
-                            <label key={s.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${isRetained ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                            <label key={s.id} className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${isRetained ? 'bg-red-50 border-red-200 text-red-700 shadow-sm' : 'bg-slate-50 border-slate-200/90 text-slate-700 hover:bg-white'}`}>
                               <input 
                                 type="checkbox" 
                                 checked={isRetained || false}
@@ -4395,12 +4238,12 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
                                     return { ...prev, [c]: current.filter(id => id !== s.id) };
                                   });
                                 }}
-                                className="rounded text-red-500 focus:ring-red-500"
+                                className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
                               />
-                              <span className={`text-sm font-medium ${isRetained ? 'text-red-700' : 'text-slate-700'}`}>
+                              <span className="text-xs font-bold truncate">
                                 {s.first_name} {s.last_name}
                               </span>
-                              {isRetained && <span className="ml-auto text-xs font-bold text-red-500 uppercase">Retained</span>}
+                              {isRetained && <span className="ml-auto text-[10px] font-black text-red-600 bg-red-100/80 px-1.5 py-0.5 rounded uppercase">Retained</span>}
                             </label>
                           );
                         })}
@@ -4411,9 +4254,11 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
               </div>
             )}
 
-            <div className="flex justify-between pt-4">
-              <Btn variant="ghost" onClick={() => setStep(1)}>Back</Btn>
-              <Btn variant="primary" onClick={() => setStep(3)}>Review & Execute</Btn>
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+              <Btn variant="ghost" onClick={() => setStep(1)}>← Back to Class Mapping</Btn>
+              <Btn variant="primary" onClick={() => setStep(3)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-500/20 active:scale-95">
+                Next Step: Final Review ➔
+              </Btn>
             </div>
           </div>
         )}
@@ -4421,25 +4266,35 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         {step === 3 && (
           <div className="space-y-4">
             <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
-              <h3 className="font-bold text-emerald-800">Final Review</h3>
-              <p className="text-sm text-emerald-600">Review your promotion plan before executing. This will update the database permanently.</p>
+              <h3 className="font-bold text-emerald-900 text-sm">Step 3: Final Review & Confirmation</h3>
+              <p className="text-xs text-emerald-700 mt-0.5">Review your promotion plan below before executing changes.</p>
             </div>
             
-            <div className="max-h-[50vh] overflow-y-auto space-y-2 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700 font-medium">
+            <div className="max-h-[50vh] overflow-y-auto space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <ul className="space-y-2 text-xs text-slate-700 font-semibold">
                 {Object.entries(mappings).filter(([_, m]) => m !== "DO_NOT_PROMOTE").map(([src, tgt]) => (
-                  <li key={src}>
-                    <span className="font-bold">{src}</span> will be moved to <span className="font-bold text-indigo-600">{tgt === "GRADUATE" ? "Graduated Status" : tgt}</span>
-                    {retained[src]?.length > 0 && <span className="text-red-600 ml-2">({retained[src].length} students retained)</span>}
+                  <li key={src} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-slate-200/80 shadow-2xs">
+                    <div>
+                      <span className="font-extrabold text-slate-900">{src}</span> ➔ <span className="font-extrabold text-indigo-600">{tgt === "GRADUATE" ? "Graduation" : tgt}</span>
+                    </div>
+                    {retained[src]?.length > 0 ? (
+                      <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                        {retained[src].length} retained
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                        All promoted
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="flex justify-between pt-4">
-              <Btn variant="ghost" onClick={() => setStep(2)}>Back</Btn>
-              <Btn variant="primary" onClick={handleExecute} disabled={loading}>
-                {loading ? "Executing..." : "Confirm & Execute"}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+              <Btn variant="ghost" onClick={() => setStep(2)}>← Back</Btn>
+              <Btn variant="primary" onClick={handleExecute} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-extrabold shadow-md shadow-emerald-600/20 active:scale-95">
+                {loading ? "Executing Bulk Promotion..." : "🚀 Confirm & Execute Promotion"}
               </Btn>
             </div>
           </div>
