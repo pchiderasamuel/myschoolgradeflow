@@ -4194,20 +4194,25 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
         const movingStudents = currentStudents.filter(s => !retainedIds.includes(s.id));
         const retainedStudents = currentStudents.filter(s => retainedIds.includes(s.id));
         const validUuidMovingIds = movingStudents.map(s => s.id).filter(isUUID);
+        const validUuidRetainedIds = retainedIds.filter(isUUID);
 
         if (targetClass === "GRADUATE") {
           if (actualSchoolId && isUUID(actualSchoolId)) {
             try {
-              // Update Supabase relational students table
-              await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
-                .eq("school_id", actualSchoolId)
-                .eq("class_name", currentClass)
-                .eq("status", "active");
-
               if (validUuidMovingIds.length > 0) {
                 await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
                   .eq("school_id", actualSchoolId)
                   .in("id", validUuidMovingIds);
+              } else {
+                let query = sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
+                  .eq("school_id", actualSchoolId)
+                  .eq("class_name", currentClass)
+                  .eq("status", "active");
+
+                if (validUuidRetainedIds.length > 0) {
+                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
+                }
+                await query;
               }
             } catch (e) {
               console.warn("Graduate update bypassed", e);
@@ -4257,16 +4262,20 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
               const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
               if (classId) payload.class_id = classId;
 
-              // Update ALL active relational students in Supabase for this class
-              await sdb.from("students").update(payload)
-                .eq("school_id", actualSchoolId)
-                .eq("class_name", currentClass)
-                .eq("status", "active");
-
               if (validUuidMovingIds.length > 0) {
                 await sdb.from("students").update(payload)
                   .eq("school_id", actualSchoolId)
                   .in("id", validUuidMovingIds);
+              } else {
+                let query = sdb.from("students").update(payload)
+                  .eq("school_id", actualSchoolId)
+                  .eq("class_name", currentClass)
+                  .eq("status", "active");
+
+                if (validUuidRetainedIds.length > 0) {
+                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
+                }
+                await query;
               }
             } catch (e) {
               console.warn("Student promotion update bypassed", e);
