@@ -4054,24 +4054,8 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     return Array.from(new Set([...classesList, ...progressionClasses]));
   }, [classesList]);
 
-  // Auto-map based on standard Nigerian curriculum progression
-  useEffect(() => {
-    if (classesList.length === 0) return;
-    
-    const progression = [
-      "creche", "pre-nursery", "nursery 1", "nursery 2", 
-      "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
-      "jss 1", "jss 2", "jss 3", "ss 1", "ss 2", "ss 3"
-    ];
-    
-    const displayNames = [
-      "Creche", "Pre-Nursery", "Nursery 1", "Nursery 2", 
-      "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
-      "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
-    ];
-
   // Auto-map based on standard curriculum progression
-  const handleAutoMap = () => {
+  const handleAutoMap = useCallback(() => {
     const progression = [
       "creche", "pre-nursery", "nursery 1", "nursery 2", 
       "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
@@ -4104,7 +4088,6 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
           newMap[c] = displayNames[idx + 1];
         }
       } else if (i < classesList.length - 1) {
-        // Fallback: map to the next class in sequential list
         newMap[c] = classesList[i + 1];
       } else {
         newMap[c] = "GRADUATE";
@@ -4112,11 +4095,11 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     });
 
     setMappings(newMap);
-  };
+  }, [classesList]);
 
   useEffect(() => {
     if (classesList.length > 0) handleAutoMap();
-  }, [classesList]);
+  }, [classesList, handleAutoMap]);
 
   const hasPromotions = Object.values(mappings).some(v => v !== "DO_NOT_PROMOTE");
 
