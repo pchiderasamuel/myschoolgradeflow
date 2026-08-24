@@ -529,8 +529,8 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         </div>
       </div>
 
-      {/* Structured Pro Filter Control Card - Clean 2-Row Layout preventing overlapping */}
-      <div className="bg-slate-50/90 p-3 rounded-2xl border border-slate-200/80 shadow-sm backdrop-blur-sm space-y-3">
+      {/* Structured Pro Filter Control Card - Clean 2-Row Layout preventing edge overflow */}
+      <div className="bg-slate-50/90 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-sm backdrop-blur-sm space-y-3.5">
         {/* Row 1: Segmented Status Filter Tabs Card */}
         <div className="grid grid-cols-2 sm:grid-cols-4 bg-white rounded-xl border border-slate-200/90 p-1.5 shadow-sm gap-1.5">
           {tabs.map((tab) => {
@@ -552,9 +552,9 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         </div>
 
         {/* Row 2: Search Input & Select Dropdowns Toolbar */}
-        <div className="flex flex-col md:flex-row items-center gap-2.5">
+        <div className="flex flex-col md:flex-row items-center gap-3">
           {/* Search Input with Clear Button */}
-          <div className="relative flex-1 w-full">
+          <div className="relative flex-1 w-full min-w-0">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               id="directory-search-input"
@@ -576,42 +576,45 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
             )}
           </div>
 
-          {/* Class Filter Dropdown */}
-          <div className="relative w-full md:w-48">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
-            <select
-              id="directory-class-filter-select"
-              name="directoryClassFilter"
-              aria-label="Filter students by class"
-              value={classFilter}
-              onChange={(e) => { setClassFilter(e.target.value); setPage(0); }}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm cursor-pointer transition-all"
-            >
-              <option value="all">All Classes</option>
-              {classesList.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-          </div>
+          {/* Grouped Select Dropdowns */}
+          <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0">
+            {/* Class Filter Dropdown */}
+            <div className="relative flex-1 md:flex-none md:w-44">
+              <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
+              <select
+                id="directory-class-filter-select"
+                name="directoryClassFilter"
+                aria-label="Filter students by class"
+                value={classFilter}
+                onChange={(e) => { setClassFilter(e.target.value); setPage(0); }}
+                className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm cursor-pointer transition-all"
+              >
+                <option value="all">All Classes</option>
+                {classesList.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+            </div>
 
-          {/* Term Filter Dropdown */}
-          <div className="relative w-full md:w-44">
-            <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
-            <select
-              id="directory-term-filter-select"
-              name="directoryTermFilter"
-              aria-label="Filter students by academic term"
-              value={termFilter}
-              onChange={(e) => { setTermFilter(e.target.value); setPage(0); }}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm cursor-pointer transition-all"
-            >
-              <option value="all">All Terms</option>
-              <option value="First Term">First Term</option>
-              <option value="Second Term">Second Term</option>
-              <option value="Third Term">Third Term</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+            {/* Term Filter Dropdown */}
+            <div className="relative flex-1 md:flex-none md:w-40">
+              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
+              <select
+                id="directory-term-filter-select"
+                name="directoryTermFilter"
+                aria-label="Filter students by academic term"
+                value={termFilter}
+                onChange={(e) => { setTermFilter(e.target.value); setPage(0); }}
+                className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm cursor-pointer transition-all"
+              >
+                <option value="all">All Terms</option>
+                <option value="First Term">First Term</option>
+                <option value="Second Term">Second Term</option>
+                <option value="Third Term">Third Term</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+            </div>
           </div>
         </div>
       </div>
