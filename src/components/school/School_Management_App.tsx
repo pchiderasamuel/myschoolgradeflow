@@ -4359,7 +4359,6 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     </Modal>
   );
 });
-});
 
 const SettingsTab = memo(({ isAdmin, showToast, tenantId }: {
   isAdmin: boolean;
