@@ -4105,43 +4105,47 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
 
   return (
     <Modal maxW="max-w-2xl" onBgClick={onClose} zIndex={400}>
-      <MHead icon={AlertTriangle} title="Smart Promotion Wizard" subtitle="Move students to their next classes for the new session" color="bg-indigo-600" onClose={onClose} />
-      
-      <div className="p-6 space-y-5">
+      {/* 1. FIXED MODAL HEADER */}
+      <div className="shrink-0 border-b border-slate-200/80 bg-white">
+        <MHead icon={AlertTriangle} title="Smart Promotion Wizard" subtitle="Move students to their next classes for the new session" color="bg-indigo-600" onClose={onClose} />
+        
         {/* 3-Step Wizard Breadcrumbs */}
-        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step === 1 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-emerald-600 text-white'}`}>1</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 1 ? 'bg-indigo-600 text-white shadow-xs' : 'bg-emerald-600 text-white'}`}>1</span>
             <span className={`text-xs font-extrabold ${step === 1 ? 'text-indigo-700' : 'text-slate-700'}`}>Map Classes</span>
           </div>
           <ChevronRight size={14} className="text-slate-400" />
           <div className="flex items-center gap-2">
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step === 2 ? 'bg-indigo-600 text-white shadow-sm' : step > 2 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>2</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 2 ? 'bg-indigo-600 text-white shadow-xs' : step > 2 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>2</span>
             <span className={`text-xs font-extrabold ${step === 2 ? 'text-indigo-700' : 'text-slate-700'}`}>Retain Repeaters</span>
           </div>
           <ChevronRight size={14} className="text-slate-400" />
           <div className="flex items-center gap-2">
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step === 3 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 text-slate-600'}`}>3</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 3 ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}`}>3</span>
             <span className={`text-xs font-extrabold ${step === 3 ? 'text-indigo-700' : 'text-slate-700'}`}>Review & Execute</span>
           </div>
         </div>
-
+      </div>
+      
+      {/* 2. SCROLLABLE MODAL BODY */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 scrollbar-thin">
         {step === 1 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+            <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 p-3.5 rounded-xl">
               <div>
                 <h3 className="font-bold text-indigo-900 text-sm">Step 1: Map Class Progression</h3>
                 <p className="text-xs text-indigo-700 mt-0.5">Select target destination classes for each active class.</p>
               </div>
               <button 
                 onClick={handleAutoMap}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-sm shrink-0"
+                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-xs shrink-0"
               >
                 ⚡ Auto-Map All
               </button>
             </div>
             
-            <div className="max-h-[55vh] overflow-y-auto space-y-2 pr-1">
+            <div className="space-y-2 pr-1">
               {classesList.map(c => (
                 <div key={c} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 bg-slate-50 border border-slate-200/90 rounded-xl hover:bg-white transition-colors">
                   <div className="flex-1 font-bold text-slate-800 text-sm">{c}</div>
@@ -4163,31 +4167,12 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
               ))}
               {classesList.length === 0 && <p className="text-slate-500 text-sm italic text-center p-4">No classes found in this school yet.</p>}
             </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
-              <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                {!hasPromotions && (
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
-                    ⚠️ Select a target class for at least 1 class
-                  </span>
-                )}
-                <Btn 
-                  variant="primary" 
-                  onClick={() => setStep(2)} 
-                  disabled={!hasPromotions}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-500/20 active:scale-95"
-                >
-                  Next Step: Retain Students ➔
-                </Btn>
-              </div>
-            </div>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/90 border border-amber-200/80 p-4 rounded-2xl shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/90 border border-amber-200/80 p-3.5 rounded-xl shadow-2xs">
               <div>
                 <h3 className="font-bold text-amber-950 text-sm">Step 2: Retain Repeating Students (Optional)</h3>
                 <p className="text-xs text-amber-800 mt-0.5">Select specific students who will repeat their current grade instead of promoting.</p>
@@ -4208,14 +4193,14 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
                 Loading student rosters...
               </div>
             ) : (
-              <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1.5 scrollbar-thin">
+              <div className="space-y-4 pr-1">
                 {classesList.filter(c => mappings[c] && mappings[c] !== "DO_NOT_PROMOTE").map(c => {
                   const classStudents = studentsByClass[c] || [];
                   const retainedInClass = retained[c] || [];
                   const isAllRetained = classStudents.length > 0 && retainedInClass.length === classStudents.length;
 
                   return (
-                    <div key={c} className="space-y-2 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80">
+                    <div key={c} className="space-y-2 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
                       <div className="flex items-center justify-between border-b border-slate-200/90 pb-2">
                         <div className="flex items-center gap-2">
                           <h4 className="font-extrabold text-slate-900 text-xs">{c}</h4>
@@ -4279,41 +4264,17 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
                 })}
               </div>
             )}
-
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
-              <Btn variant="ghost" onClick={() => setStep(1)}>← Back to Class Mapping</Btn>
-              
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                {Object.values(retained).flat().length > 0 ? (
-                  <span className="text-xs font-extrabold text-red-700 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
-                    ⚠️ {Object.values(retained).flat().length} student(s) set as Retained
-                  </span>
-                ) : (
-                  <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-                    ✅ All enrolled students set to promote
-                  </span>
-                )}
-
-                <Btn 
-                  variant="primary" 
-                  onClick={() => setStep(3)} 
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-extrabold shadow-md shadow-indigo-500/20 active:scale-95 shrink-0"
-                >
-                  Next Step: Final Review ➔
-                </Btn>
-              </div>
-            </div>
           </div>
         )}
 
         {step === 3 && (
           <div className="space-y-4">
-            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
+            <div className="bg-emerald-50 border border-emerald-100 p-3.5 rounded-xl">
               <h3 className="font-bold text-emerald-900 text-sm">Step 3: Final Review & Confirmation</h3>
               <p className="text-xs text-emerald-700 mt-0.5">Review your promotion plan below before executing changes.</p>
             </div>
             
-            <div className="max-h-[50vh] overflow-y-auto space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-200">
               <ul className="space-y-2 text-xs text-slate-700 font-semibold">
                 {Object.entries(mappings).filter(([_, m]) => m !== "DO_NOT_PROMOTE").map(([src, tgt]) => (
                   <li key={src} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-slate-200/80 shadow-2xs">
@@ -4333,18 +4294,71 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
                 ))}
               </ul>
             </div>
+          </div>
+        )}
+      </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <Btn variant="ghost" onClick={() => setStep(2)}>← Back</Btn>
-              <Btn variant="primary" onClick={handleExecute} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-extrabold shadow-md shadow-emerald-600/20 active:scale-95">
-                {loading ? "Executing Bulk Promotion..." : "🚀 Confirm & Execute Promotion"}
+      {/* 3. STICKY MODAL FOOTER BAR (ALWAYS VISIBLE AT BOTTOM) */}
+      <div className="shrink-0 p-4 border-t border-slate-200/90 bg-slate-50/90 backdrop-blur-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        {step === 1 && (
+          <>
+            <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              {!hasPromotions && (
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                  ⚠️ Select a target class for at least 1 class
+                </span>
+              )}
+              <Btn 
+                variant="primary" 
+                onClick={() => setStep(2)} 
+                disabled={!hasPromotions}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-500/20 active:scale-95"
+              >
+                Next Step: Retain Students ➔
               </Btn>
             </div>
-          </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <Btn variant="ghost" onClick={() => setStep(1)}>← Back to Class Mapping</Btn>
+            
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              {Object.values(retained).flat().length > 0 ? (
+                <span className="text-xs font-extrabold text-red-700 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
+                  ⚠️ {Object.values(retained).flat().length} student(s) set as Retained
+                </span>
+              ) : (
+                <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                  ✅ All enrolled students set to promote
+                </span>
+              )}
+
+              <Btn 
+                variant="primary" 
+                onClick={() => setStep(3)} 
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-extrabold shadow-md shadow-indigo-500/20 active:scale-95 shrink-0"
+              >
+                Next Step: Final Review ➔
+              </Btn>
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <Btn variant="ghost" onClick={() => setStep(2)}>← Back</Btn>
+            <Btn variant="primary" onClick={handleExecute} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-extrabold shadow-md shadow-emerald-600/20 active:scale-95">
+              {loading ? "Executing Bulk Promotion..." : "🚀 Confirm & Execute Promotion"}
+            </Btn>
+          </>
         )}
       </div>
     </Modal>
   );
+});
 });
 
 const SettingsTab = memo(({ isAdmin, showToast, tenantId }: {
