@@ -529,10 +529,10 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         </div>
       </div>
 
-      {/* Structured Pro Filter Toolbar */}
-      <div className="bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/80 shadow-sm backdrop-blur-sm space-y-3 lg:space-y-0 lg:flex lg:items-center lg:gap-3">
-        {/* Segmented Status Filter Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex bg-white rounded-xl border border-slate-200/90 p-1 shadow-inner lg:flex-1">
+      {/* Structured Pro Filter Control Card - Clean 2-Row Layout preventing overlapping */}
+      <div className="bg-slate-50/90 p-3 rounded-2xl border border-slate-200/80 shadow-sm backdrop-blur-sm space-y-3">
+        {/* Row 1: Segmented Status Filter Tabs Card */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 bg-white rounded-xl border border-slate-200/90 p-1.5 shadow-sm gap-1.5">
           {tabs.map((tab) => {
             const isActive = statusFilter === tab.id;
             const Icon = tab.icon;
@@ -545,16 +545,16 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
                 }`}
               >
                 <Icon size={16} className={`shrink-0 ${isActive ? "text-white" : "opacity-70"}`} />
-                <span className="truncate">{tab.label}</span>
+                <span className="whitespace-nowrap">{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Search Input & Select Dropdowns Toolbar */}
-        <div className="flex flex-col sm:flex-row items-center gap-2.5 lg:w-auto">
+        {/* Row 2: Search Input & Select Dropdowns Toolbar */}
+        <div className="flex flex-col md:flex-row items-center gap-2.5">
           {/* Search Input with Clear Button */}
-          <div className="relative w-full sm:w-64 lg:w-72">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               id="directory-search-input"
@@ -564,7 +564,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
               placeholder="Search by name or admission no..." 
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-              className="w-full pl-9 pr-9 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-inner transition-all"
+              className="w-full pl-9 pr-9 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm transition-all"
             />
             {searchQuery && (
               <button 
@@ -577,7 +577,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
           </div>
 
           {/* Class Filter Dropdown */}
-          <div className="relative w-full sm:w-40">
+          <div className="relative w-full md:w-48">
             <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
             <select
               id="directory-class-filter-select"
@@ -585,7 +585,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
               aria-label="Filter students by class"
               value={classFilter}
               onChange={(e) => { setClassFilter(e.target.value); setPage(0); }}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-inner cursor-pointer transition-all"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm cursor-pointer transition-all"
             >
               <option value="all">All Classes</option>
               {classesList.map(c => (
@@ -596,7 +596,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
           </div>
 
           {/* Term Filter Dropdown */}
-          <div className="relative w-full sm:w-36">
+          <div className="relative w-full md:w-44">
             <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
             <select
               id="directory-term-filter-select"
@@ -604,7 +604,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
               aria-label="Filter students by academic term"
               value={termFilter}
               onChange={(e) => { setTermFilter(e.target.value); setPage(0); }}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-inner cursor-pointer transition-all"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm cursor-pointer transition-all"
             >
               <option value="all">All Terms</option>
               <option value="First Term">First Term</option>
