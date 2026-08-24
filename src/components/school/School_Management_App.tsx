@@ -4011,8 +4011,15 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     if (tenantId) {
       import("@/integrations/supabase/client").then(async ({ supabase }) => {
         try {
-          const { data } = await supabase.from("students").select("class_name").eq("school_id", tenantId).eq("status", "active");
-          if (data) {
+          const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+          let actualId = tenantId;
+          if (!isUUID(tenantId)) {
+            const { data: sRow } = await supabase.from("schools").select("id").eq("tenant_id", tenantId).maybeSingle();
+            if (sRow?.id) actualId = sRow.id;
+          }
+
+          const { data } = await supabase.from("students").select("class_name").eq("school_id", actualId).eq("status", "active");
+          if (data && data.length > 0) {
             const unique = Array.from(new Set(data.map(s => s.class_name).filter(Boolean)));
             setDbClasses(unique);
           }
