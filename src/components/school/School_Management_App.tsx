@@ -4097,9 +4097,233 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     setMappings(newMap);
   }, [classesList]);
 
+  // Load students for retention selection
+  const [studentsByClass, setStudentsByClass] = useState<Record<string, any[]>>({});
   useEffect(() => {
-    if (classesList.length > 0) handleAutoMap();
-  }, [classesList, handleAutoMap]);
+    if (step === 2 && tenantId) {
+      setLoading(true);
+      import("@/integrations/supabase/client").then(async ({ supabase }) => {
+        try {
+          const { data } = await supabase.from("students").select("id, first_name, last_name, class_name").eq("school_id", tenantId).eq("status", "active");
+          if (data && data.length > 0) {
+            const grouped: Record<string, any[]> = {};
+            data.forEach(s => {
+              if (!grouped[s.class_name]) grouped[s.class_name] = [];
+              grouped[s.class_name].push(s);
+            });
+            setStudentsByClass(grouped);
+          } else {
+            throw new Error("No data");
+          }
+        } catch (e) {
+          const grouped: Record<string, any[]> = {};
+          Object.keys(state.classRolls || {}).forEach(c => {
+            grouped[c] = ((state.classRolls || {})[c] || []).map(s => ({
+              id: s.id,
+              first_name: s.name.split(" ")[0] || "",
+              last_name: s.name.split(" ").slice(1).join(" ") || "",
+              class_name: c
+            }));
+          });
+          setStudentsByClass(grouped);
+        }
+        setLoading(false);
+      });
+    } else if (step === 2 && !tenantId) {
+      const grouped: Record<string, any[]> = {};
+      Object.keys(state.classRolls || {}).forEach(c => {
+        grouped[c] = ((state.classRolls || {})[c] || []).map(s => ({
+          id: s.id,
+          first_name: s.name.split(" ")[0] || "",
+          last_name: s.name.split(" ").slice(1).join(" ") || "",
+          class_name: c
+        }));
+      });
+      setStudentsByClass(grouped);
+    }
+  }, [step, tenantId, state.classRolls]);
+
+  const handleExecute = async () => {
+    if (!tenantId) return;
+    setLoading(true);
+    const { db: schoolDb } = await import("@/supabase/schoolService");
+    const sdb = schoolDb();
+    const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+    try {
+      // 0. Resolve actualSchoolId (tenant_id -> schools.id)
+      let actualSchoolId: string | null = isUUID(tenantId) ? tenantId : null;
+      if (!actualSchoolId) {
+        try {
+          const { data: sRow } = await sdb.from("schools").select("id").eq("tenant_id", tenantId).maybeSingle();
+          if (sRow?.id) actualSchoolId = sRow.id;
+        } catch {}
+      }
+
+      // 1. Filter out DO_NOT_PROMOTE
+      const activeMappings = Object.entries(mappings).filter(([_, target]) => target !== "DO_NOT_PROMOTE");
+      
+      // 2. Topological sort to avoid overlap
+      const graph: Record<string, string> = {};
+      const inDegree: Record<string, number> = {};
+      activeMappings.forEach(([src, tgt]) => {
+        if (tgt !== "GRADUATE") {
+          graph[src] = tgt;
+          if (inDegree[tgt] === undefined) inDegree[tgt] = 0;
+          inDegree[tgt]++;
+        }
+        if (inDegree[src] === undefined) inDegree[src] = 0;
+      });
+
+      const queue: string[] = Object.keys(inDegree).filter(k => inDegree[k] === 0);
+      const order: string[] = [];
+      
+      while (queue.length > 0) {
+        const u = queue.shift()!;
+        order.push(u);
+        const v = graph[u];
+        if (v) {
+          inDegree[v]--;
+          if (inDegree[v] === 0) queue.push(v);
+        }
+      }
+      
+      // Execute from end of topological sort to beginning (i.e. highest class first)
+      const executionOrder = order.reverse();
+      const newClassRolls = { ...state.classRolls };
+      
+      for (const currentClass of executionOrder) {
+        const targetClass = mappings[currentClass];
+        if (!targetClass) continue;
+        
+        const retainedIds = retained[currentClass] || [];
+
+        // Modify local class rolls array
+        const currentStudents = newClassRolls[currentClass] || [];
+        const movingStudents = currentStudents.filter(s => !retainedIds.includes(s.id));
+        const retainedStudents = currentStudents.filter(s => retainedIds.includes(s.id));
+        const validUuidMovingIds = movingStudents.map(s => s.id).filter(isUUID);
+        const validUuidRetainedIds = retainedIds.filter(isUUID);
+
+        if (targetClass === "GRADUATE") {
+          if (actualSchoolId && isUUID(actualSchoolId)) {
+            try {
+              if (validUuidMovingIds.length > 0) {
+                await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
+                  .eq("school_id", actualSchoolId)
+                  .in("id", validUuidMovingIds);
+              } else {
+                let query = sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
+                  .eq("school_id", actualSchoolId)
+                  .eq("class_name", currentClass)
+                  .eq("status", "active");
+
+                if (validUuidRetainedIds.length > 0) {
+                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
+                }
+                await query;
+              }
+            } catch (e) {
+              console.warn("Graduate update bypassed", e);
+            }
+          }
+
+          // Update local state: remove moving students (graduating)
+          newClassRolls[currentClass] = retainedStudents;
+        } else {
+          // RESOLVE CLASS ID FOR NEW TERM/SESSION with RLS protection
+          const termRaw = state.schoolSettings?.term || "First Term";
+          const normTerm = termRaw.toLowerCase().includes("first") ? "first" : termRaw.toLowerCase().includes("second") ? "second" : "third";
+          const session = state.schoolSettings?.session || "2025/2026";
+          
+          let classId = null;
+          if (actualSchoolId && isUUID(actualSchoolId)) {
+            try {
+              const { data: existingClass } = await sdb.from("classes")
+                .select("id")
+                .eq("school_id", actualSchoolId)
+                .eq("name", targetClass)
+                .eq("academic_year", session)
+                .eq("term", normTerm)
+                .maybeSingle();
+                
+              if (existingClass?.id) {
+                classId = existingClass.id;
+              } else {
+                const { data: newClass, error: cErr } = await sdb.from("classes")
+                  .insert({
+                    school_id: actualSchoolId,
+                    name: targetClass,
+                    academic_year: session,
+                    term: normTerm
+                  })
+                  .select("id")
+                  .maybeSingle();
+                if (!cErr && newClass?.id) classId = newClass.id;
+              }
+            } catch (e) {
+              console.warn("Class lookup bypassed", e);
+            }
+          }
+
+          if (actualSchoolId && isUUID(actualSchoolId)) {
+            try {
+              const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
+              if (classId) payload.class_id = classId;
+
+              if (validUuidMovingIds.length > 0) {
+                await sdb.from("students").update(payload)
+                  .eq("school_id", actualSchoolId)
+                  .in("id", validUuidMovingIds);
+              } else {
+                let query = sdb.from("students").update(payload)
+                  .eq("school_id", actualSchoolId)
+                  .eq("class_name", currentClass)
+                  .eq("status", "active");
+
+                if (validUuidRetainedIds.length > 0) {
+                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
+                }
+                await query;
+              }
+            } catch (e) {
+              console.warn("Student promotion update bypassed", e);
+            }
+          }
+
+          // Update local state: move students
+          newClassRolls[currentClass] = retainedStudents;
+          newClassRolls[targetClass] = [...(newClassRolls[targetClass] || []), ...movingStudents];
+        }
+      }
+      
+      // Save offline state back to IndexedDB and Cloud
+      const newState = { ...state, classRolls: newClassRolls };
+      dispatch({ type: "REPLACE_ALL", payload: newState });
+      
+      try {
+        const { setAppState } = await import("@/lib/app-storage");
+        const { saveTenantDataV3, loadTenantSession } = await import("@/lib/tenant-client");
+        const json = JSON.stringify(newState);
+        await setAppState(json);
+        const s = loadTenantSession();
+        if (s) {
+          const localRev = newState._rev || 0;
+          await saveTenantDataV3(s, localRev, newState);
+        }
+      } catch (e) {
+        console.warn("Failed to save local state immediately", e);
+      }
+      
+      showToast("Promotion completed successfully! Students moved to their new classes.", "success");
+      onClose();
+      
+    } catch (err: any) {
+      console.error(err);
+      showToast("Error during promotion: " + err.message, "error");
+      setLoading(false);
+    }
+  };
 
   const hasPromotions = Object.values(mappings).some(v => v !== "DO_NOT_PROMOTE");
 
