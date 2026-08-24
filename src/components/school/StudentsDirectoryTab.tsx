@@ -186,12 +186,16 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
   const fetchExportData = async () => {
     try {
       setIsExporting(true);
-      // Fetch relational export
-      let relationalStudents = await getStudents(tenantId || null, { 
-        status: statusFilter, 
-        class_id: classFilter === "all" ? undefined : classFilter,
-        search: searchQuery || undefined
-      });
+      let relationalStudents: any[] = [];
+      if (tenantId) {
+        try {
+          relationalStudents = await getStudents(tenantId, { 
+            status: statusFilter, 
+            class_id: classFilter === "all" ? undefined : classFilter,
+            search: searchQuery || undefined
+          });
+        } catch (e) {}
+      }
 
       // Merge legacy if active
       if (appCtx && statusFilter === "active") {
@@ -223,9 +227,15 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         }
       }
 
+      // Fallback: If network/RPC returned no records, use currently displayed students in table
+      if (!relationalStudents.length && displayStudents.length) {
+        return displayStudents;
+      }
+
       relationalStudents.sort((a, b) => (a.first_name + a.last_name).localeCompare(b.first_name + b.last_name));
       return relationalStudents;
     } catch (err: any) {
+      if (displayStudents.length) return displayStudents;
       alert("Failed to fetch export data: " + err.message);
       return [];
     } finally {
@@ -235,7 +245,10 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
 
   const generatePDFDocument = async () => {
     const students = await fetchExportData();
-    if (!students.length) return null;
+    if (!students || !students.length) {
+      alert("No student records available to export for the selected filter.");
+      return null;
+    }
 
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -275,14 +288,25 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
   const handlePrint = async () => {
     const doc = await generatePDFDocument();
     if (doc) {
+      doc.autoPrint();
       const pdfBlobUrl = doc.output("bloburl");
-      window.open(pdfBlobUrl, "_blank");
+      const printWindow = window.open(pdfBlobUrl, "_blank");
+      if (!printWindow) {
+        // Backup if popup blocker triggered
+        const link = document.createElement("a");
+        link.href = pdfBlobUrl;
+        link.target = "_blank";
+        link.click();
+      }
     }
   };
 
   const handleExportCSV = async () => {
     const students = await fetchExportData();
-    if (!students.length) return;
+    if (!students || !students.length) {
+      alert("No student records available to export for the selected filter.");
+      return;
+    }
 
     let csvContent = "Student Name,Admission No,Class,Gender,Status\n";
     students.forEach(s => {
