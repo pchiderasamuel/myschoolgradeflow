@@ -40,113 +40,51 @@ export function clearTenantSession() {
 
 /** Verify school PIN. Returns session info (without admin flag) or null. */
 export async function verifySchoolPin(tenantCode: string, pin: string): Promise<Omit<TenantSession, "isAdmin"> | null> {
-  const { data, error } = await (supabase as any).rpc("verify_school_pin_v4", { _tenant_code: tenantCode, _pin: pin });
-  if (error || !data || data.length === 0) return null;
-  const row = data[0];
-  const session = {
-    tenantId: row.tenant_id,
-    schoolCode: tenantCode.toUpperCase(),
-    schoolName: row.school_name,
-    sessionToken: row.session_token,
-    status: row.status,
-    plan: row.plan,
-    planTier: row.plan_tier ?? "starter",
-    subscriptionEndsAt: row.subscription_ends_at,
-    trialStartedAt: row.trial_started_at,
-    hasAdminPin: row.has_admin_pin,
-    ndprConsentGranted: row.ndpr_consent_granted ?? false,
-  };
-  
-  return session;
-}
-
-export async function verifyAdminPin(session: TenantSession, pin: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc("verify_admin_pin_v2", {
-    _session_token: session.sessionToken,
-    _pin: pin,
-  });
-  return !error && data === true;
-}
-
-/** First-time admin PIN setup — only succeeds if no admin pin set yet. */
-export async function setAdminPin(session: TenantSession, pin: string): Promise<boolean> {
-// Tenant-scoped data + PIN auth helpers for the school app.
-// PIN hashing happens SERVER-SIDE (bcrypt). Client sends plain PIN over HTTPS to SECURITY DEFINER RPCs.
-// After verification, the server returns a short-lived session token used for all subsequent calls.
-
-import { supabase } from "@/integrations/supabase/client";
-
-const SESSION_KEY = "schoolapp_tenant_session_v2";
-
-export interface TenantSession {
-  tenantId: string;
-  schoolCode: string;
-  schoolName: string;
-  sessionToken: string;
-  status: "trial" | "active" | "expired" | "suspended";
-  plan: "trial" | "termly" | "yearly";      // billing cycle
-  planTier: string;                          // tier: micro | starter | growth | enterprise
-  subscriptionEndsAt: string | null;
-  trialStartedAt: string | null;
-  isAdmin: boolean;
-  hasAdminPin: boolean;
-  ndprConsentGranted?: boolean;
-}
-
-export function loadTenantSession(): TenantSession | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const { data, error } = await (supabase as any).rpc("verify_school_pin_v4", { _tenant_code: tenantCode, _pin: pin });
+    if (error || !data || data.length === 0) return null;
+    const row = data[0];
+    return {
+      tenantId: row.tenant_id,
+      schoolCode: tenantCode.toUpperCase(),
+      schoolName: row.school_name,
+      sessionToken: row.session_token,
+      status: row.status,
+      plan: row.plan,
+      planTier: row.plan_tier ?? "starter",
+      subscriptionEndsAt: row.subscription_ends_at,
+      trialStartedAt: row.trial_started_at,
+      hasAdminPin: row.has_admin_pin,
+      ndprConsentGranted: row.ndpr_consent_granted ?? false,
+    };
   } catch {
     return null;
   }
 }
 
-export function saveTenantSession(s: TenantSession) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
-}
-
-export function clearTenantSession() {
-  sessionStorage.removeItem(SESSION_KEY);
-}
-
-/** Verify school PIN. Returns session info (without admin flag) or null. */
-export async function verifySchoolPin(tenantCode: string, pin: string): Promise<Omit<TenantSession, "isAdmin"> | null> {
-  const { data, error } = await (supabase as any).rpc("verify_school_pin_v4", { _tenant_code: tenantCode, _pin: pin });
-  if (error || !data || data.length === 0) return null;
-  const row = data[0];
-  const session = {
-    tenantId: row.tenant_id,
-    schoolCode: tenantCode.toUpperCase(),
-    schoolName: row.school_name,
-    sessionToken: row.session_token,
-    status: row.status,
-    plan: row.plan,
-    planTier: row.plan_tier ?? "starter",
-    subscriptionEndsAt: row.subscription_ends_at,
-    trialStartedAt: row.trial_started_at,
-    hasAdminPin: row.has_admin_pin,
-    ndprConsentGranted: row.ndpr_consent_granted ?? false,
-  };
-  
-  return session;
-}
-
 export async function verifyAdminPin(session: TenantSession, pin: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc("verify_admin_pin_v2", {
-    _session_token: session.sessionToken,
-    _pin: pin,
-  });
-  return !error && data === true;
+  try {
+    const { data, error } = await supabase.rpc("verify_admin_pin_v2", {
+      _session_token: session.sessionToken,
+      _pin: pin,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }
 
 /** First-time admin PIN setup — only succeeds if no admin pin set yet. */
 export async function setAdminPin(session: TenantSession, pin: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc("set_admin_pin_v2", {
-    _session_token: session.sessionToken,
-    _pin: pin,
-  });
-  return !error && data === true;
+  try {
+    const { data, error } = await supabase.rpc("set_admin_pin_v2", {
+      _session_token: session.sessionToken,
+      _pin: pin,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchTenantData(session: TenantSession): Promise<Record<string, unknown> | null> {
@@ -188,16 +126,6 @@ export function daysRemaining(session: TenantSession): number | null {
 
 /**
  * Check whether the tenant session is still valid and return the live status.
- *
- * Calls the `check_tenant_session_status` SECURITY DEFINER RPC which:
- *   - validates the session token against `tenant_sessions`
- *   - returns the current live `status` from `tenants`
- *   - returns null if the token has been purged (e.g. by a superadmin suspend)
- *
- * Return values:
- *   'active' | 'trial'              → session is healthy
- *   'suspended' | 'expired'         → access should be revoked
- *   null                            → token missing or session was deleted
  */
 export async function checkTenantStatus(
   session: TenantSession
