@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState } from "react";
-import { Users, GraduationCap, DoorOpen, Ban, RotateCcw, Loader2, Search, Filter, Printer, Download, FileText, ChevronDown, Calendar } from "lucide-react";
+import { Users, GraduationCap, DoorOpen, Ban, RotateCcw, Loader2, Search, Filter, Printer, Download, FileText, ChevronDown, Calendar, UserCheck, UserX, ShieldAlert, X } from "lucide-react";
 import { useStudentsPaged, useChangeStudentStatus, useClasses, STUDENT_PAGE_SIZE } from "@/hooks/useSchoolQuery";
 import { getStudents } from "@/supabase/schoolService";
 import { useApp } from "./School_Management_App";
@@ -448,56 +448,80 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
   };
 
   const tabs = [
-    { id: "active", label: "Active", icon: Users, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { id: "graduated", label: "Graduated / Alumni", icon: GraduationCap, color: "text-blue-600", bg: "bg-blue-50" },
-    { id: "withdrawn", label: "Withdrawn", icon: DoorOpen, color: "text-amber-600", bg: "bg-amber-50" },
-    { id: "suspended", label: "Suspended", icon: Ban, color: "text-red-600", bg: "bg-red-50" }
+    { 
+      id: "active", 
+      label: "Active", 
+      icon: UserCheck, 
+      activeStyle: "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 ring-1 ring-emerald-600",
+      inactiveStyle: "text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/60"
+    },
+    { 
+      id: "graduated", 
+      label: "Graduated / Alumni", 
+      icon: GraduationCap, 
+      activeStyle: "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 ring-1 ring-indigo-600",
+      inactiveStyle: "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50/60"
+    },
+    { 
+      id: "withdrawn", 
+      label: "Withdrawn", 
+      icon: UserX, 
+      activeStyle: "bg-amber-600 text-white shadow-md shadow-amber-600/20 ring-1 ring-amber-600",
+      inactiveStyle: "text-slate-600 hover:text-amber-700 hover:bg-amber-50/60"
+    },
+    { 
+      id: "suspended", 
+      label: "Suspended", 
+      icon: ShieldAlert, 
+      activeStyle: "bg-rose-600 text-white shadow-md shadow-rose-600/20 ring-1 ring-rose-600",
+      inactiveStyle: "text-slate-600 hover:text-rose-700 hover:bg-rose-50/60"
+    }
   ] as const;
 
   if (error) {
-    return <div className="p-8 text-center text-red-500">Failed to load students: {error.message}</div>;
+    return <div className="p-8 text-center text-red-500 font-bold">Failed to load students: {error.message}</div>;
   }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 uppercase">Student Directory</h1>
-          <p className="text-sm text-slate-400">Manage enrollments, graduations, and alumni records natively.</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Student Directory</h1>
+          <p className="text-sm text-slate-500 font-medium">Manage enrollments, graduations, and alumni records natively.</p>
         </div>
         
-        {/* Export Buttons */}
-        <div className="flex items-center gap-2">
+        {/* Export & Action Header Buttons */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button 
-              onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-wizard"))}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-bold shadow-sm"
-            >
-              <GraduationCap size={16} /> Bulk Promote
-            </button>
-            <button 
-              disabled={isExporting}
-              onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-bold shadow-sm"
+            onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-wizard"))}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-bold shadow-sm shadow-indigo-500/20 active:scale-95"
           >
-            <Printer size={16} /> Print
+            <GraduationCap size={18} /> Bulk Promote
+          </button>
+          <button 
+            disabled={isExporting}
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all text-sm font-bold shadow-sm active:scale-95"
+          >
+            <Printer size={18} /> Print
           </button>
           
           <div className="relative group">
             <button 
               disabled={isExporting}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-bold shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all text-sm font-bold shadow-sm active:scale-95"
             >
-              {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
               Export <ChevronDown size={14} className="opacity-70" />
             </button>
             
-            <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-              <div className="p-1">
-                <button onClick={handleExportPDF} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors font-semibold">
-                  <FileText size={14} /> Export as PDF
+            <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
+              <div className="p-1.5 space-y-1">
+                <button onClick={handleExportPDF} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors">
+                  <FileText size={15} className="text-indigo-500" /> Export as PDF
                 </button>
-                <button onClick={handleExportCSV} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors font-semibold">
-                  <FileText size={14} /> Export as CSV
+                <button onClick={handleExportCSV} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg transition-colors">
+                  <FileText size={15} className="text-emerald-500" /> Export as CSV
                 </button>
               </div>
             </div>
@@ -505,10 +529,10 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-4">
-        {/* Segmented Control */}
-        <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-1 flex-1">
+      {/* Structured Pro Filter Toolbar */}
+      <div className="bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/80 shadow-sm backdrop-blur-sm space-y-3 lg:space-y-0 lg:flex lg:items-center lg:gap-3">
+        {/* Segmented Status Filter Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex bg-white rounded-xl border border-slate-200/90 p-1 shadow-inner lg:flex-1">
           {tabs.map((tab) => {
             const isActive = statusFilter === tab.id;
             const Icon = tab.icon;
@@ -516,21 +540,22 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
               <button
                 key={tab.id}
                 onClick={() => { setStatusFilter(tab.id); setPage(0); }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-2 rounded-lg text-sm font-bold transition-all ${
-                  isActive ? `${tab.bg} ${tab.color} shadow-sm` : "text-slate-500 hover:bg-slate-50"
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-extrabold transition-all duration-200 ${
+                  isActive ? tab.activeStyle : tab.inactiveStyle
                 }`}
               >
-                <Icon size={16} className="hidden sm:block" />
-                {tab.label}
+                <Icon size={16} className={`shrink-0 ${isActive ? "text-white" : "opacity-70"}`} />
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex gap-2 flex-1">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        {/* Search Input & Select Dropdowns Toolbar */}
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 lg:w-auto">
+          {/* Search Input with Clear Button */}
+          <div className="relative w-full sm:w-64 lg:w-72">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               id="directory-search-input"
               name="directorySearch"
@@ -539,41 +564,54 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
               placeholder="Search by name or admission no..." 
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium placeholder:font-normal"
+              className="w-full pl-9 pr-9 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-inner transition-all"
             />
+            {searchQuery && (
+              <button 
+                onClick={() => { setSearchQuery(""); setPage(0); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition-all"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+
+          {/* Class Filter Dropdown */}
+          <div className="relative w-full sm:w-40">
+            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
             <select
               id="directory-class-filter-select"
               name="directoryClassFilter"
               aria-label="Filter students by class"
               value={classFilter}
               onChange={(e) => { setClassFilter(e.target.value); setPage(0); }}
-              className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 appearance-none min-w-[140px]"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-inner cursor-pointer transition-all"
             >
               <option value="all">All Classes</option>
               {classesList.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
           </div>
 
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          {/* Term Filter Dropdown */}
+          <div className="relative w-full sm:w-36">
+            <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
             <select
               id="directory-term-filter-select"
               name="directoryTermFilter"
               aria-label="Filter students by academic term"
               value={termFilter}
               onChange={(e) => { setTermFilter(e.target.value); setPage(0); }}
-              className="pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 appearance-none min-w-[130px]"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-extrabold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-inner cursor-pointer transition-all"
             >
               <option value="all">All Terms</option>
               <option value="First Term">First Term</option>
               <option value="Second Term">Second Term</option>
               <option value="Third Term">Third Term</option>
             </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
           </div>
         </div>
       </div>
