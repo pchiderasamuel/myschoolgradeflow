@@ -4006,6 +4006,7 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
   const [retained, setRetained] = useState<Record<string, string[]>>({});
   
   const [dbClasses, setDbClasses] = useState<string[]>([]);
+  const [showAllClasses, setShowAllClasses] = useState(true);
 
   useEffect(() => {
     if (tenantId) {
@@ -4018,11 +4019,15 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
             if (sRow?.id) actualId = sRow.id;
           }
 
-          const { data } = await supabase.from("students").select("class_name").eq("school_id", actualId).eq("status", "active");
-          if (data && data.length > 0) {
-            const unique = Array.from(new Set(data.map(s => s.class_name).filter(Boolean)));
-            setDbClasses(unique);
-          }
+          const [{ data: sData }, { data: cData }] = await Promise.all([
+            supabase.from("students").select("class_name").eq("school_id", actualId).eq("status", "active"),
+            supabase.from("classes").select("name").eq("school_id", actualId)
+          ]);
+
+          const fromStudents = (sData || []).map(s => s.class_name).filter(Boolean);
+          const fromClasses = (cData || []).map(c => c.name).filter(Boolean);
+          const unique = Array.from(new Set([...fromStudents, ...fromClasses]));
+          if (unique.length > 0) setDbClasses(unique);
         } catch (e) {}
       });
     }
@@ -4033,16 +4038,26 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     const rollsKeys = Object.keys(state?.classRolls || {});
     const entriesClasses = (state?.entries || []).map(e => e.studentClass);
     const attendanceClasses = (state?.attendance || []).map(a => a.studentClass);
-    const allRaw = Array.from(new Set([...rollsKeys, ...entriesClasses, ...attendanceClasses, ...dbClasses])).filter(Boolean);
+    const activeRaw = Array.from(new Set([...rollsKeys, ...entriesClasses, ...attendanceClasses, ...dbClasses])).filter(Boolean);
+
+    const STANDARD_PALETTE = [
+      "Creche", "Pre-Nursery", "Nursery 1", "Nursery 2", 
+      "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+      "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
+    ];
+
+    const sourcePool = showAllClasses 
+      ? Array.from(new Set([...activeRaw, ...STANDARD_PALETTE]))
+      : (activeRaw.length > 0 ? activeRaw : STANDARD_PALETTE);
 
     const progression = [
       "creche", "pre-nursery", "nursery 1", "nursery 2", 
       "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
       "jss 1", "jss 2", "jss 3", "ss 1", "ss 2", "ss 3"
     ];
-    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/jss(\d)/, 'jss $1').replace(/ss(\d)/, 'ss $1').trim();
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/jss\s*(\d).*/, 'jss $1').replace(/ss\s*(\d).*/, 'ss $1').trim();
 
-    return allRaw.sort((a, b) => {
+    return sourcePool.sort((a, b) => {
       const idxA = progression.indexOf(normalize(a));
       const idxB = progression.indexOf(normalize(b));
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -4050,13 +4065,16 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [state?.classRolls, state?.entries, state?.attendance, dbClasses]);
+  }, [state?.classRolls, state?.entries, state?.attendance, dbClasses, showAllClasses]);
 
   const allTargetClasses = useMemo(() => {
     const progressionClasses = [
       "Creche", "Pre-Nursery", "Nursery 1", "Nursery 2", 
       "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
-      "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
+      "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3",
+      "SS 1 Science", "SS 1 Art", "SS 1 Commercial",
+      "SS 2 Science", "SS 2 Art", "SS 2 Commercial",
+      "SS 3 Science", "SS 3 Art", "SS 3 Commercial"
     ];
     return Array.from(new Set([...classesList, ...progressionClasses]));
   }, [classesList]);
@@ -4363,17 +4381,26 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
       <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 scrollbar-thin">
         {step === 1 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 p-3.5 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50 border border-indigo-100 p-3.5 rounded-xl">
               <div>
                 <h3 className="font-bold text-indigo-900 text-sm">Step 1: Map Class Progression</h3>
-                <p className="text-xs text-indigo-700 mt-0.5">Select target destination classes for each active class.</p>
+                <p className="text-xs text-indigo-700 mt-0.5">Select target destination classes for each class in your curriculum.</p>
               </div>
-              <button 
-                onClick={handleAutoMap}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-xs shrink-0"
-              >
-                ⚡ Auto-Map All
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAllClasses(prev => !prev)}
+                  className="px-2.5 py-1.5 bg-white border border-indigo-200 text-indigo-900 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all shadow-2xs"
+                >
+                  {showAllClasses ? "🌐 Full Curriculum (16 Classes)" : "🔘 Active Classes Only"}
+                </button>
+                <button 
+                  onClick={handleAutoMap}
+                  className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-xs"
+                >
+                  ⚡ Auto-Map All
+                </button>
+              </div>
             </div>
             
             <div className="space-y-2 pr-1">
