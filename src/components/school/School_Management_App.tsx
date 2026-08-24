@@ -4079,7 +4079,7 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
       let str = s.toLowerCase().trim();
       str = str.replace(/class/g, '').replace(/grade/g, '').replace(/basic/g, 'primary');
       str = str.replace(/one/g, '1').replace(/two/g, '2').replace(/three/g, '3').replace(/four/g, '4').replace(/five/g, '5').replace(/six/g, '6');
-      str = str.replace(/jss(\d)/, 'jss $1').replace(/ss(\d)/, 'ss $1');
+      str = str.replace(/jss\s*(\d).*/, 'jss $1').replace(/ss\s*(\d).*/, 'ss $1');
       return str.replace(/\s+/g, ' ').trim();
     };
 
