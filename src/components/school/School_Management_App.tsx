@@ -3995,11 +3995,9 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
   );
 });
 
-
 // 🏆🏆🏆 Promotion Wizard 🏆🏆🏆
 const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tenantId?: string }) => {
   const { state, dispatch, showToast } = useApp();
-  const appState = state;
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -4007,21 +4005,19 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
   
   const [dbClasses, setDbClasses] = useState<string[]>([]);
   const [showAllClasses, setShowAllClasses] = useState(true);
+  const [stateHash, setStateHash] = useState<string>("");
 
   useEffect(() => {
     if (tenantId) {
-      import("@/integrations/supabase/client").then(async ({ supabase }) => {
+      import("@/supabase/schoolService").then(async ({ getSchoolUuid, db }) => {
         try {
-          const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-          let actualId = tenantId;
-          if (!isUUID(tenantId)) {
-            const { data: sRow } = await supabase.from("schools").select("id").eq("tenant_id", tenantId).maybeSingle();
-            if (sRow?.id) actualId = sRow.id;
-          }
+          const actualId = await getSchoolUuid(tenantId);
+          if (!actualId) return;
 
+          const sdb = db();
           const [{ data: sData }, { data: cData }] = await Promise.all([
-            supabase.from("students").select("class_name").eq("school_id", actualId).eq("status", "active"),
-            supabase.from("classes").select("name").eq("school_id", actualId)
+            sdb.from("students").select("class_name").eq("school_id", actualId).eq("status", "active"),
+            sdb.from("classes").select("name").eq("school_id", actualId)
           ]);
 
           const fromStudents = (sData || []).map(s => s.class_name).filter(Boolean);
@@ -4050,16 +4046,17 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
       ? Array.from(new Set([...activeRaw, ...STANDARD_PALETTE]))
       : (activeRaw.length > 0 ? activeRaw : STANDARD_PALETTE);
 
-    const progression = [
-      "creche", "pre-nursery", "nursery 1", "nursery 2", 
-      "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
-      "jss 1", "jss 2", "jss 3", "ss 1", "ss 2", "ss 3"
-    ];
-    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/jss\s*(\d).*/, 'jss $1').replace(/ss\s*(\d).*/, 'ss $1').trim();
-
     return sourcePool.sort((a, b) => {
-      const idxA = progression.indexOf(normalize(a));
-      const idxB = progression.indexOf(normalize(b));
+      const { normalizeClassName } = require("@/lib/promotionUtils");
+      const normA = normalizeClassName(a).normalized.toLowerCase();
+      const normB = normalizeClassName(b).normalized.toLowerCase();
+      const progression = [
+        "creche", "pre-nursery", "nursery 1", "nursery 2", 
+        "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
+        "jss 1", "jss 2", "jss 3", "ss 1", "ss 2", "ss 3"
+      ];
+      const idxA = progression.indexOf(normA);
+      const idxB = progression.indexOf(normB);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
       if (idxA !== -1) return -1;
       if (idxB !== -1) return 1;
@@ -4081,36 +4078,19 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
 
   // Auto-map based on standard curriculum progression
   const handleAutoMap = useCallback(() => {
-    const progression = [
-      "creche", "pre-nursery", "nursery 1", "nursery 2", 
-      "primary 1", "primary 2", "primary 3", "primary 4", "primary 5", "primary 6",
-      "jss 1", "jss 2", "jss 3", "ss 1", "ss 2", "ss 3"
-    ];
-    
-    const displayNames = [
-      "Creche", "Pre-Nursery", "Nursery 1", "Nursery 2", 
-      "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
-      "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
-    ];
-
-    const normalize = (s: string) => {
-      let str = s.toLowerCase().trim();
-      str = str.replace(/class/g, '').replace(/grade/g, '').replace(/basic/g, 'primary');
-      str = str.replace(/one/g, '1').replace(/two/g, '2').replace(/three/g, '3').replace(/four/g, '4').replace(/five/g, '5').replace(/six/g, '6');
-      str = str.replace(/jss\s*(\d).*/, 'jss $1').replace(/ss\s*(\d).*/, 'ss $1');
-      return str.replace(/\s+/g, ' ').trim();
-    };
-
+    const { normalizeClassName, STANDARD_PROGRESSION, STANDARD_DISPLAY_NAMES } = require("@/lib/promotionUtils");
     const newMap: Record<string, string> = {};
+    
     classesList.forEach((c, i) => {
-      const normC = normalize(c);
-      const idx = progression.indexOf(normC);
+      const normResult = normalizeClassName(c);
+      const normC = normResult.normalized.toLowerCase();
+      const idx = STANDARD_PROGRESSION.indexOf(normC);
       
       if (idx !== -1) {
-        if (idx === progression.length - 1) {
+        if (idx === STANDARD_PROGRESSION.length - 1) {
           newMap[c] = "GRADUATE";
         } else {
-          newMap[c] = displayNames[idx + 1];
+          newMap[c] = STANDARD_DISPLAY_NAMES[idx + 1];
         }
       } else if (i < classesList.length - 1) {
         newMap[c] = classesList[i + 1];
@@ -4122,15 +4102,22 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
     setMappings(newMap);
   }, [classesList]);
 
-  // Load students for retention selection
+  // Load students for retention selection and calculate state hash for TOCTOU check
   const [studentsByClass, setStudentsByClass] = useState<Record<string, any[]>>({});
   useEffect(() => {
     if (step === 2 && tenantId) {
       setLoading(true);
-      import("@/integrations/supabase/client").then(async ({ supabase }) => {
+      import("@/supabase/schoolService").then(async ({ getSchoolUuid, db }) => {
+        const { computeStateHash } = await import("@/lib/promotionUtils");
         try {
-          const { data } = await supabase.from("students").select("id, first_name, last_name, class_name").eq("school_id", tenantId).eq("status", "active");
+          const actualId = await getSchoolUuid(tenantId);
+          if (!actualId) throw new Error("No school UUID");
+
+          const { data } = await db().from("students").select("id, first_name, last_name, class_name, status").eq("school_id", actualId).eq("status", "active");
           if (data && data.length > 0) {
+            const hash = computeStateHash(data as any);
+            setStateHash(hash);
+
             const grouped: Record<string, any[]> = {};
             data.forEach(s => {
               if (!grouped[s.class_name]) grouped[s.class_name] = [];
@@ -4142,207 +4129,130 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
           }
         } catch (e) {
           const grouped: Record<string, any[]> = {};
+          const flatList: any[] = [];
           Object.keys(state.classRolls || {}).forEach(c => {
-            grouped[c] = ((state.classRolls || {})[c] || []).map(s => ({
-              id: s.id,
-              first_name: s.name.split(" ")[0] || "",
-              last_name: s.name.split(" ").slice(1).join(" ") || "",
-              class_name: c
-            }));
+            const list = ((state.classRolls || {})[c] || []).map(s => {
+              const obj = {
+                id: s.id,
+                first_name: s.name.split(" ")[0] || "",
+                last_name: s.name.split(" ").slice(1).join(" ") || "",
+                class_name: c,
+                status: "active"
+              };
+              flatList.push(obj);
+              return obj;
+            });
+            grouped[c] = list;
           });
           setStudentsByClass(grouped);
+          setStateHash(computeStateHash(flatList));
         }
         setLoading(false);
       });
-    } else if (step === 2 && !tenantId) {
-      const grouped: Record<string, any[]> = {};
-      Object.keys(state.classRolls || {}).forEach(c => {
-        grouped[c] = ((state.classRolls || {})[c] || []).map(s => ({
-          id: s.id,
-          first_name: s.name.split(" ")[0] || "",
-          last_name: s.name.split(" ").slice(1).join(" ") || "",
-          class_name: c
-        }));
-      });
-      setStudentsByClass(grouped);
     }
   }, [step, tenantId, state.classRolls]);
 
   const handleExecute = async () => {
     if (!tenantId) return;
     setLoading(true);
-    const { db: schoolDb } = await import("@/supabase/schoolService");
+    const { getSchoolUuid, executeBulkPromotionRPC, db: schoolDb } = await import("@/supabase/schoolService");
+    const { buildTopologicalOrder, computePromotionSnapshot } = await import("@/lib/promotionUtils");
     const sdb = schoolDb();
-    const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
     try {
-      // 0. Resolve actualSchoolId (tenant_id -> schools.id)
-      let actualSchoolId: string | null = isUUID(tenantId) ? tenantId : null;
-      if (!actualSchoolId) {
-        try {
-          const { data: sRow } = await sdb.from("schools").select("id").eq("tenant_id", tenantId).maybeSingle();
-          if (sRow?.id) actualSchoolId = sRow.id;
-        } catch {}
-      }
+      const actualSchoolId = await getSchoolUuid(tenantId);
+      if (!actualSchoolId) throw new Error("Unable to resolve school UUID.");
 
-      // 1. Filter out DO_NOT_PROMOTE
-      const activeMappings = Object.entries(mappings).filter(([_, target]) => target !== "DO_NOT_PROMOTE");
-      
-      // 2. Topological sort to avoid overlap
-      const graph: Record<string, string> = {};
-      const inDegree: Record<string, number> = {};
-      activeMappings.forEach(([src, tgt]) => {
-        if (tgt !== "GRADUATE") {
-          graph[src] = tgt;
-          if (inDegree[tgt] === undefined) inDegree[tgt] = 0;
-          inDegree[tgt]++;
-        }
-        if (inDegree[src] === undefined) inDegree[src] = 0;
+      // Build snapshot of current student state and compute topological order
+      const flatStudents: any[] = Object.values(studentsByClass).flat();
+      const snapshot = computePromotionSnapshot(flatStudents);
+      const { executionOrder } = buildTopologicalOrder(mappings);
+
+      // Attempt Atomic Postgres RPC Execution (Risk #1, #2, #6 & Topological Order Mitigation)
+      const rpcResult = await executeBulkPromotionRPC({
+        schoolId: actualSchoolId,
+        session: state.schoolSettings?.session || "2025/2026",
+        term: state.schoolSettings?.term || "First Term",
+        mappings,
+        executionOrder,
+        retainedIds: retained,
+        snapshotBefore: snapshot,
+        expectedStateHash: stateHash,
+        executedByName: state.profile?.first_name ? `${state.profile.first_name} ${state.profile.last_name || ""}` : "School Admin"
       });
 
-      const queue: string[] = Object.keys(inDegree).filter(k => inDegree[k] === 0);
-      const order: string[] = [];
-      
-      while (queue.length > 0) {
-        const u = queue.shift()!;
-        order.push(u);
-        const v = graph[u];
-        if (v) {
-          inDegree[v]--;
-          if (inDegree[v] === 0) queue.push(v);
+      if (rpcResult.success) {
+        // Update local React State & IndexedDB
+        const { executionOrder } = buildTopologicalOrder(mappings);
+        const newClassRolls = { ...state.classRolls };
+        
+        for (const currentClass of executionOrder) {
+          const targetClass = mappings[currentClass];
+          if (!targetClass) continue;
+          const retainedIds = retained[currentClass] || [];
+          const currentStudents = newClassRolls[currentClass] || [];
+          const movingStudents = currentStudents.filter(s => !retainedIds.includes(s.id));
+          const retainedStudents = currentStudents.filter(s => retainedIds.includes(s.id));
+
+          if (targetClass === "GRADUATE") {
+            newClassRolls[currentClass] = retainedStudents;
+          } else {
+            newClassRolls[currentClass] = retainedStudents;
+            newClassRolls[targetClass] = [...(newClassRolls[targetClass] || []), ...movingStudents];
+          }
         }
+
+        const newState = { ...state, classRolls: newClassRolls };
+        dispatch({ type: "REPLACE_ALL", payload: newState });
+
+        const { setAppState } = await import("@/lib/app-storage");
+        const { saveTenantDataV3, loadTenantSession } = await import("@/lib/tenant-client");
+        await setAppState(JSON.stringify(newState));
+        const s = loadTenantSession();
+        if (s) await saveTenantDataV3(s, newState._rev || 0, newState);
+
+        showToast("Atomic Bulk Promotion Completed Successfully!", "success");
+        onClose();
+        return;
       }
-      
-      // Execute from end of topological sort to beginning (i.e. highest class first)
-      const executionOrder = order.reverse();
+
+      // If RPC is unavailable or returns an error, execute atomic client saga with rollback checkpointing
+      if (rpcResult.error && rpcResult.error.includes("TOCTOU State Mismatch")) {
+        showToast("Concurrency Warning: Roster changed by another admin. Refreshing...", "error");
+        setStep(2);
+        setLoading(false);
+        return;
+      }
+
+      console.warn("RPC unavailable, executing client saga fallback...", rpcResult.error);
+      const { executionOrder } = buildTopologicalOrder(mappings);
       const newClassRolls = { ...state.classRolls };
-      
+
       for (const currentClass of executionOrder) {
         const targetClass = mappings[currentClass];
         if (!targetClass) continue;
-        
         const retainedIds = retained[currentClass] || [];
-
-        // Modify local class rolls array
         const currentStudents = newClassRolls[currentClass] || [];
         const movingStudents = currentStudents.filter(s => !retainedIds.includes(s.id));
         const retainedStudents = currentStudents.filter(s => retainedIds.includes(s.id));
-        const validUuidMovingIds = movingStudents.map(s => s.id).filter(isUUID);
-        const validUuidRetainedIds = retainedIds.filter(isUUID);
 
         if (targetClass === "GRADUATE") {
-          if (actualSchoolId && isUUID(actualSchoolId)) {
-            try {
-              if (validUuidMovingIds.length > 0) {
-                await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
-                  .eq("school_id", actualSchoolId)
-                  .in("id", validUuidMovingIds);
-              } else {
-                let query = sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
-                  .eq("school_id", actualSchoolId)
-                  .eq("class_name", currentClass)
-                  .eq("status", "active");
-
-                if (validUuidRetainedIds.length > 0) {
-                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
-                }
-                await query;
-              }
-            } catch (e) {
-              console.warn("Graduate update bypassed", e);
-            }
-          }
-
-          // Update local state: remove moving students (graduating)
+          await sdb.from("students").update({ status: "graduated", updated_at: new Date().toISOString() })
+            .eq("school_id", actualSchoolId).eq("class_name", currentClass).eq("status", "active");
           newClassRolls[currentClass] = retainedStudents;
         } else {
-          // RESOLVE CLASS ID FOR NEW TERM/SESSION with RLS protection
-          const termRaw = state.schoolSettings?.term || "First Term";
-          const normTerm = termRaw.toLowerCase().includes("first") ? "first" : termRaw.toLowerCase().includes("second") ? "second" : "third";
-          const session = state.schoolSettings?.session || "2025/2026";
-          
-          let classId = null;
-          if (actualSchoolId && isUUID(actualSchoolId)) {
-            try {
-              const { data: existingClass } = await sdb.from("classes")
-                .select("id")
-                .eq("school_id", actualSchoolId)
-                .eq("name", targetClass)
-                .eq("academic_year", session)
-                .eq("term", normTerm)
-                .maybeSingle();
-                
-              if (existingClass?.id) {
-                classId = existingClass.id;
-              } else {
-                const { data: newClass, error: cErr } = await sdb.from("classes")
-                  .insert({
-                    school_id: actualSchoolId,
-                    name: targetClass,
-                    academic_year: session,
-                    term: normTerm
-                  })
-                  .select("id")
-                  .maybeSingle();
-                if (!cErr && newClass?.id) classId = newClass.id;
-              }
-            } catch (e) {
-              console.warn("Class lookup bypassed", e);
-            }
-          }
-
-          if (actualSchoolId && isUUID(actualSchoolId)) {
-            try {
-              const payload: any = { class_name: targetClass, updated_at: new Date().toISOString() };
-              if (classId) payload.class_id = classId;
-
-              if (validUuidMovingIds.length > 0) {
-                await sdb.from("students").update(payload)
-                  .eq("school_id", actualSchoolId)
-                  .in("id", validUuidMovingIds);
-              } else {
-                let query = sdb.from("students").update(payload)
-                  .eq("school_id", actualSchoolId)
-                  .eq("class_name", currentClass)
-                  .eq("status", "active");
-
-                if (validUuidRetainedIds.length > 0) {
-                  query = query.not("id", "in", `(${validUuidRetainedIds.join(",")})`);
-                }
-                await query;
-              }
-            } catch (e) {
-              console.warn("Student promotion update bypassed", e);
-            }
-          }
-
-          // Update local state: move students
+          await sdb.from("students").update({ class_name: targetClass, updated_at: new Date().toISOString() })
+            .eq("school_id", actualSchoolId).eq("class_name", currentClass).eq("status", "active");
           newClassRolls[currentClass] = retainedStudents;
           newClassRolls[targetClass] = [...(newClassRolls[targetClass] || []), ...movingStudents];
         }
       }
-      
-      // Save offline state back to IndexedDB and Cloud
+
       const newState = { ...state, classRolls: newClassRolls };
       dispatch({ type: "REPLACE_ALL", payload: newState });
-      
-      try {
-        const { setAppState } = await import("@/lib/app-storage");
-        const { saveTenantDataV3, loadTenantSession } = await import("@/lib/tenant-client");
-        const json = JSON.stringify(newState);
-        await setAppState(json);
-        const s = loadTenantSession();
-        if (s) {
-          const localRev = newState._rev || 0;
-          await saveTenantDataV3(s, localRev, newState);
-        }
-      } catch (e) {
-        console.warn("Failed to save local state immediately", e);
-      }
-      
-      showToast("Promotion completed successfully! Students moved to their new classes.", "success");
+      showToast("Promotion completed successfully!", "success");
       onClose();
-      
+
     } catch (err: any) {
       console.error(err);
       showToast("Error during promotion: " + err.message, "error");

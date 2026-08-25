@@ -305,8 +305,29 @@ export default function ResultChecker() {
     <>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: #0f172a; min-height: 100vh; }
-        .rc-page { min-height: 100vh; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%); padding: 24px 16px; display: flex; flex-direction: column; align-items: center; }
+        html, body {
+          position: static !important;
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
+          height: auto !important;
+          min-height: 100vh !important;
+        }
+        #root {
+          height: auto !important;
+          min-height: 100vh !important;
+          overflow: visible !important;
+        }
+        .rc-page {
+          min-height: 100vh;
+          width: 100%;
+          background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+          padding: 24px 16px 80px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
         .rc-header { text-align: center; margin-bottom: 32px; }
         .rc-logo-ring { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 0 32px rgba(99,102,241,0.4); font-size: 32px; }
         .rc-title { font-size: 28px; font-weight: 900; color: #fff; letter-spacing: -0.5px; }

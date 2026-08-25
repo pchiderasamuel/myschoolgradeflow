@@ -1327,3 +1327,87 @@ export async function revokeToken(tokenId: string): Promise<void> {
   throwIfError(error, "revokeToken");
 }
 
+// ─── Session-Level Tenant UUID Cache (Risk #5 Mitigation) ────────────
+const _schoolUuidCache = new Map<string, string>();
+
+export async function getSchoolUuid(tenantId: string): Promise<string | null> {
+  if (!tenantId) return null;
+  if (isUUID(tenantId)) return tenantId;
+  if (_schoolUuidCache.has(tenantId)) return _schoolUuidCache.get(tenantId)!;
+
+  try {
+    const { data: sRow } = await db().from("schools").select("id").eq("tenant_id", tenantId).maybeSingle();
+    if (sRow?.id) {
+      _schoolUuidCache.set(tenantId, sRow.id);
+      return sRow.id;
+    }
+  } catch (e) {
+    console.warn("getSchoolUuid failed", e);
+  }
+  return null;
+}
+
+// ─── Bulk Promotion RPC Helpers (Risks #1, #2, #3, #4, #6 Mitigation) ─
+export async function executeBulkPromotionRPC(params: {
+  schoolId: string;
+  session: string;
+  term: string;
+  mappings: Record<string, string>;
+  executionOrder: string[];
+  retainedIds: Record<string, string[]>;
+  snapshotBefore: any;
+  expectedStateHash: string;
+  executedByName: string;
+}): Promise<{ success: boolean; batch_id?: string; error?: string }> {
+  try {
+    const { data, error } = await db().rpc("execute_bulk_promotion_v1" as any, {
+      _school_id: params.schoolId,
+      _session: params.session,
+      _term: params.term,
+      _mappings: params.mappings,
+      _execution_order: params.executionOrder,
+      _retained_ids: params.retainedIds,
+      _snapshot_before: params.snapshotBefore,
+      _expected_state_hash: params.expectedStateHash,
+      _executed_by_name: params.executedByName,
+    });
+    if (error) return { success: false, error: error.message };
+    return data as any;
+  } catch (err: any) {
+    return { success: false, error: err?.message || "RPC Execution Failed" };
+  }
+}
+
+export async function rollbackBulkPromotionRPC(params: {
+  batchId: string;
+  schoolId: string;
+  force?: boolean;
+}): Promise<{ success: boolean; has_conflicts?: boolean; conflicts?: any[]; error?: string }> {
+  try {
+    const { data, error } = await db().rpc("rollback_bulk_promotion_v1" as any, {
+      _batch_id: params.batchId,
+      _school_id: params.schoolId,
+      _force: params.force ?? false,
+    });
+    if (error) return { success: false, error: error.message };
+    return data as any;
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Rollback Execution Failed" };
+  }
+}
+
+export async function getPromotionBatches(schoolId: string): Promise<any[]> {
+  try {
+    const { data, error } = await db()
+      .from("promotion_batches" as any)
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("created_at", { ascending: false });
+    if (error) return [];
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+

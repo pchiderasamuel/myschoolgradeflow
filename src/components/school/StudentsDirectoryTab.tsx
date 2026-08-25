@@ -523,6 +523,13 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
             <GraduationCap size={18} /> Bulk Promote
           </button>
           <button 
+            onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-history"))}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 transition-all text-sm font-bold shadow-sm active:scale-95"
+            title="Inspect Audit Log & Revert Past Promotion Batches"
+          >
+            <RotateCcw size={17} /> History & Undo
+          </button>
+          <button 
             disabled={isExporting}
             onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all text-sm font-bold shadow-sm active:scale-95"
