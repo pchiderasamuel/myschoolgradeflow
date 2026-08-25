@@ -211,14 +211,28 @@ BEGIN
       v_student_id := (v_snap_elem ->> 'id')::uuid;
       v_snap_class := v_snap_elem ->> 'class_name';
       
-      v_expected_target := v_batch.mappings ->> v_snap_class;
-      IF v_expected_target IS NULL OR v_expected_target = 'DO_NOT_PROMOTE' THEN
+      -- Check if student was specifically retained in their original class
+      IF v_batch.retained_ids IS NOT NULL AND jsonb_typeof(v_batch.retained_ids -> v_snap_class) = 'array' THEN
+        SELECT ARRAY(
+          SELECT jsonb_array_elements_text(v_batch.retained_ids -> v_snap_class)
+        ) INTO v_retained_array;
+      ELSE
+        v_retained_array := NULL;
+      END IF;
+
+      IF v_retained_array IS NOT NULL AND v_student_id::text = ANY(v_retained_array) THEN
         v_expected_target := v_snap_class;
         v_expected_status := 'active';
-      ELSIF v_expected_target = 'GRADUATE' THEN
-        v_expected_status := 'graduated';
       ELSE
-        v_expected_status := 'active';
+        v_expected_target := v_batch.mappings ->> v_snap_class;
+        IF v_expected_target IS NULL OR v_expected_target = 'DO_NOT_PROMOTE' THEN
+          v_expected_target := v_snap_class;
+          v_expected_status := 'active';
+        ELSIF v_expected_target = 'GRADUATE' THEN
+          v_expected_status := 'graduated';
+        ELSE
+          v_expected_status := 'active';
+        END IF;
       END IF;
 
       SELECT class_name, status INTO v_current_class, v_current_status

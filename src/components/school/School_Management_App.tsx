@@ -4526,6 +4526,164 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
   );
 });
 
+// 📜📜📜 Promotion Audit & Rollback History Modal 📜📜📜
+const PromotionHistoryModal = memo(({ onClose, tenantId }: { onClose: () => void; tenantId?: string }) => {
+  const { state, showToast } = useApp();
+  const [batches, setBatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [revertingId, setRevertingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadHistory() {
+      setLoading(true);
+      let remoteBatches: any[] = [];
+      if (tenantId) {
+        try {
+          const { getSchoolUuid, getPromotionBatches } = await import("@/supabase/schoolService");
+          const sUuid = await getSchoolUuid(tenantId);
+          if (sUuid) {
+            remoteBatches = await getPromotionBatches(sUuid);
+          }
+        } catch (e) {
+          console.warn("Failed to fetch remote promotion batches:", e);
+        }
+      }
+      
+      // Dual-Source Merge (Remote DB + Local Offline history deduplicated by batch_id)
+      const localBatches = (state as any).promotion_history || [];
+      const batchMap = new Map<string, any>();
+      
+      for (const b of localBatches) {
+        if (b && (b.id || b.batch_id)) {
+          batchMap.set(b.id || b.batch_id, b);
+        }
+      }
+      for (const b of remoteBatches) {
+        if (b && b.id) {
+          batchMap.set(b.id, b);
+        }
+      }
+
+      const merged = Array.from(batchMap.values()).sort((a, b) => 
+        new Date(b.created_at || b.timestamp || 0).getTime() - new Date(a.created_at || a.timestamp || 0).getTime()
+      );
+
+      if (active) {
+        setBatches(merged);
+        setLoading(false);
+      }
+    }
+    loadHistory();
+    return () => { active = false; };
+  }, [tenantId, state]);
+
+  const handleRollback = async (batch: any, force = false) => {
+    if (!window.confirm(`Are you sure you want to revert the promotion batch executed on ${new Date(batch.created_at || batch.timestamp).toLocaleString()}? This will restore students to their original classes.`)) return;
+
+    setRevertingId(batch.id);
+    try {
+      if (tenantId && batch.id) {
+        const { getSchoolUuid, rollbackBulkPromotionRPC } = await import("@/supabase/schoolService");
+        const sUuid = await getSchoolUuid(tenantId);
+        if (sUuid) {
+          const res = await rollbackBulkPromotionRPC({ batchId: batch.id, schoolId: sUuid, force });
+          if (!res.success) {
+            if (res.has_conflicts && !force) {
+              const confirmForce = window.confirm(`⚠️ Post-Promotion Edits Detected:\n${(res.conflicts || []).map((c: any) => `- Student ${c.id}: ${c.reason}`).join('\n')}\n\nDo you want to FORCE revert anyway?`);
+              if (confirmForce) {
+                await handleRollback(batch, true);
+                return;
+              }
+            } else {
+              showToast(res.error || "Rollback failed", "error");
+            }
+            return;
+          }
+        }
+      }
+      showToast("Promotion batch successfully reverted!", "success");
+      setBatches(prev => prev.map(b => b.id === batch.id ? { ...b, status: "reverted" } : b));
+    } catch (e: any) {
+      showToast(e.message || "Failed to rollback promotion batch", "error");
+    } finally {
+      setRevertingId(null);
+    }
+  };
+
+  return (
+    <Modal maxW="max-w-3xl" onBgClick={onClose} zIndex={400}>
+      <div className="shrink-0 border-b border-slate-200/80 bg-white">
+        <MHead icon={RotateCcw} title="Promotion Audit & Undo History" subtitle="Inspect historical promotion batches and revert sessions safely" color="bg-indigo-600" onClose={onClose} />
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-[300px] max-h-[70vh]">
+        {loading ? (
+          <div className="p-12 text-center text-slate-400 font-bold flex flex-col items-center justify-center">
+            <Loader2 className="animate-spin mb-2 text-indigo-600" size={24} />
+            Loading promotion history...
+          </div>
+        ) : batches.length === 0 ? (
+          <div className="p-12 text-center text-slate-500 font-medium">
+            <p className="text-sm">No historical promotion batches found.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {batches.map((b) => {
+              const isReverted = b.status === "reverted";
+              return (
+                <div key={b.id || b.created_at} className={`p-4 rounded-xl border transition-all ${isReverted ? 'bg-slate-50 border-slate-200 opacity-75' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-200'}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-slate-900 text-sm">Session {b.academic_session || b.session} ({b.term})</span>
+                        {isReverted ? (
+                          <span className="text-[10px] font-black uppercase text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">Reverted</span>
+                        ) : (
+                          <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Active Batch</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Executed by <strong className="text-slate-700">{b.executed_by_name || b.executedBy || "Admin"}</strong> on {new Date(b.created_at || b.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+
+                    {!isReverted && (
+                      <button
+                        disabled={revertingId === b.id}
+                        onClick={() => handleRollback(b)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded-lg text-xs font-bold transition-all shadow-2xs shrink-0 disabled:opacity-50"
+                      >
+                        {revertingId === b.id ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                        Undo / Rollback
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-slate-600">
+                    <p className="font-bold text-slate-700">Class Progressions:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(b.mappings || {}).filter(([_, t]) => t !== "DO_NOT_PROMOTE").map(([src, tgt]) => (
+                        <span key={src} className="bg-slate-100 border border-slate-200 px-2 py-1 rounded text-[11px] font-medium">
+                          {src} ➔ <strong className="text-indigo-600">{tgt === "GRADUATE" ? "Graduation" : (tgt as string)}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0 p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <Btn variant="ghost" onClick={onClose}>Close</Btn>
+      </div>
+    </Modal>
+  );
+});
+
 const SettingsTab = memo(({ isAdmin, showToast, tenantId }: {
   isAdmin: boolean;
   showToast: (msg: string, type?: string) => void;
@@ -8087,10 +8245,18 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
   const [setupErr, setSetupErr] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showPromo, setShowPromo] = useState(false);
+  const [showPromoHistory, setShowPromoHistory] = useState(false);
+
   useEffect(() => {
     const handler = () => setShowPromo(true);
     window.addEventListener("open-promotion-wizard", handler);
     return () => window.removeEventListener("open-promotion-wizard", handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setShowPromoHistory(true);
+    window.addEventListener("open-promotion-history", handler);
+    return () => window.removeEventListener("open-promotion-history", handler);
   }, []);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -10210,7 +10376,8 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
           @page { size: A4 portrait; margin: 12mm; }
         }
       `}</style>
-            {showPromo && <PromotionWizard tenantId={tenantId} onClose={() => setShowPromo(false)} />}
+      {showPromo && <PromotionWizard tenantId={tenantId} onClose={() => setShowPromo(false)} />}
+      {showPromoHistory && <PromotionHistoryModal tenantId={tenantId} onClose={() => setShowPromoHistory(false)} />}
       </AppCtx.Provider>
   );
 }

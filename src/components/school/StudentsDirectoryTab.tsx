@@ -516,19 +516,23 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         
         {/* Export & Action Header Buttons */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button 
-            onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-wizard"))}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-bold shadow-sm shadow-indigo-500/20 active:scale-95"
-          >
-            <GraduationCap size={18} /> Bulk Promote
-          </button>
-          <button 
-            onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-history"))}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 transition-all text-sm font-bold shadow-sm active:scale-95"
-            title="Inspect Audit Log & Revert Past Promotion Batches"
-          >
-            <RotateCcw size={17} /> History & Undo
-          </button>
+          {(appCtx?.isAdmin || appCtx?.can?.("manageRecords")) && (
+            <>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-wizard"))}
+                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-bold shadow-sm shadow-indigo-500/20 active:scale-95"
+              >
+                <GraduationCap size={18} /> Bulk Promote
+              </button>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-history"))}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 transition-all text-sm font-bold shadow-sm active:scale-95"
+                title="Inspect Audit Log & Revert Past Promotion Batches"
+              >
+                <RotateCcw size={17} /> History & Undo
+              </button>
+            </>
+          )}
           <button 
             disabled={isExporting}
             onClick={handlePrint}

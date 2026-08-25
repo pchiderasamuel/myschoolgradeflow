@@ -208,11 +208,19 @@ export function detectRollbackConflicts(
 
   snapshot.students.forEach((snapStudent) => {
     const current = studentMap.get(snapStudent.id);
-    if (!current) return;
-
     const expectedPostClass = postPromotionMappings[snapStudent.class_name] || snapStudent.class_name;
     const isGraduate = expectedPostClass === "GRADUATE";
     const expectedStatus = isGraduate ? "graduated" : "active";
+
+    if (!current) {
+      conflicts.push({
+        id: snapStudent.id,
+        expected_class: expectedPostClass,
+        current_class: "DELETED",
+        current_status: "DELETED"
+      });
+      return;
+    }
 
     // If current class or status doesn't match expected post-promotion state, a manual edit occurred!
     if (!isGraduate && current.class_name !== expectedPostClass) {
@@ -222,7 +230,7 @@ export function detectRollbackConflicts(
         current_class: current.class_name,
         current_status: current.status
       });
-    } else if (current.status !== expectedStatus && current.status !== "active") {
+    } else if (current.status !== expectedStatus) {
       conflicts.push({
         id: snapStudent.id,
         expected_class: expectedPostClass,

@@ -106,6 +106,14 @@ describe("Bulk Promotion Utils", () => {
       expect(report.conflictingStudents.length).toBe(1);
       expect(report.conflictingStudents[0].id).toBe("s1");
     });
+
+    it("should flag conflict if student record was deleted post-promotion", () => {
+      const deletedState: StudentRecord[] = []; // Deleted!
+      const report = detectRollbackConflicts(snapshot, deletedState, postMappings);
+      expect(report.hasConflicts).toBe(true);
+      expect(report.conflictingStudents.length).toBe(1);
+      expect(report.conflictingStudents[0].current_class).toBe("DELETED");
+    });
   });
 
   describe("Failure-Injection & Atomicity Abort Test", () => {
