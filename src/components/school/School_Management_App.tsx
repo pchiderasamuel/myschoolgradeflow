@@ -22,6 +22,7 @@ import {
   Bell, CalendarClock, Send, Inbox, MessageSquare, Wallet, CheckCircle,
   FileSpreadsheet, Lock, Info, DollarSign, Loader2, Trophy, Download, UserCircle, HelpCircle, Calculator, Copy, Video, Share2, SlidersHorizontal
 } from "lucide-react";
+import { verifyAdminPin, setAdminPin, loadTenantSession, requestCloudDeletion as rpcRequestCloudDeletion, cancelCloudDeletion as rpcCancelCloudDeletion, fetchCloudDeletionStatus as rpcFetchCloudDeletionStatus } from "@/lib/tenant-client";
 import { exportToCSV } from "@/lib/exportUtils";
 import { normalizeClassName, STANDARD_PROGRESSION, STANDARD_DISPLAY_NAMES } from "@/lib/promotionUtils";
 import { getOrdinal } from "@/lib/school-helpers";
