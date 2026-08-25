@@ -4183,7 +4183,6 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
 
       if (rpcResult.success) {
         // Update local React State & IndexedDB
-        const { executionOrder } = buildTopologicalOrder(mappings);
         const newClassRolls = { ...state.classRolls };
         
         for (const currentClass of executionOrder) {
@@ -4225,7 +4224,6 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
       }
 
       console.warn("RPC unavailable, executing client saga fallback...", rpcResult.error);
-      const { executionOrder } = buildTopologicalOrder(mappings);
       const newClassRolls = { ...state.classRolls };
 
       for (const currentClass of executionOrder) {
