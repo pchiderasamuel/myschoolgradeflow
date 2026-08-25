@@ -22,8 +22,8 @@ import {
   Bell, CalendarClock, Send, Inbox, MessageSquare, Wallet, CheckCircle,
   FileSpreadsheet, Lock, Info, DollarSign, Loader2, Trophy, Download, UserCircle, HelpCircle, Calculator, Copy, Video, Share2, SlidersHorizontal
 } from "lucide-react";
-import { verifyAdminPin, setAdminPin, loadTenantSession, requestCloudDeletion as rpcRequestCloudDeletion, cancelCloudDeletion as rpcCancelCloudDeletion, fetchCloudDeletionStatus as rpcFetchCloudDeletionStatus } from "@/lib/tenant-client";
 import { exportToCSV } from "@/lib/exportUtils";
+import { normalizeClassName, STANDARD_PROGRESSION, STANDARD_DISPLAY_NAMES } from "@/lib/promotionUtils";
 import { getOrdinal } from "@/lib/school-helpers";
 import { Joyride, CallBackProps, STATUS, Step, EVENTS, ACTIONS, TooltipRenderProps } from 'react-joyride';
 import { jsPDF } from "jspdf";
@@ -4049,7 +4049,6 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
       : (activeRaw.length > 0 ? activeRaw : STANDARD_PALETTE);
 
     return sourcePool.sort((a, b) => {
-      const { normalizeClassName } = require("@/lib/promotionUtils");
       const normA = normalizeClassName(a).normalized.toLowerCase();
       const normB = normalizeClassName(b).normalized.toLowerCase();
       const progression = [
@@ -4080,7 +4079,6 @@ const PromotionWizard = memo(({ onClose, tenantId }: { onClose: () => void; tena
 
   // Auto-map based on standard curriculum progression
   const handleAutoMap = useCallback(() => {
-    const { normalizeClassName, STANDARD_PROGRESSION, STANDARD_DISPLAY_NAMES } = require("@/lib/promotionUtils");
     const newMap: Record<string, string> = {};
     
     classesList.forEach((c, i) => {
@@ -6961,7 +6959,6 @@ function TimetableView({
         matrix.push(row);
       }
     });
-    const { exportToCSV } = require("@/lib/exportUtils");
     exportToCSV(matrix, `${activeClass}_${ttType}_Timetable.csv`);
   };
 
