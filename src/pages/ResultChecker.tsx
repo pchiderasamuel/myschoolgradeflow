@@ -210,11 +210,15 @@ export default function ResultChecker() {
     
     try {
       setDownloading(true);
+      window.scrollTo(0, 0);
       
-      // Temporarily force desktop width to ensure a neat, readable layout on smartphones
+      // Temporarily expand element dimensions for crisp, full-height rendering
       const originalStyle = element.getAttribute('style') || '';
       element.style.width = '800px';
       element.style.maxWidth = '800px';
+      element.style.height = 'auto';
+      element.style.maxHeight = 'none';
+      element.style.overflow = 'visible';
       element.style.margin = '0';
       element.style.boxShadow = 'none';
       element.style.transform = 'none';
@@ -225,13 +229,17 @@ export default function ResultChecker() {
       const canvas = await html2canvas(element, { 
         scale: 2, 
         useCORS: true,
-        windowWidth: 800
+        allowTaint: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1000,
+        backgroundColor: '#ffffff'
       });
       
       // Restore original styles
       element.setAttribute('style', originalStyle);
       
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -243,24 +251,26 @@ export default function ResultChecker() {
       const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
       
       const imgRatio = canvas.width / canvas.height;
-      
-      // Scale to fit within A4 boundaries
-      let printWidth = pdfWidth;
-      let printHeight = pdfWidth / imgRatio;
-      
-      if (printHeight > pdfHeight) {
-        printHeight = pdfHeight;
-        printWidth = pdfHeight * imgRatio;
+      const printWidth = pdfWidth - 10; // 5mm side margins
+      const printHeight = printWidth / imgRatio;
+
+      let heightLeft = printHeight;
+      let position = 5;
+
+      pdf.addImage(imgData, 'PNG', 5, position, printWidth, printHeight);
+      heightLeft -= (pdfHeight - 10);
+
+      while (heightLeft > 0) {
+        position = heightLeft - printHeight + 5;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 5, position, printWidth, printHeight);
+        heightLeft -= (pdfHeight - 10);
       }
       
-      // Center on page
-      const marginX = (pdfWidth - printWidth) / 2;
-      const marginY = (pdfHeight - printHeight) / 2;
-      
-      pdf.addImage(imgData, 'PNG', marginX, marginY, printWidth, printHeight);
-      pdf.save(`Result_${result.student.name.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`ReportCard_${result.student.name.replace(/\s+/g, '_')}_${result.academic_year.replace(/\//g, '-')}.pdf`);
     } catch (e) {
       console.error("Failed to generate PDF", e);
+      alert("Could not generate PDF. Please try printing via standard Print button.");
     } finally {
       setDownloading(false);
     }

@@ -1212,7 +1212,7 @@ export async function generateTokensForClass(
     // 1. Try to find existing student by name and class
     let query = db()
       .from("students")
-      .select("id")
+      .select("id, admission_no")
       .eq("school_id", actualId)
       .ilike("first_name", firstName);
 
@@ -1229,7 +1229,7 @@ export async function generateTokensForClass(
     if (!existing && student.admission_no && student.admission_no.trim()) {
       const { data: admMatch } = await db()
         .from("students")
-        .select("id")
+        .select("id, admission_no")
         .eq("school_id", actualId)
         .eq("admission_no", student.admission_no.trim())
         .maybeSingle();
@@ -1240,7 +1240,7 @@ export async function generateTokensForClass(
     if (!existing) {
       const { data: nameMatch } = await db()
         .from("students")
-        .select("id")
+        .select("id, admission_no")
         .eq("school_id", actualId)
         .ilike("first_name", firstName)
         .maybeSingle();
@@ -1248,7 +1248,7 @@ export async function generateTokensForClass(
     }
 
     if (existing?.id) {
-      resolved.push({ id: existing.id, admission_no: student.admission_no });
+      resolved.push({ id: existing.id, admission_no: existing.admission_no || student.admission_no });
     } else {
       try {
         const studentPayload: any = {
@@ -1267,20 +1267,20 @@ export async function generateTokensForClass(
         const { data: created } = await db()
           .from("students")
           .upsert(studentPayload, { ignoreDuplicates: true })
-          .select("id")
+          .select("id, admission_no")
           .maybeSingle();
 
         if (created?.id) {
-          resolved.push({ id: created.id, admission_no: studentPayload.admission_no });
+          resolved.push({ id: created.id, admission_no: created.admission_no || studentPayload.admission_no });
         } else {
           const { data: refetched } = await db()
             .from("students")
-            .select("id")
+            .select("id, admission_no")
             .eq("school_id", actualId)
             .ilike("first_name", firstName)
             .maybeSingle();
           if (refetched?.id) {
-            resolved.push({ id: refetched.id, admission_no: student.admission_no });
+            resolved.push({ id: refetched.id, admission_no: refetched.admission_no || student.admission_no });
           }
         }
       } catch (e) {
