@@ -128,15 +128,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify admission number matches
-    if (tokenRow.admission_no.toUpperCase() !== admission_no.trim().toUpperCase()) {
-      await logAttempt(false, `admission_no mismatch for token: ${token}`);
-      return Response.json(
-        { error: "Exam number does not match this access token." },
-        { status: 200, headers: corsHeaders }
-      );
-    }
-
     // ── 5. Fetch student ─────────────────────────────────────────────────────
     const { data: student } = await admin
       .from("students")
@@ -151,6 +142,32 @@ Deno.serve(async (req) => {
         { error: "Student record not found. Please contact the school." },
         { status: 200, headers: corsHeaders }
       );
+    }
+
+    // Verify admission number matches either current student admission_no or token snapshot
+    const inputAdm = admission_no.trim().toUpperCase();
+    const tokenAdm = (tokenRow.admission_no || "").trim().toUpperCase();
+    const studentAdm = (student.admission_no || "").trim().toUpperCase();
+
+    const matchesToken = tokenAdm === inputAdm;
+    const matchesStudent = studentAdm === inputAdm;
+
+    if (!matchesToken && !matchesStudent) {
+      await logAttempt(false, `admission_no mismatch for token: ${token}`);
+      return Response.json(
+        { error: "Exam number does not match this access token." },
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    // Self-healing: sync token snapshot if student admission number was updated
+    if (student.admission_no && tokenRow.admission_no !== student.admission_no) {
+      await admin
+        .from("result_checker_tokens")
+        .update({ admission_no: student.admission_no })
+        .eq("id", tokenRow.id)
+        .then(() => {})
+        .catch(() => {});
     }
 
     // Helper to normalise term to match what is saved in report_cards and results

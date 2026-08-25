@@ -1140,7 +1140,7 @@ export type ResultCheckerToken = {
   token: string;
   is_used: boolean;
   expires_at: string;
-  students?: { first_name: string; last_name: string; class_name: string };
+  students?: { first_name: string; last_name: string; class_name: string; admission_no?: string };
 };
 
 export async function fetchResultCheckerTokens(schoolId: string | null): Promise<ResultCheckerToken[]> {
@@ -1150,12 +1150,30 @@ export async function fetchResultCheckerTokens(schoolId: string | null): Promise
 
   const { data, error } = await db()
     .from("result_checker_tokens" as any)
-    .select("*, students(first_name,last_name,class_name)")
+    .select("*, students(first_name,last_name,class_name,admission_no)")
     .eq("school_id", actualId)
     .order("created_at", { ascending: false });
 
   throwIfError(error, "fetchResultCheckerTokens");
-  return data as unknown as ResultCheckerToken[];
+
+  const tokens = (data ?? []) as unknown as ResultCheckerToken[];
+
+  // Self-healing pass: Sync outdated token snapshot admission numbers with current student directory
+  for (const t of tokens) {
+    if (t.students?.admission_no && t.students.admission_no !== t.admission_no) {
+      const realAdm = t.students.admission_no;
+      t.admission_no = realAdm;
+      // Fire-and-forget DB update to sync legacy token snapshot
+      db()
+        .from("result_checker_tokens" as any)
+        .update({ admission_no: realAdm })
+        .eq("id", t.id)
+        .then(() => {})
+        .catch(() => {});
+    }
+  }
+
+  return tokens;
 }
 
 export async function generateTokensForClass(

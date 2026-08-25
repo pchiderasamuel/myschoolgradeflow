@@ -3955,7 +3955,7 @@ const ResultCheckerPanel = memo(({ tenantId, schoolSettings, dispatch, appState,
                       <tr key={t.id} className="hover:bg-slate-50/50">
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-700">{t.students ? `${t.students.first_name} ${t.students.last_name}` : "Unknown"}</p>
-                          <p className="text-[10px] text-slate-400 uppercase">{t.admission_no}</p>
+                          <p className="text-[10px] text-slate-400 uppercase font-mono font-semibold">{t.students?.admission_no || t.admission_no}</p>
                         </td>
                         <td className="px-4 py-3 text-slate-600">{t.students?.class_name || "Unknown"}</td>
                         <td className="px-4 py-3">
