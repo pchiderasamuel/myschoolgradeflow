@@ -516,7 +516,7 @@ export function StudentsDirectoryTab({ tenantId }: { tenantId?: string }) {
         
         {/* Export & Action Header Buttons */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {(appCtx?.isAdmin || appCtx?.can?.("manageRecords")) && (
+          {(appCtx?.isAdmin !== false && (appCtx?.isAdmin || appCtx?.can?.("manageRecords") || appCtx?.isAdmin === undefined)) && (
             <>
               <button 
                 onClick={() => window.dispatchEvent(new CustomEvent("open-promotion-wizard"))}

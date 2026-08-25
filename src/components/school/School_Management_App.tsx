@@ -1285,6 +1285,8 @@ interface AppCtxType {
   currentActor: string;
   tenantId?: string;
   tenantPlan?: string;
+  isAdmin?: boolean;
+  can?: (permKey: string) => boolean;
 }
 const AppCtx = createContext<AppCtxType | null>(null);
 export const useApp = () => useContext(AppCtx)!;
@@ -8848,7 +8850,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
     () => appState.notifications.filter(n => notificationVisible(n, isAdmin, currentActor) && !n.readBy.includes(currentActor)).length,
     [appState.notifications, isAdmin, currentActor]
   );
-  const ctxValue = useMemo<AppCtxType>(() => ({ state: appState, dispatch, showToast, currentActor, tenantId, tenantPlan }), [appState, showToast, currentActor, tenantId, tenantPlan]);
+  const ctxValue = useMemo<AppCtxType>(() => ({ state: appState, dispatch, showToast, currentActor, tenantId, tenantPlan, isAdmin, can }), [appState, showToast, currentActor, tenantId, tenantPlan, isAdmin, can]);
 
   // ── Ref to distinguish local edits from remote state replacements ───────
   const isApplyingRemoteRef = useRef(false);
