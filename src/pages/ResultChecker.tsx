@@ -266,8 +266,16 @@ export default function ResultChecker() {
         pdf.addImage(imgData, 'PNG', 5, position, printWidth, printHeight);
         heightLeft -= (pdfHeight - 10);
       }
-      
-      pdf.save(`ReportCard_${result.student.name.replace(/\s+/g, '_')}_${result.academic_year.replace(/\//g, '-')}.pdf`);
+
+      const pdfBlob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `ReportCard_${result.student.name.replace(/\s+/g, '_')}_${result.academic_year.replace(/\//g, '-')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
     } catch (e) {
       console.error("Failed to generate PDF", e);
       alert("Could not generate PDF. Please try printing via standard Print button.");
