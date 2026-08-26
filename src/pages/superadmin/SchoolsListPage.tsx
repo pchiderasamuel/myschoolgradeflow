@@ -45,13 +45,14 @@ export default function SchoolsListPage() {
   const load = useCallback(async () => {
     setLoading(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [schoolsRes, tenantsRes, delReqsRes] = await Promise.all([
+    const [schoolsRes, tenantsRes, delReqsRes, studentCountsRes] = await Promise.all([
       (supabase as any)
         .from("schools")
         .select("id,tenant_id,name,code,email,current_students,max_students,features,academic_year,current_term,created_at")
         .order("created_at", { ascending: false }),
       (supabase as any).from("tenants").select("id,status,tenant_code"),
-      (supabase as any).from("tenant_deletion_requests").select("tenant_id").eq("status", "pending")
+      (supabase as any).from("tenant_deletion_requests").select("tenant_id").eq("status", "pending"),
+      (supabase as any).rpc("get_student_counts_by_school").then((res: any) => res).catch(() => ({ data: [] }))
     ]);
     setLoading(false);
 
@@ -61,11 +62,14 @@ export default function SchoolsListPage() {
     
     const tenantsMap = new Map((tenantsRes.data || []).map((t: any) => [t.id, { status: (t as any).status, tenant_code: (t as any).tenant_code }]));
     const pendingSet = new Set((delReqsRes.data || []).map((d: any) => d.tenant_id));
+    const studentCountsMap = new Map(((studentCountsRes?.data || []) as any[]).map((c) => [c.school_id, c.student_count]));
 
     const schoolsData = (schoolsRes.data as any[])?.map((s) => {
       const tenantData = tenantsMap.get(s.tenant_id) || { status: "trial", tenant_code: "N/A" };
+      const accurateCount = studentCountsMap.has(s.id) ? Number(studentCountsMap.get(s.id)) : s.current_students;
       return {
         ...s,
+        current_students: accurateCount,
         code: tenantData.tenant_code, // Use actual Tenant Code instead of the School PIN stored in schools.code
         status: tenantData.status,
         deletion_requested: pendingSet.has(s.tenant_id),

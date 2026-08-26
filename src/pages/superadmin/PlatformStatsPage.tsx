@@ -29,10 +29,11 @@ export default function PlatformStatsPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = supabase as any;
 
-      const [schoolsRes, tenantsRes, teachersRes, paymentsRes, subPaymentsRes, billingRes, sessionsRes] = await Promise.allSettled([
+      const [schoolsRes, tenantsRes, teachersRes, studentsRes, paymentsRes, subPaymentsRes, billingRes, sessionsRes] = await Promise.allSettled([
         db.from("schools").select("id,tenant_id,current_students", { count: "exact" }),
         db.from("tenants").select("id,status"),
         db.rpc("get_teacher_counts_by_school"),
+        db.rpc("get_student_counts_by_school"),
         db.from("payments").select("amount,status").eq("status", "success"),
         db.from("subscription_payments").select("amount"),
         db.from("billing").select("plan"),
@@ -51,7 +52,14 @@ export default function PlatformStatsPage() {
             current_students: s.current_students
           }))
         : [];
-      const studentsCount = schools.reduce((sum: number, s: any) => sum + Number(s.current_students || 0), 0);
+
+      const studentCountsData = studentsRes.status === "fulfilled" ? (studentsRes.value.data ?? []) : [];
+      const studentCountMap = new Map(studentCountsData.map((c: any) => [c.school_id, c.student_count]));
+      
+      const studentsCount = schools.reduce((sum: number, s: any) => {
+        const accurateCount = studentCountMap.has(s.id) ? Number(studentCountMap.get(s.id)) : Number(s.current_students || 0);
+        return sum + accurateCount;
+      }, 0);
       const teacherCountsData = teachersRes.status === "fulfilled" ? (teachersRes.value.data ?? []) : [];
       const teachersCount = teacherCountsData.reduce((sum: number, c: any) => sum + Number(c.teacher_count), 0);
       const payments = paymentsRes.status === "fulfilled" ? (paymentsRes.value.data ?? []) as { amount: number; status: string }[] : [];
