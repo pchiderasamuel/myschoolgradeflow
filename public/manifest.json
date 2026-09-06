@@ -1,14 +1,26 @@
 {
-  "name": "SchoolHub",
-  "short_name": "SchoolHub",
-  "description": "School management - scores, attendance, staff, reports",
+  "id": "/",
+  "name": "Titbeat SchoolPro",
+  "short_name": "Titbeat SchoolPro",
+  "description": "Titbeat SchoolPro - All-in-one school management system for result checking, report cards, attendance, fee billing, and student portals.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f6f8",
   "theme_color": "#2563eb",
   "orientation": "portrait",
+  "categories": ["education", "productivity"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
