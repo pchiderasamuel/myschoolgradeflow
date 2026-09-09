@@ -99,6 +99,8 @@ export async function exportMasterBroadsheet({
     
     stu.terms[t].subjects[r.subject] = {
       ca: r.caScore || 0,
+        ca1: r.ca1Score,
+        ca2: r.ca2Score,
       exam: r.examScore || 0,
       total: r.total || 0,
     };
@@ -196,7 +198,8 @@ export async function exportMasterBroadsheet({
     uniqueSubjects.forEach(subj => {
       const s = stu.terms[targetTerm].subjects[subj];
       if (s) {
-        row.push(s.ca, s.exam, s.total, calculatePosition(s.total, subjectScores[subj]));
+        const caDisplay = (s.ca1 !== undefined && s.ca2 !== undefined) ? `${s.ca} (${s.ca1}+${s.ca2})` : s.ca;
+        row.push(caDisplay, s.exam, s.total, calculatePosition(s.total, subjectScores[subj]));
       } else {
         row.push("-", "-", "-", "-");
       }

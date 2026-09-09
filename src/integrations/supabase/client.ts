@@ -7,6 +7,22 @@ const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY ??
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Guard: fail fast with a clear, actionable message if env vars are missing.
+if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT_REF')) {
+  throw new Error(
+    '[Titbeat] VITE_SUPABASE_URL is missing or still a placeholder.\n' +
+    '  • Local dev: fill in .env.local with your real Supabase project URL.\n' +
+    '  • Vercel: add VITE_SUPABASE_URL under Project → Settings → Environment Variables.'
+  );
+}
+if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.includes('...')) {
+  throw new Error(
+    '[Titbeat] VITE_SUPABASE_ANON_KEY is missing or still a placeholder.\n' +
+    '  • Local dev: fill in .env.local with your real anon key from Supabase → Project Settings → API.\n' +
+    '  • Vercel: add VITE_SUPABASE_ANON_KEY under Project → Settings → Environment Variables.'
+  );
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 

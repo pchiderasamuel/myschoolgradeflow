@@ -8197,6 +8197,7 @@ function VirtualHubView({
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenantSchoolCode, tenantPlan, polledData, onLocalEdit, onStateChange }: { onTenantSignOut?: () => void; tenantId?: string; tenantSchoolName?: string; tenantSchoolCode?: string; tenantPlan?: string; polledData?: any; onLocalEdit?: (state: any) => void; onStateChange?: (state: any) => void } = {}) {
   const [appState, dispatchRaw] = useReducer(appReducer, initialState);
+  
 
   // Protect against stale data bleed across tenants on the same browser
   useEffect(() => {
@@ -8324,10 +8325,11 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
     })();
   }, [tenantId, classTeacher, linkedSignatures]);
 
-  const [scoreForm, setScoreForm] = useState({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
+  const [scoreForm, setScoreForm] = useState({ studentName:"", studentClass:"", subject:"", caScore:"", ca1Score:"", ca2Score:"", examScore:"" });
+  const [isSplitCA, setIsSplitCA] = useState(false);
 
   // CA-only drafts: stored separately until exam scores are ready, then promoted to entries.
-  type CADraft = { id: string; studentName: string; studentClass: string; subject: string; caScore: number; term: string; session: string; enteredBy: string; createdAt: string };
+  type CADraft = { id: string; studentName: string; studentClass: string; subject: string; caScore: number; ca1Score?: number; ca2Score?: number; term: string; session: string; enteredBy: string; createdAt: string };
   const DRAFTS_KEY = "gm_score_drafts_v1";
   const [caDrafts, setCaDrafts] = useState<CADraft[]>(() => {
     try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || "[]"); } catch { return []; }
@@ -8481,7 +8483,7 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
   const prevIsAdmin = useRef(isAdmin);
   useEffect(() => {
     if (prevAuthId.current !== auth.user?.id || prevIsAdmin.current !== isAdmin) {
-      setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
+      setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", ca1Score:"", ca2Score:"", examScore:"" });
       prevAuthId.current = auth.user?.id;
       prevIsAdmin.current = isAdmin;
     }
@@ -8693,8 +8695,11 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
   }, []);
 
   const submitScore = useCallback(() => {
-    const { studentName, studentClass, subject, caScore, examScore } = scoreForm;
-    if (!studentName.trim() || !studentClass || !subject || caScore === "" || examScore === "")
+    const { studentName, studentClass, subject, caScore, ca1Score, ca2Score, examScore } = scoreForm;
+    const ca1 = parseFloat(ca1Score) || 0;
+    const ca2 = parseFloat(ca2Score) || 0;
+    const computedCa = isSplitCA ? (ca1 + ca2) : (parseFloat(caScore) || 0);
+    if (!studentName.trim() || !studentClass || !subject || examScore === "" || (!isSplitCA && caScore === "") || (isSplitCA && ca1Score === "" && ca2Score === ""))
       return showToast("Fill in all fields.", "error");
     if (entries.some(e =>
       e.studentName.toLowerCase().trim() === studentName.toLowerCase().trim() &&
@@ -8702,16 +8707,17 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
       (!e.term || e.term === schoolSettings.term) &&
       (!e.session || e.session === schoolSettings.session)
     )) return showToast(`${subject} already exists for ${studentName}.`, "error");
-    const ca = parseFloat(caScore) || 0, ex = parseFloat(examScore) || 0;
+    const ca = computedCa, ex = parseFloat(examScore) || 0;
     const limit = PLAN_LIMITS[tenantPlan?.toLowerCase() || "trial"] || 200;
     if (getTrueStudentCount(appState, [studentName]) > limit) return showToast(`Student limit reached (${limit}). Please upgrade.`, "error");
-    if (ca < 0 || ca > 40) return showToast("CA score must be 0–40", "error");
+    if (isSplitCA && (ca1 < 0 || ca1 > 20 || ca2 < 0 || ca2 > 20)) return showToast("1st and 2nd CA scores must be 0–20", "error");
+    if (!isSplitCA && (ca < 0 || ca > 40)) return showToast("CA score must be 0–40", "error");
     if (ex < 0 || ex > 60) return showToast("Exam score must be 0–60", "error");
     dispatch({
       type: "ADD_ENTRY",
       payload: {
         studentName: studentName.trim(), studentClass, subject,
-        caScore: ca, examScore: ex, id: uid(), total: ca + ex,
+        caScore: ca, ca1Score: isSplitCA ? ca1 : undefined, ca2Score: isSplitCA ? ca2 : undefined, examScore: ex, id: uid(), total: ca + ex,
         createdAt: new Date().toISOString(),
         term: schoolSettings.term,
         session: schoolSettings.session,
@@ -8720,16 +8726,20 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
     });
     showToast("Score saved — form refreshed");
     // Full refresh: clear name, class, subject and scores
-    setScoreForm({ studentName: "", studentClass: "", subject: "", caScore: "", examScore: "" });
-  }, [scoreForm, entries, showToast, schoolSettings.term, schoolSettings.session, isAdmin, auth.user, tenantPlan, appState, dispatch]);
+    setScoreForm({ studentName: "", studentClass: "", subject: "", caScore: "", ca1Score:"", ca2Score:"", examScore: "" });
+  }, [scoreForm, isSplitCA, entries, showToast, schoolSettings.term, schoolSettings.session, isAdmin, auth.user, tenantPlan, appState, dispatch]);
 
   // Save CA-only draft (exam pending). Drafts are scoped to the current term/session.
   const saveCADraft = useCallback(() => {
-    const { studentName, studentClass, subject, caScore } = scoreForm;
-    if (!studentName.trim() || !studentClass || !subject || caScore === "")
+    const { studentName, studentClass, subject, caScore, ca1Score, ca2Score } = scoreForm;
+    const ca1 = parseFloat(ca1Score) || 0;
+    const ca2 = parseFloat(ca2Score) || 0;
+    const computedCa = isSplitCA ? (ca1 + ca2) : (parseFloat(caScore) || 0);
+    if (!studentName.trim() || !studentClass || !subject || (!isSplitCA && caScore === "") || (isSplitCA && ca1Score === "" && ca2Score === ""))
       return showToast("Enter name, class, subject and CA.", "error");
-    const ca = parseFloat(caScore) || 0;
-    if (ca < 0 || ca > 40) return showToast("CA score must be 0–40", "error");
+    const ca = computedCa;
+    if (isSplitCA && (ca1 < 0 || ca1 > 20 || ca2 < 0 || ca2 > 20)) return showToast("1st and 2nd CA scores must be 0–20", "error");
+    if (!isSplitCA && (ca < 0 || ca > 40)) return showToast("CA score must be 0–40", "error");
     if (entries.some(e =>
       e.studentName.toLowerCase().trim() === studentName.toLowerCase().trim() &&
       e.studentClass === studentClass && e.subject === subject &&
@@ -8745,15 +8755,15 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
       return [...filtered, {
         id: uid(),
         studentName: studentName.trim(),
-        studentClass, subject, caScore: ca,
+        studentClass, subject, caScore: ca, ca1Score: isSplitCA ? ca1 : undefined, ca2Score: isSplitCA ? ca2 : undefined,
         term: schoolSettings.term, session: schoolSettings.session,
         enteredBy: isAdmin ? "Admin" : (auth.user?.name || "Staff"),
         createdAt: new Date().toISOString(),
       }];
     });
     showToast("CA draft saved — exam pending");
-    setScoreForm(f => ({ ...f, subject: "", caScore: "", examScore: "" }));
-  }, [scoreForm, entries, showToast, schoolSettings.term, schoolSettings.session, isAdmin, auth.user]);
+    setScoreForm(f => ({ ...f, subject: "", caScore: "", ca1Score: "", ca2Score: "", examScore: "" }));
+  }, [scoreForm, isSplitCA, entries, showToast, schoolSettings.term, schoolSettings.session, isAdmin, auth.user]);
 
   // Promote a CA draft to a finalized entry by adding the exam score.
   const finalizeDraft = useCallback((draftId: string, examStr: string) => {
@@ -9371,30 +9381,62 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
                         </div>
                       )}
 
+                      <div className="flex items-center justify-end mb-2">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-black uppercase text-slate-400">
+                          <input type="checkbox" checked={isSplitCA} onChange={(e) => setIsSplitCA(e.target.checked)} className="rounded text-blue-500 focus:ring-blue-500" />
+                          Split CA (1st & 2nd)
+                        </label>
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
-                        {([
-                          ["caScore",   "CA Score (max 40)",   40],
-                          ["examScore", "Exam Score (max 60)", 60],
-                        ] as const).map(([field, label, max]) => (
-                          <div key={field} className="space-y-1.5">
-                            <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">{label}</label>
+                        {isSplitCA ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                              <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wide">1st CA /20</label>
+                              <input
+                                type="number" min="0" max="20" step="any"
+                                value={scoreForm.ca1Score === "" && draftMatch && draftMatch.ca1Score !== undefined ? String(draftMatch.ca1Score) : scoreForm.ca1Score}
+                                placeholder="0-20"
+                                onChange={e => { const v = e.target.value; if (v === "" || (+v >= 0 && +v <= 20)) setScoreForm(f => ({ ...f, ca1Score: v })); }}
+                                onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
+                                className="w-full px-2 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-lg focus:border-blue-500 focus:bg-white outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wide">2nd CA /20</label>
+                              <input
+                                type="number" min="0" max="20" step="any"
+                                value={scoreForm.ca2Score === "" && draftMatch && draftMatch.ca2Score !== undefined ? String(draftMatch.ca2Score) : scoreForm.ca2Score}
+                                placeholder="0-20"
+                                onChange={e => { const v = e.target.value; if (v === "" || (+v >= 0 && +v <= 20)) setScoreForm(f => ({ ...f, ca2Score: v })); }}
+                                onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
+                                className="w-full px-2 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-lg focus:border-blue-500 focus:bg-white outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">CA Score (max 40)</label>
                             <input
-                              type="number"
-                              min="0"
-                              max={max}
-                              step="any"
-                              value={field === "caScore" && draftMatch && scoreForm.caScore === "" ? String(draftMatch.caScore) : scoreForm[field]}
-                              placeholder={`0–${max}`}
-                              onChange={e => {
-                                const v = e.target.value;
-                                if (v === "" || (+v >= 0 && +v <= max))
-                                  setScoreForm(f => ({ ...f, [field]: v }));
-                              }}
+                              type="number" min="0" max="40" step="any"
+                              value={draftMatch && scoreForm.caScore === "" ? String(draftMatch.caScore) : scoreForm.caScore}
+                              placeholder="0–40"
+                              onChange={e => { const v = e.target.value; if (v === "" || (+v >= 0 && +v <= 40)) setScoreForm(f => ({ ...f, caScore: v })); }}
                               onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
                               className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-lg focus:border-blue-500 focus:bg-white outline-none transition-all"
                             />
                           </div>
-                        ))}
+                        )}
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-black uppercase text-slate-400 tracking-wide">Exam Score (max 60)</label>
+                          <input
+                            type="number" min="0" max="60" step="any"
+                            value={scoreForm.examScore}
+                            placeholder="0–60"
+                            onChange={e => { const v = e.target.value; if (v === "" || (+v >= 0 && +v <= 60)) setScoreForm(f => ({ ...f, examScore: v })); }}
+                            onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
+                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-center text-lg focus:border-blue-500 focus:bg-white outline-none transition-all"
+                          />
+                        </div>
                       </div>
                       {/* Score preview */}
                       {(scoreForm.caScore !== "" || scoreForm.examScore !== "") && (() => {
@@ -9412,13 +9454,14 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
                       })()}
                       <div className="grid grid-cols-3 gap-2 pt-1">
                         <Btn variant="ghost" onClick={() => {
-                          const hasData = scoreForm.studentName.trim() || scoreForm.subject || scoreForm.caScore !== "" || scoreForm.examScore !== "";
-                          const caUnsaved = scoreForm.caScore !== "" && scoreForm.examScore === "";
+                          const hasData = scoreForm.studentName.trim() || scoreForm.subject || scoreForm.caScore !== "" || scoreForm.ca1Score !== "" || scoreForm.ca2Score !== "" || scoreForm.examScore !== "";
+                          const computedCa = isSplitCA ? ((+scoreForm.ca1Score || 0) + (+scoreForm.ca2Score || 0)) : (+scoreForm.caScore || 0);
+                          const caUnsaved = ((!isSplitCA && scoreForm.caScore !== "") || (isSplitCA && (scoreForm.ca1Score !== "" || scoreForm.ca2Score !== ""))) && scoreForm.examScore === "";
                           const msg = caUnsaved
                             ? "You entered a CA score but haven't saved it. Discard this CA without saving?"
                             : "Discard the current entry?";
                           if (hasData && !window.confirm(msg)) return;
-                          setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
+                          setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", ca1Score:"", ca2Score:"", examScore:"" });
                           showToast("Form cleared");
                         }}>
                           Clear
@@ -9428,12 +9471,12 @@ export default function App({ onTenantSignOut, tenantId, tenantSchoolName, tenan
                         </Btn>
                         <Btn variant="primary" onClick={() => {
                           // CA completeness check: warn if exam present but CA missing/zero
-                          if (scoreForm.examScore !== "" && (scoreForm.caScore === "" || parseFloat(scoreForm.caScore) === 0) && !draftMatch) {
+                          if (scoreForm.examScore !== "" && (computedCa === 0) && !draftMatch) {
                             if (!window.confirm("CA score is empty. Continue saving with CA = 0?")) return;
                           }
                           if (draftMatch && scoreForm.caScore === "" && scoreForm.examScore !== "") {
                             finalizeDraft(draftMatch.id, scoreForm.examScore);
-                            setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", examScore:"" });
+                            setScoreForm({ studentName:"", studentClass:"", subject:"", caScore:"", ca1Score:"", ca2Score:"", examScore:"" });
                           } else {
                             submitScore();
                           }

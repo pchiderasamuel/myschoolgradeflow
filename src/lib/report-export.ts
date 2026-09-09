@@ -9,7 +9,7 @@ interface ReportData {
   session: string;
   position: string;
   classCount: number;
-  records: { subject: string; caScore: number; examScore: number; total: number }[];
+  records: { subject: string; caScore: number; ca1Score?: number; ca2Score?: number; examScore: number; total: number }[];
   summary: { total: number; obtainable: number; avg: string };
   schoolName: string;
   motto: string;
@@ -103,7 +103,7 @@ export function exportToPDF(data: ReportData) {
   // Scores table
   const tableBody = data.records.map((r) => {
     const g = getGradeInfo(r.total);
-    return [r.subject, String(r.caScore), String(r.examScore), String(r.total), g.grade, g.remark];
+    return [r.subject, caDisplay, String(r.examScore), String(r.total), g.grade, g.remark];
   });
 
   autoTable(doc, {
